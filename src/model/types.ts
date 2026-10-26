@@ -40,6 +40,14 @@ export const DEFAULT_TIMELINE_OUTPUT_PATH = "Build/$1_timeline.md";
 export const DEFAULT_KANBAN_COLUMNS = "Planned Draft Reviewed";
 export const DEFAULT_KANBAN_OUTPUT_PATH = "Build/$1_kanban.base";
 export const KANBAN_STATUS_TAG = "status";
+/**
+ * Plugin-managed frontmatter property that the generated Bases board groups by
+ * and that Bases writes when a card is dragged. It mirrors the real status,
+ * collapsing unrecognized statuses so they do not each become a column.
+ */
+export const KANBAN_HELPER_TAG = "longformKanbanStatus";
+export const KANBAN_INCORRECT_LABEL = "Incorrectly Assigned";
+export const KANBAN_UNASSIGNED_LABEL = "Unassigned";
 
 export type IndentedScene = {
   title: string;

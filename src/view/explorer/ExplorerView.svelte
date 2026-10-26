@@ -9,6 +9,7 @@
   import ProjectPicker from "./ProjectPicker.svelte";
   import SceneList from "./SceneList.svelte";
   import ProjectDetails from "./ProjectDetails.svelte";
+  import StatusView from "./StatusView.svelte";
   import { needsMigration } from "src/model/migration";
   import { getContext } from "svelte";
   import Tab from "./Tab.svelte";
@@ -22,7 +23,7 @@
     if (
       $selectedDraft &&
       $selectedDraft.format === "single" &&
-      $selectedTab === "Scenes"
+      ($selectedTab === "Scenes" || $selectedTab === "Status")
     ) {
       $selectedTab = "Project";
     }
@@ -63,6 +64,7 @@
             <Tab tab="Scenes" />
             <Tab tab="Project" />
             <Tab tab="Compile" />
+            <Tab tab="Status" />
           </div>
         </div>
         {#if $selectedTab === "Scenes"}
@@ -73,6 +75,10 @@
         {:else if $selectedTab === "Project"}
           <div class="tab-panel-container">
             <ProjectDetails />
+          </div>
+        {:else if $selectedTab === "Status"}
+          <div class="tab-panel-container">
+            <StatusView />
           </div>
         {:else}
           <div class="tab-panel-container disconnected">

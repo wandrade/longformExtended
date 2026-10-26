@@ -113,18 +113,18 @@ the next rebuild.
 
 A Kanban board is generated for each scenes project as a native Obsidian Bases
 file (`.base`) with a Kanban view. It requires **Obsidian 1.14 or newer**; no
-community kanban plugin is needed. Each card is a scene in the column named by
-the scene's `status` frontmatter, and dragging a card between columns writes the
-new status back to the scene note. The board is enabled by default. See
-[KANBAN.md](./docs/KANBAN.md) for the full documentation.
+community kanban plugin is needed. Each card is a listed scene. The board shows
+exactly the configured columns, and dragging a card between them writes the
+column title back into the scene's `status` frontmatter. The board is enabled by
+default. See [KANBAN.md](./docs/KANBAN.md) for the full documentation.
 
 The Kanban section of the Project tab controls it:
 
 - **Enable kanban** turns generation on or off. Turning it off stops future
   updates but leaves an existing board in place.
 - **Kanban Columns** lists the columns, in board order.
-- **Show notes with no status** includes unassigned notes in a `None` column
-  (off by default).
+- **Show notes with no status** includes unassigned notes in an `Unassigned`
+  column (off by default).
 - **Save word counts** writes each card scene's word count to its frontmatter.
 - **Kanban Output Path** is where the board is written.
 
@@ -155,14 +155,24 @@ status: Draft
 Dragging a card to another column writes that column title into `status`, so
 the board and the notes stay in sync. Notes with a missing or empty status are
 hidden unless **Show notes with no status** is enabled. Statuses that don't
-match a configured column still get their own column, appended after the
-configured ones, and their cards are flagged as **Incorrectly assigned**. Add
-the column or fix the status, then rebuild.
+match a configured column all share a single `Incorrectly Assigned` column
+instead of becoming columns of their own; add the column or fix the status,
+then rebuild.
+
+The board includes only scenes that are listed in the project and are not
+structural containers. Unlisted notes in the scene folder are excluded even if
+they have a status.
 
 A board is only generated when at least one scene listed in the project (and
 not a container scene) has a non-empty status, even if **Show notes with no
-status** is enabled. The board's folder filter can also show notes in the scene
-folder that aren't listed as project scenes.
+status** is enabled.
+
+The board groups by the writable, plugin-managed `longformKanbanStatus`
+frontmatter property rather than by `status` directly: Bases only writes a
+dropped card's group back for an editable note property, and grouping by a
+formula would make cards undraggable. The plugin mirrors the helper to `status`
+and refreshes the helper when statuses change. See
+[KANBAN.md](./docs/KANBAN.md#the-status-property) for details.
 
 ### Word Counts
 

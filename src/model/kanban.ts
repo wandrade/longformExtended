@@ -5,12 +5,15 @@ import {
   configuredOutputPath,
   writeGeneratedNote,
 } from "./generated-note";
-import { sceneFolderPath, scenePath } from "./scene-navigation";
-import { draftWordCounts } from "./stores";
+import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
+import { drafts as draftsStore, draftWordCounts } from "./stores";
 import {
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_OUTPUT_PATH,
+  KANBAN_HELPER_TAG,
+  KANBAN_INCORRECT_LABEL,
   KANBAN_STATUS_TAG,
+  KANBAN_UNASSIGNED_LABEL,
   type MultipleSceneDraft,
 } from "./types";
 
@@ -24,6 +27,31 @@ export type KanbanResult = {
   errors: KanbanError[];
   hasAnyStatus: boolean;
 };
+
+/**
+ * The last status/helper values the plugin itself observed or wrote. Drag
+ * detection compares against these so that a Bases drop (helper changed,
+ * status unchanged) can be told apart from a direct status edit.
+ */
+type SceneState = { status: string | null; helper: string };
+const sceneStates = new Map<string, SceneState>();
+
+/**
+ * A helper/status write leaves the metadata cache stale for a short moment.
+ * If the next build reads those pre-write values back, it would undo the
+ * write (for example, snapping a dragged card back to its old column). These
+ * entries mark the values that were replaced so the stale cache can be
+ * ignored until it catches up.
+ */
+type RecentWrite = {
+  beforeStatus: string | null;
+  beforeHelper: string;
+  afterStatus: string | null;
+  afterHelper: string;
+  at: number;
+};
+const recentWrites = new Map<string, RecentWrite>();
+const CACHE_SETTLE_MS = 5000;
 
 /** Splits column titles on spaces, honoring single or double quotes. */
 export function parseKanbanColumns(raw: string): string[] {
@@ -39,7 +67,188 @@ export function parseKanbanColumns(raw: string): string[] {
   return columns;
 }
 
-/** Groups scenes into their configured kanban columns by status. */
+/** A frontmatter status as a trimmed string, or null when it is empty. */
+function statusValue(raw: unknown): string | null {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  const value = `${raw}`.trim();
+  return value === "" ? null : value;
+}
+
+/** A frontmatter helper value as a trimmed string ("" when absent). */
+function helperValue(raw: unknown): string {
+  if (raw === undefined || raw === null) {
+    return "";
+  }
+  return `${raw}`.trim();
+}
+
+/**
+ * The helper (board membership + grouping) value for a status. Configured
+ * statuses keep their own value so each column is distinct; every other
+ * non-empty status collapses into the single "Incorrectly Assigned" column.
+ * Missing statuses either join "Unassigned" or leave the board.
+ */
+function expectedHelper(
+  status: string | null,
+  columns: string[],
+  showUnassigned: boolean
+): string | null {
+  if (status === null) {
+    return showUnassigned ? KANBAN_UNASSIGNED_LABEL : null;
+  }
+  return columns.includes(status) ? status : KANBAN_INCORRECT_LABEL;
+}
+
+/**
+ * Applies a Bases drag to the real status. A drop writes the helper property,
+ * so the helper changing while the status stays put is a drag. If both
+ * changed, the status was edited directly and wins.
+ */
+function reconcileStatus(
+  path: string,
+  status: string | null,
+  helper: string,
+  columns: string[],
+  showUnassigned: boolean
+): string | null {
+  const previous = sceneStates.get(path);
+  if (!previous) {
+    // First sight after a reload: never rewrite status from a helper that may
+    // predate the plugin (a change made while it was disabled is discarded).
+    return status;
+  }
+
+  const statusChanged = previous.status !== status;
+  const helperChanged = previous.helper !== helper;
+  if (!helperChanged || statusChanged) {
+    return status;
+  }
+
+  if (columns.includes(helper)) {
+    return helper;
+  }
+  if (showUnassigned && helper === KANBAN_UNASSIGNED_LABEL) {
+    return null;
+  }
+  // "Incorrectly Assigned", a removed column, or an unknown value means the
+  // drop has no status to write, so the card snaps back to its current status.
+  return status;
+}
+
+/** Reads status/helper, substituting a recently written value if the cache lags. */
+function readCachedState(
+  path: string,
+  cachedStatus: string | null,
+  cachedHelper: string
+): SceneState {
+  let status = cachedStatus;
+  let helper = cachedHelper;
+
+  const pending = recentWrites.get(path);
+  if (pending) {
+    const expired = Date.now() - pending.at > CACHE_SETTLE_MS;
+    const showsBefore =
+      status === pending.beforeStatus && helper === pending.beforeHelper;
+    const showsAfter =
+      status === pending.afterStatus && helper === pending.afterHelper;
+
+    if (!expired && showsBefore) {
+      status = pending.afterStatus;
+      helper = pending.afterHelper;
+    } else if (expired || showsAfter) {
+      recentWrites.delete(path);
+    } else {
+      // Neither the old nor the written value: someone edited the note since.
+      recentWrites.delete(path);
+    }
+  }
+
+  return { status, helper };
+}
+
+/** Records a write so a lagging cache cannot undo it on the next build. */
+function recordWrite(
+  path: string,
+  beforeStatus: string | null,
+  beforeHelper: string,
+  afterStatus: string | null,
+  afterHelper: string | null
+): void {
+  recentWrites.set(path, {
+    beforeStatus,
+    beforeHelper,
+    afterStatus,
+    afterHelper: afterHelper ?? "",
+    at: Date.now(),
+  });
+}
+
+/**
+ * Removes the helper from notes under the scene folder that are not shown
+ * scenes of this project (unlisted notes and structural containers). The
+ * helper doubles as the board's membership marker, so a stale value would
+ * otherwise keep an unlisted note on the board. Notes that belong to another
+ * scenes project sharing the folder are left alone.
+ */
+async function clearStaleHelpers(
+  app: App,
+  draft: MultipleSceneDraft,
+  activePaths: Set<string>
+): Promise<void> {
+  const folder = sceneFolderPath(draft, app.vault);
+  const prefix =
+    folder === "" || folder === "/" ? "" : `${folder.replace(/\/+$/, "")}/`;
+  const allDrafts = get(draftsStore);
+
+  for (const file of app.vault.getMarkdownFiles()) {
+    if (!file.path.startsWith(prefix) || activePaths.has(file.path)) {
+      continue;
+    }
+
+    const located = findScene(file.path, allDrafts);
+    if (located && located.draft.vaultPath !== draft.vaultPath) {
+      continue;
+    }
+
+    const cached = app.metadataCache.getFileCache(file);
+    const helper = helperValue(cached?.frontmatter?.[KANBAN_HELPER_TAG]);
+    if (helper === "") {
+      sceneStates.delete(file.path);
+      continue;
+    }
+
+    // The cache may still show a helper the previous build already removed.
+    const pending = recentWrites.get(file.path);
+    if (
+      pending &&
+      pending.afterHelper === "" &&
+      pending.beforeHelper === helper &&
+      Date.now() - pending.at <= CACHE_SETTLE_MS
+    ) {
+      continue;
+    }
+
+    await app.fileManager.processFrontMatter(file, (frontmatter) => {
+      delete frontmatter[KANBAN_HELPER_TAG];
+    });
+    recordWrite(file.path, null, helper, null, null);
+    sceneStates.delete(file.path);
+  }
+}
+
+/**
+ * Groups scenes into their configured kanban columns by status and keeps the
+ * board helper property (`longformKanbanStatus`) in sync.
+ *
+ * The board must group by a writable note property: Bases only writes a
+ * dropped card's group back to the note for an editable property, and formula
+ * properties make cards undraggable. The helper is that property. Configured
+ * statuses use the column title as their helper value; invalid statuses share
+ * "Incorrectly Assigned"; missing statuses use "Unassigned" only when that
+ * column is enabled.
+ */
 export async function buildKanban(
   app: App,
   draft: MultipleSceneDraft
@@ -48,6 +257,7 @@ export async function buildKanban(
   if (columns.length === 0) {
     columns.push(...parseKanbanColumns(DEFAULT_KANBAN_COLUMNS));
   }
+  const showUnassigned = draft.kanbanShowUnassigned;
 
   const cards: Record<string, KanbanCard[]> = {};
   for (const column of columns) {
@@ -56,6 +266,7 @@ export async function buildKanban(
 
   const unassigned: KanbanCard[] = [];
   const errors: KanbanError[] = [];
+  const activePaths = new Set<string>();
   let hasAnyStatus = false;
 
   for (let index = 0; index < draft.scenes.length; index++) {
@@ -71,22 +282,66 @@ export async function buildKanban(
       continue;
     }
 
-    const status =
-      app.metadataCache.getFileCache(file)?.frontmatter?.[KANBAN_STATUS_TAG];
-    if (status === undefined || status === null || `${status}`.trim() === "") {
+    activePaths.add(path);
+
+    const cached = app.metadataCache.getFileCache(file);
+    if (!cached) {
+      // Not indexed yet. Leave it active so cleanup does not strip its helper;
+      // the next rebuild will pick it up once the cache is ready.
+      continue;
+    }
+    const cachedStatus = statusValue(cached.frontmatter?.[KANBAN_STATUS_TAG]);
+    const cachedHelper = helperValue(cached.frontmatter?.[KANBAN_HELPER_TAG]);
+    const observed = readCachedState(path, cachedStatus, cachedHelper);
+
+    const status = reconcileStatus(
+      path,
+      observed.status,
+      observed.helper,
+      columns,
+      showUnassigned
+    );
+    const helper = expectedHelper(status, columns, showUnassigned);
+
+    if (
+      observed.status !== status ||
+      observed.helper !== (helper ?? "")
+    ) {
+      const beforeStatus = observed.status;
+      const beforeHelper = observed.helper;
+      await app.fileManager.processFrontMatter(file, (frontmatter) => {
+        if (beforeStatus !== status) {
+          if (status === null) {
+            delete frontmatter[KANBAN_STATUS_TAG];
+          } else {
+            frontmatter[KANBAN_STATUS_TAG] = status;
+          }
+        }
+        if (helper === null) {
+          delete frontmatter[KANBAN_HELPER_TAG];
+        } else {
+          frontmatter[KANBAN_HELPER_TAG] = helper;
+        }
+      });
+      recordWrite(path, beforeStatus, beforeHelper, status, helper);
+    }
+    sceneStates.set(path, { status, helper: helper ?? "" });
+
+    if (status === null) {
       unassigned.push({ title: scene.title, path });
       continue;
     }
 
     hasAnyStatus = true;
-    const value = `${status}`.trim();
-    if (!columns.includes(value)) {
-      errors.push({ sceneTitle: scene.title, status: value });
+    if (!columns.includes(status)) {
+      errors.push({ sceneTitle: scene.title, status });
       continue;
     }
 
-    cards[value].push({ title: scene.title, path });
+    cards[status].push({ title: scene.title, path });
   }
+
+  await clearStaleHelpers(app, draft, activePaths);
 
   return {
     title: draft.title,
@@ -170,87 +425,44 @@ function yamlQuote(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-/**
- * Statuses in the scene folder that do not match a configured column.
- * groupOrder is a whitelist, so every group the board should show must be
- * listed. Scan the folder because the Base's folder filter can show notes that
- * are not listed as project scenes.
- */
-function collectExtraStatuses(
-  app: App,
-  draft: MultipleSceneDraft,
-  result: KanbanResult
-): string[] {
-  const folder = sceneFolderPath(draft, app.vault);
-  const prefix = folder.endsWith("/") ? folder : `${folder}/`;
-  const configured = new Set(result.columns);
-  const extra = new Set<string>();
-
-  const add = (raw: unknown): void => {
-    if (raw === undefined || raw === null) {
-      return;
-    }
-    const value = `${raw}`.trim();
-    if (value !== "" && !configured.has(value)) {
-      extra.add(value);
-    }
-  };
-
-  for (const error of result.errors) {
-    add(error.status);
-  }
-  for (const file of app.vault.getMarkdownFiles()) {
-    if (!file.path.startsWith(prefix)) {
-      continue;
-    }
-    add(app.metadataCache.getFileCache(file)?.frontmatter?.[KANBAN_STATUS_TAG]);
-  }
-
-  return [...extra].sort();
-}
-
 function renderKanbanBase(
   app: App,
   draft: MultipleSceneDraft,
   result: KanbanResult
 ): string {
-  const columnList = result.columns.map((c) => JSON.stringify(c)).join(",");
   const showUnassigned = draft.kanbanShowUnassigned;
 
-  // Invalid statuses used to map to a single "Incorrectly assigned" group.
-  // Grouping by the real property turns each value into its own column, so
-  // keep the configured columns first and append the invalid values.
-  const extraStatuses = collectExtraStatuses(app, draft, result);
-  const showIncorrect = extraStatuses.length > 0;
-  const groupOrder = [...result.columns, ...extraStatuses];
+  // groupOrder is a visibility whitelist: only these groups are shown, in this
+  // order. Invalid statuses all share one helper value, so they cannot create
+  // extra columns.
+  const groupOrder = [...result.columns];
+  if (
+    result.errors.length > 0 &&
+    !groupOrder.includes(KANBAN_INCORRECT_LABEL)
+  ) {
+    groupOrder.push(KANBAN_INCORRECT_LABEL);
+  }
+  if (
+    showUnassigned &&
+    result.unassigned.length > 0 &&
+    !groupOrder.includes(KANBAN_UNASSIGNED_LABEL)
+  ) {
+    groupOrder.push(KANBAN_UNASSIGNED_LABEL);
+  }
 
-  // groupOrder is a visibility whitelist. Notes with no status are grouped
-  // under the view's "None" group, which is only shown when null is listed.
   const groupOrderLines = groupOrder.map(
     (column) => `      - ${JSON.stringify(column)}`
   );
-  if (showUnassigned) {
-    groupOrderLines.push("      - null");
-  }
 
+  // The helper is both the membership marker and the grouped property, so
+  // notes without it (unlisted notes, containers, hidden unassigned notes) are
+  // excluded. Grouping by a writable note property keeps cards draggable.
   const filters = [
     `file.inFolder(${JSON.stringify(sceneFolderPath(draft, app.vault))})`,
+    `!note.${KANBAN_HELPER_TAG}.isEmpty()`,
   ];
-  if (!showUnassigned) {
-    // isEmpty() is true for an empty or absent string property.
-    filters.push("!status.isEmpty()");
-  }
-
-  // Grouping must use a writable note property: Bases only writes a dropped
-  // card's new group back to the note when the grouped property can be edited.
-  // A formula property here would make the cards undraggable. This formula is
-  // display-only and flags statuses that aren't configured columns.
-  const formula = `if(status, if([${columnList}].contains(status), status, "Incorrectly assigned"), "Unassigned")`;
 
   const cardProperties = ["file.name"];
-  if (showIncorrect) {
-    cardProperties.push("formula.kanban_status");
-  }
   if (draft.kanbanSaveWordCounts) {
     cardProperties.push("note.wordCount");
   }
@@ -259,14 +471,11 @@ function renderKanbanBase(
     "filters:",
     "  and:",
     ...filters.map((filter) => `    - ${yamlQuote(filter)}`),
-    ...(showIncorrect
-      ? ["formulas:", "  kanban_status: |-", `    ${formula}`]
-      : []),
     "views:",
     "  - type: kanban",
     "    name: Kanban",
     "    groupBy:",
-    "      property: note.status",
+    `      property: note.${KANBAN_HELPER_TAG}`,
     "      direction: ASC",
     "    groupOrder:",
     ...groupOrderLines,

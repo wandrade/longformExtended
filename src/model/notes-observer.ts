@@ -266,6 +266,8 @@ export class ProjectNotesObserver {
       return;
     }
     await this.rebuild(draft, "kanban", async () => {
+      // buildKanban reconciles a Bases drag (the helper property) into the
+      // scene's real status before the board is rendered.
       const result = await buildKanban(this.app, draft);
       await writeKanbanBase(this.app, draft, result);
       await writeKanbanWordCounts(this.app, draft, result);
