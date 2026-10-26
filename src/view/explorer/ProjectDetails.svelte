@@ -26,6 +26,8 @@
   let showMetdata = true;
   let showWordCount = true;
   let showDrafts = true;
+  let showKanban = true;
+  let showTimeline = true;
 
   function titleChanged(event: Event) {
     let newTitle = (event.target as any).value;
@@ -152,6 +154,104 @@
     );
   }
 
+  function kanbanColumnsChanged(event: Event) {
+    const value = (event.target as any).value;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, kanbanColumns: value }
+          : d
+      )
+    );
+  }
+
+  function kanbanOutputPathChanged(event: Event) {
+    const value = (event.target as any).value;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, kanbanOutputPath: value }
+          : d
+      )
+    );
+  }
+
+  function kanbanShowUnassignedChanged(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, kanbanShowUnassigned: checked }
+          : d
+      )
+    );
+  }
+
+  function kanbanSaveWordCountsChanged(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, kanbanSaveWordCounts: checked }
+          : d
+      )
+    );
+  }
+
+  function kanbanEnabledChanged(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, kanbanEnabled: checked }
+          : d
+      )
+    );
+  }
+
+  function timelineEnabledChanged(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, timelineEnabled: checked }
+          : d
+      )
+    );
+  }
+
+  function timelineOutputPathChanged(event: Event) {
+    const value = (event.target as any).value;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, timelineOutputPath: value }
+          : d
+      )
+    );
+  }
+
   let projectCount: number;
   let draftCount: number | null;
   let sceneCount: number | null;
@@ -255,37 +355,156 @@
               (Templater or the core plugin) it will be used to process this
               template.
             </p>
-            <label for="longform-extended-project-timeframe-tag">Timeframe Tag Name</label
-            >
-            <input
-              id="longform-extended-project-timeframe-tag"
-              type="text"
-              value={$selectedDraft.timeframeTagName}
-              on:blur={timeframeTagNameChanged}
-            />
-            <p class="longform-extended-project-warning">
-              The frontmatter property used to place each scene on the
-              timeline. Defaults to "timeframe", which works whether you use
-              dates, times, or plain numbers.
-            </p>
-            <label for="longform-extended-project-time-format">Time Format</label>
-            <select
-              id="longform-extended-project-time-format"
-              value={$selectedDraft.timeFormat}
-              on:change={timeFormatChanged}
-            >
-              <option value="epoch-datetime-dmy">Epoch date time (num dd/mm/yyyy hh:mm:ss)</option>
-              <option value="epoch-datetime-mdy">Epoch date time (num mm/dd/yyyy hh:mm:ss)</option>
-              <option value="datetime">Date time (dd/mm/yyyy hh:mm:ss)</option>
-              <option value="time">Time only (hh:mm:ss)</option>
-              <option value="number">Chronological order (num)</option>
-            </select>
-            <p class="longform-extended-project-warning">
-              Pick the format with the biggest unit you'll ever need — smaller
-              units are optional. e.g. "num dd/mm/yyyy hh:mm" drops seconds,
-              "num dd/mm/yyyy" drops the time.
-            </p>
           {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    <div class="longform-extended-project-section">
+      <div
+        class="longform-extended-project-details-section-header"
+        on:click={() => {
+          showKanban = !showKanban;
+        }}
+      >
+        <Disclosure collapsed={!showKanban} />
+        <h4>Kanban</h4>
+      </div>
+      {#if showKanban}
+        <div>
+          <div class="longform-extended-kanban-toggle">
+            <input
+              id="longform-extended-project-kanban-enabled"
+              type="checkbox"
+              checked={$selectedDraft.kanbanEnabled}
+              on:change={kanbanEnabledChanged}
+            />
+            <label for="longform-extended-project-kanban-enabled"
+              >Enable kanban</label
+            >
+          </div>
+          <label for="longform-extended-project-kanban-columns"
+            >Kanban Columns</label
+          >
+          <input
+            id="longform-extended-project-kanban-columns"
+            type="text"
+            value={$selectedDraft.kanbanColumns}
+            on:blur={kanbanColumnsChanged}
+          />
+          <p class="longform-extended-project-warning">
+            Column titles in order, separated by spaces. Quote titles with
+            spaces: draft "in progress" review final.
+          </p>
+          <label for="longform-extended-project-kanban-output-path"
+            >Kanban Output Path</label
+          >
+          <input
+            id="longform-extended-project-kanban-output-path"
+            type="text"
+            value={$selectedDraft.kanbanOutputPath}
+            on:blur={kanbanOutputPathChanged}
+          />
+          <p class="longform-extended-project-warning">
+            Relative to the project folder. Start with "/" for the vault root.
+            "$1" is replaced with the project title. Defaults to
+            "Build/$1_kanban.base".
+          </p>
+          <div class="longform-extended-kanban-toggle">
+            <input
+              id="longform-extended-project-kanban-show-unassigned"
+              type="checkbox"
+              checked={$selectedDraft.kanbanShowUnassigned}
+              on:change={kanbanShowUnassignedChanged}
+            />
+            <label for="longform-extended-project-kanban-show-unassigned"
+              >Show notes with no status</label
+            >
+          </div>
+          <div class="longform-extended-kanban-toggle">
+            <input
+              id="longform-extended-project-kanban-save-word-counts"
+              type="checkbox"
+              checked={$selectedDraft.kanbanSaveWordCounts}
+              on:change={kanbanSaveWordCountsChanged}
+            />
+            <label for="longform-extended-project-kanban-save-word-counts"
+              >Save word counts</label
+            >
+          </div>
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    <div class="longform-extended-project-section">
+      <div
+        class="longform-extended-project-details-section-header"
+        on:click={() => {
+          showTimeline = !showTimeline;
+        }}
+      >
+        <Disclosure collapsed={!showTimeline} />
+        <h4>Timeline</h4>
+      </div>
+      {#if showTimeline}
+        <div>
+          <div class="longform-extended-timeline-toggle">
+            <input
+              id="longform-extended-project-timeline-enabled"
+              type="checkbox"
+              checked={$selectedDraft.timelineEnabled}
+              on:change={timelineEnabledChanged}
+            />
+            <label for="longform-extended-project-timeline-enabled"
+              >Enable timeline</label
+            >
+          </div>
+          <label for="longform-extended-project-timeframe-tag">Timeframe Tag Name</label
+          >
+          <input
+            id="longform-extended-project-timeframe-tag"
+            type="text"
+            value={$selectedDraft.timeframeTagName}
+            on:blur={timeframeTagNameChanged}
+          />
+          <p class="longform-extended-project-warning">
+            The frontmatter property used to place each scene on the
+            timeline. Defaults to "timeframe", which works whether you use
+            dates, times, or plain numbers.
+          </p>
+          <label for="longform-extended-project-time-format">Time Format</label>
+          <select
+            id="longform-extended-project-time-format"
+            value={$selectedDraft.timeFormat}
+            on:change={timeFormatChanged}
+          >
+            <option value="epoch-datetime-dmy">Epoch date time (num dd/mm/yyyy hh:mm:ss)</option>
+            <option value="epoch-datetime-mdy">Epoch date time (num mm/dd/yyyy hh:mm:ss)</option>
+            <option value="datetime">Date time (dd/mm/yyyy hh:mm:ss)</option>
+            <option value="time">Time only (hh:mm:ss)</option>
+            <option value="number">Chronological order (num)</option>
+          </select>
+          <p class="longform-extended-project-warning">
+            Pick the format with the biggest unit you'll ever need — smaller
+            units are optional. e.g. "num dd/mm/yyyy hh:mm" drops seconds,
+            "num dd/mm/yyyy" drops the time.
+          </p>
+          <label for="longform-extended-project-timeline-output-path"
+            >Timeline Output Path</label
+          >
+          <input
+            id="longform-extended-project-timeline-output-path"
+            type="text"
+            value={$selectedDraft.timelineOutputPath}
+            on:blur={timelineOutputPathChanged}
+          />
+          <p class="longform-extended-project-warning">
+            Relative to the project folder. Start with "/" for the vault root.
+            "$1" is replaced with the project title. Defaults to
+            "Build/$1_timeline.md".
+          </p>
         </div>
       {/if}
     </div>
@@ -390,8 +609,32 @@
     margin: 0 0 0 var(--size-4-4);
   }
 
-  input {
+  input[type="text"] {
     width: 100%;
+  }
+
+  .longform-extended-kanban-toggle,
+  .longform-extended-timeline-toggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--size-4-2);
+    margin-top: var(--size-4-2);
+  }
+
+  .longform-extended-kanban-toggle input[type="checkbox"],
+  .longform-extended-timeline-toggle input[type="checkbox"] {
+    width: var(--checkbox-size, 16px);
+    height: var(--checkbox-size, 16px);
+    flex: none;
+    margin: 0;
+  }
+
+  .longform-extended-kanban-toggle label,
+  .longform-extended-timeline-toggle label {
+    display: inline;
+    margin-top: 0;
+    cursor: pointer;
   }
 
   label {

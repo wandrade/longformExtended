@@ -37,7 +37,7 @@ import type { Workflow } from "./compile";
 import { DEFAULT_WORKFLOWS } from "./compile";
 import { UserScriptObserver } from "./model/user-script-observer";
 import { StoreVaultSync } from "./model/store-vault-sync";
-import { TimeframeObserver } from "./model/timeframe-observer";
+import { ProjectNotesObserver } from "./model/notes-observer";
 import {
   selectedDraft,
   selectedDraftVaultPath,
@@ -74,7 +74,7 @@ export default class LongformExtendedPlugin extends Plugin {
   public api: LongformExtendedAPI;
 
   private storeVaultSync: StoreVaultSync;
-  private timeframeObserver: TimeframeObserver;
+  private notesObserver: ProjectNotesObserver;
 
   async onload(): Promise<void> {
     console.log(`[Longform Extended] Starting Longform Extended ${this.manifest.version}…`);
@@ -135,7 +135,7 @@ export default class LongformExtendedPlugin extends Plugin {
     this.addSettingTab(new LongformExtendedSettingsTab(this.app, this));
 
     this.storeVaultSync = new StoreVaultSync(this.app);
-    this.timeframeObserver = new TimeframeObserver(this.app);
+    this.notesObserver = new ProjectNotesObserver(this.app);
 
     this.app.workspace.onLayoutReady(this.postLayoutInit.bind(this));
 
@@ -175,7 +175,7 @@ export default class LongformExtendedPlugin extends Plugin {
   onunload(): void {
     this.userScriptObserver.destroy();
     this.storeVaultSync.destroy();
-    this.timeframeObserver.destroy();
+    this.notesObserver.destroy();
     this.unsubscribeSettings();
     this.unsubscribeWorkflows();
     this.unsubscribeSelectedDraft();
@@ -276,7 +276,7 @@ export default class LongformExtendedPlugin extends Plugin {
     // Initialize StoreVaultSync with sync awareness
     await this.storeVaultSync.initialize();
 
-    this.timeframeObserver.beginObserving();
+    this.notesObserver.beginObserving();
 
     // Continue with the rest of initialization only after sync is complete
     this.watchProjects();
@@ -459,11 +459,42 @@ export default class LongformExtendedPlugin extends Plugin {
       )
     );
 
-    // TIMEFRAME OBSERVER
+    // GENERATED NOTES
     this.registerEvent(
       this.app.metadataCache.on(
         "changed",
-        this.timeframeObserver.fileMetadataChanged.bind(this.timeframeObserver)
+        this.notesObserver.fileMetadataChanged.bind(this.notesObserver)
+      )
+    );
+
+    // Any vault change can affect a project's timeline or kanban (scene edits,
+    // scene/project creation, deletion, or rename). The observer debounces and
+    // maps each path to its owning scenes project(s).
+    this.registerEvent(
+      this.app.vault.on(
+        "modify",
+        this.notesObserver.fileModified.bind(this.notesObserver)
+      )
+    );
+
+    this.registerEvent(
+      this.app.vault.on(
+        "create",
+        this.notesObserver.fileCreated.bind(this.notesObserver)
+      )
+    );
+
+    this.registerEvent(
+      this.app.vault.on(
+        "delete",
+        this.notesObserver.fileDeleted.bind(this.notesObserver)
+      )
+    );
+
+    this.registerEvent(
+      this.app.vault.on(
+        "rename",
+        this.notesObserver.fileRenamed.bind(this.notesObserver)
       )
     );
 

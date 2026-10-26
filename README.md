@@ -19,6 +19,8 @@ Longform Extended is not a full writing suite in the style of heavier plugins th
 - **Timeline view** — see your scenes laid out along a timeline, driven by a
   per-scene `timeframe` value and a project-wide time format (see
   [Timeline](#timeline)).
+- **Kanban board** — a status-driven board written to a configurable output
+  path (see [Kanban](#kanban)).
 
 ### Wishlist
 
@@ -27,50 +29,167 @@ Longform Extended is not a full writing suite in the style of heavier plugins th
 
 ## Timeline
 
-The timeline lays your scenes out along a time axis, so you can see the order
-of your story at a glance. Each scene's position comes from a `timeframe`
-value in its frontmatter, which you configure in the Project tab's Project
-Metadata. See [TIMELINE.md](./docs/TIMELINE.md) for the full documentation.
+Longform Extended can generate a timeline for every project with scenes. The
+note contains a Mermaid timeline diagram and a table, both ordered by a
+per-scene timeframe value, so you can see the order of your story at a glance.
+It is enabled by default. See [TIMELINE.md](./docs/TIMELINE.md) for the full
+documentation.
+
+The Timeline section of the Project tab controls it:
+
+- **Enable timeline** turns generation on or off. Turning it off stops future
+  updates but leaves an existing timeline note in place.
+- **Timeframe Tag Name** is the frontmatter property read from each scene.
+- **Time Format** describes how timeframe values are written.
+- **Timeline Output Path** is where the note is written.
 
 ### Timeframe Tag Name
 
-The frontmatter property that holds a scene's timeframe value. It defaults to
-`timeframe`, so a scene might have:
+The property that holds a scene's timeframe value. It defaults to `timeframe`,
+so a scene might have:
 
 ```yaml
-timeframe: 04/03/2026 09:30
+---
+timeframe: "04/03/2026 09:30"
+---
 ```
 
-Rename it if `timeframe` clashes with something else in your vault.
+Rename it if `timeframe` clashes with something else in your vault, but use the
+same property for every scene. Scenes with no timeframe value are quietly left
+off the timeline; they are not reported as errors.
 
 ### Time Format
 
 Choose the format whose biggest unit matches your story's span — smaller units
-can be left off (see Partial values below). The options are:
+can be left off. The options are:
 
 - **Epoch date time (num dd/mm/yyyy hh:mm:ss)** — an epoch number, then a
-  day-first date, then a time. The `num` is an epoch: a number for a span
-  larger than a year, handy when a story crosses ages.
+  day-first date, then a time, e.g. `2 04/03/2026 09:30:00`. The `num` is an
+  epoch: a number for a span larger than a year, handy when a story crosses
+  ages.
 - **Epoch date time (num mm/dd/yyyy hh:mm:ss)** — the same, with a month-first
   date.
-- **Date time (dd/mm/yyyy hh:mm:ss)** — a day-first date and a time.
+- **Date time (dd/mm/yyyy hh:mm:ss)** — a day-first date and a time, e.g.
+  `04/03/2026 09:30:00`.
 - **Time only (hh:mm:ss)** — just a time, for a story that stays within one
-  day.
+  day, e.g. `09:30:00`.
 - **Chronological order (num)** — a single number that just orders scenes, like
   `1`, `2`, `3`.
 
-### Partial values
-
 You don't have to fill in every unit. You can drop units from right to left —
-from the smallest up — as long as you stay consistent:
+from the smallest up:
 
-- `num dd/mm/yyyy hh:mm` — seconds omitted.
-- `num dd/mm/yyyy hh` — seconds and minutes omitted.
-- `num dd/mm/yyyy` — the whole time omitted.
+- `04/03/2026 09:30` — seconds omitted.
+- `04/03/2026 09` — seconds and minutes omitted.
+- `04/03/2026` — the whole time omitted.
 
 You cannot drop units from left to right, so you can't drop the epoch or the
-date and keep the time. Pick the smallest unit you'll ever need and use it for
-every scene.
+date and keep the time. Use the same number of units for every scene; mixed
+values are reported as inconsistent. The exact minimum depends on the format
+(see [Partial values](./docs/TIMELINE.md#partial-values)).
+
+### Timeline Output Path
+
+Where the timeline note is written. It defaults to `Build/$1_timeline.md`,
+where `$1` is replaced with the project title. Relative paths are resolved
+against the project folder; start with `/` to write from the vault root. The
+`.md` extension is added if you leave it off, and any missing folders are
+created. Changing the path writes a new note but does not move or delete the
+old one. See [TIMELINE.md](./docs/TIMELINE.md#output) for details.
+
+### When It Updates
+
+The timeline refreshes automatically when the plugin loads and when files in
+the project change. Run **Rebuild timeline** from the command palette to force
+a rebuild; the command is available when a scenes project with the timeline
+enabled is selected.
+
+If any scene has an invalid or inconsistent timeframe, the note is replaced
+with a **Problems** list and the diagram is omitted until you fix them. The
+generated timeline is a build artifact: edits made inside it are overwritten on
+the next rebuild.
+
+## Kanban
+
+A Kanban board is generated for each scenes project as a native Obsidian Bases
+file (`.base`) with a Kanban view. It requires **Obsidian 1.14 or newer**; no
+community kanban plugin is needed. Each card is a scene in the column named by
+the scene's `status` frontmatter, and dragging a card between columns writes the
+new status back to the scene note. The board is enabled by default. See
+[KANBAN.md](./docs/KANBAN.md) for the full documentation.
+
+The Kanban section of the Project tab controls it:
+
+- **Enable kanban** turns generation on or off. Turning it off stops future
+  updates but leaves an existing board in place.
+- **Kanban Columns** lists the columns, in board order.
+- **Show notes with no status** includes unassigned notes in a `None` column
+  (off by default).
+- **Save word counts** writes each card scene's word count to its frontmatter.
+- **Kanban Output Path** is where the board is written.
+
+### Kanban Columns
+
+Titles are separated by spaces. Quote any title that contains spaces, using
+single or double quotes:
+
+```
+Planned Draft Reviewed
+"To do" Draft "In progress" Done
+```
+
+The order you write them in is the order of the columns. The default is
+`Planned Draft Reviewed`, and clearing the field falls back to it. Matching is
+case-sensitive: `draft` does not match `Draft`.
+
+### Status
+
+A scene's column comes from its `status` frontmatter:
+
+```yaml
+---
+status: Draft
+---
+```
+
+Dragging a card to another column writes that column title into `status`, so
+the board and the notes stay in sync. Notes with a missing or empty status are
+hidden unless **Show notes with no status** is enabled. Statuses that don't
+match a configured column still get their own column, appended after the
+configured ones, and their cards are flagged as **Incorrectly assigned**. Add
+the column or fix the status, then rebuild.
+
+A board is only generated when at least one scene listed in the project (and
+not a container scene) has a non-empty status, even if **Show notes with no
+status** is enabled. The board's folder filter can also show notes in the scene
+folder that aren't listed as project scenes.
+
+### Word Counts
+
+With **Save word counts** enabled (the default), listed scenes with a
+recognized status have their word count written to their frontmatter as
+`wordCount`, and the board shows it as a card property. Scenes that are
+containers, have no status, have an unrecognized status, or have no place in the
+project's scene list do not get a word count written. Turning the setting off
+stops the writes but leaves any existing `wordCount` values in place.
+
+### Kanban Output Path
+
+Where the kanban Base is written. It defaults to `Build/$1_kanban.base`, where
+`$1` is replaced with the project title. Relative paths are resolved against
+the project folder; start with `/` to write from the vault root. The `.base`
+extension is added if you leave it off, and any missing folders are created.
+Changing the path writes a new board but does not move or delete the old one.
+See [KANBAN.md](./docs/KANBAN.md#output) for details.
+
+### When It Updates
+
+The board refreshes automatically when the plugin loads and when files in the
+project change, and word counts are updated when Longform's scene counts change.
+Run **Rebuild kanban** from the command palette to force a rebuild; the command
+is available when a scenes project with the kanban enabled is selected. The
+generated board is a build artifact: edits made inside it are overwritten on the
+next rebuild.
 
 ## Longform
 

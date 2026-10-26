@@ -19,6 +19,7 @@ import {
 } from "./templates";
 import { startNewSession } from "./word-counts";
 import { rebuildTimeline } from "./timeline";
+import { rebuildKanban } from "./kanban";
 
 const commandBuilders = [
   compileCurrent,
@@ -39,6 +40,7 @@ const commandBuilders = [
   insertSingleSceneTemplate,
   startNewSession,
   rebuildTimeline,
+  rebuildKanban,
 ];
 
 export function addCommands(plugin: LongformExtendedPlugin) {

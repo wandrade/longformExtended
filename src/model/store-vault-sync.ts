@@ -10,7 +10,10 @@ import { cloneDeep, isEqual } from "lodash";
 import { get, type Unsubscriber } from "svelte/store";
 
 import {
+  DEFAULT_KANBAN_COLUMNS,
+  DEFAULT_KANBAN_OUTPUT_PATH,
   DEFAULT_TIMEFRAME_TAG_NAME,
+  DEFAULT_TIMELINE_OUTPUT_PATH,
   DEFAULT_TIME_FORMAT,
   isTimeframeFormat,
   type Draft,
@@ -503,6 +506,24 @@ export class StoreVaultSync {
       const timeFormat = isTimeframeFormat(longformEntry["timeFormat"])
         ? longformEntry["timeFormat"]
         : DEFAULT_TIME_FORMAT;
+      const kanbanColumns =
+        typeof longformEntry["kanbanColumns"] === "string"
+          ? longformEntry["kanbanColumns"]
+          : DEFAULT_KANBAN_COLUMNS;
+      const kanbanShowUnassigned =
+        longformEntry["kanbanShowUnassigned"] === true;
+      const kanbanSaveWordCounts =
+        longformEntry["kanbanSaveWordCounts"] !== false;
+      const kanbanEnabled = longformEntry["kanbanEnabled"] !== false;
+      const timelineEnabled = longformEntry["timelineEnabled"] !== false;
+      const kanbanOutputPath =
+        typeof longformEntry["kanbanOutputPath"] === "string"
+          ? longformEntry["kanbanOutputPath"]
+          : DEFAULT_KANBAN_OUTPUT_PATH;
+      const timelineOutputPath =
+        typeof longformEntry["timelineOutputPath"] === "string"
+          ? longformEntry["timelineOutputPath"]
+          : DEFAULT_TIMELINE_OUTPUT_PATH;
       const ignoredFiles: string[] = longformEntry["ignoredFiles"] ?? [];
       const normalizedSceneFolder = normalizePath(
         `${fileWithMetadata.file.parent.path}/${sceneFolder}`
@@ -552,6 +573,13 @@ export class StoreVaultSync {
           sceneTemplate,
           timeframeTagName,
           timeFormat,
+          kanbanColumns,
+          kanbanShowUnassigned,
+          kanbanSaveWordCounts,
+          kanbanEnabled,
+          kanbanOutputPath,
+          timelineEnabled,
+          timelineOutputPath,
           workflow,
         },
         dirty,

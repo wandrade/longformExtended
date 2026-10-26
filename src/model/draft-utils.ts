@@ -102,6 +102,21 @@ export function setDraftOnFrontmatterObject(
     obj["longform"]["sceneFolder"] = draft.sceneFolder;
     obj["longform"]["timeframeTagName"] = draft.timeframeTagName;
     obj["longform"]["timeFormat"] = draft.timeFormat;
+    obj["longform"]["kanbanColumns"] = draft.kanbanColumns;
+    obj["longform"]["kanbanOutputPath"] = draft.kanbanOutputPath;
+    if (draft.kanbanShowUnassigned) {
+      obj["longform"]["kanbanShowUnassigned"] = true;
+    }
+    if (!draft.kanbanSaveWordCounts) {
+      obj["longform"]["kanbanSaveWordCounts"] = false;
+    }
+    if (!draft.kanbanEnabled) {
+      obj["longform"]["kanbanEnabled"] = false;
+    }
+    if (!draft.timelineEnabled) {
+      obj["longform"]["timelineEnabled"] = false;
+    }
+    obj["longform"]["timelineOutputPath"] = draft.timelineOutputPath;
     obj["longform"]["scenes"] = indentedScenesToArrays(draft.scenes);
     if (draft.sceneTemplate) {
       obj["longform"]["sceneTemplate"] = draft.sceneTemplate;

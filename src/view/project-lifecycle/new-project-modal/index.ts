@@ -2,7 +2,10 @@ import { App, Modal, TFolder } from "obsidian";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { selectedDraftVaultPath } from "src/model/stores";
 import {
+  DEFAULT_KANBAN_COLUMNS,
+  DEFAULT_KANBAN_OUTPUT_PATH,
   DEFAULT_TIMEFRAME_TAG_NAME,
+  DEFAULT_TIMELINE_OUTPUT_PATH,
   DEFAULT_TIME_FORMAT,
   type Draft,
   type MultipleSceneDraft,
@@ -62,6 +65,13 @@ export default class NewProjectModalContainer extends Modal {
               sceneTemplate: null,
               timeframeTagName: DEFAULT_TIMEFRAME_TAG_NAME,
               timeFormat: DEFAULT_TIME_FORMAT,
+              kanbanColumns: DEFAULT_KANBAN_COLUMNS,
+              kanbanShowUnassigned: false,
+              kanbanSaveWordCounts: true,
+              kanbanEnabled: true,
+              kanbanOutputPath: DEFAULT_KANBAN_OUTPUT_PATH,
+              timelineEnabled: true,
+              timelineOutputPath: DEFAULT_TIMELINE_OUTPUT_PATH,
             };
             return multi;
           } else {

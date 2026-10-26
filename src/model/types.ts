@@ -36,6 +36,10 @@ export function isTimeframeFormat(value: unknown): value is TimeframeFormat {
 
 export const DEFAULT_TIMEFRAME_TAG_NAME = "timeframe";
 export const DEFAULT_TIME_FORMAT: TimeframeFormat = "datetime";
+export const DEFAULT_TIMELINE_OUTPUT_PATH = "Build/$1_timeline.md";
+export const DEFAULT_KANBAN_COLUMNS = "Planned Draft Reviewed";
+export const DEFAULT_KANBAN_OUTPUT_PATH = "Build/$1_kanban.base";
+export const KANBAN_STATUS_TAG = "status";
 
 export type IndentedScene = {
   title: string;
@@ -56,6 +60,13 @@ export type MultipleSceneDraft = {
   sceneTemplate: string | null;
   timeframeTagName: string;
   timeFormat: TimeframeFormat;
+  kanbanColumns: string;
+  kanbanShowUnassigned: boolean;
+  kanbanSaveWordCounts: boolean;
+  kanbanEnabled: boolean;
+  kanbanOutputPath: string;
+  timelineEnabled: boolean;
+  timelineOutputPath: string;
 };
 
 export type SingleSceneDraft = {

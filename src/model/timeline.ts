@@ -1,9 +1,16 @@
-import { normalizePath, TFile, type App } from "obsidian";
-import { get } from "svelte/store";
+import { TFile, type App } from "obsidian";
 
-import type { MultipleSceneDraft, TimeframeFormat } from "./types";
-import { projectFolderPath, scenePath } from "./scene-navigation";
-import { workflows } from "./stores";
+import {
+  DEFAULT_TIMELINE_OUTPUT_PATH,
+  type MultipleSceneDraft,
+  type TimeframeFormat,
+} from "./types";
+import { scenePath } from "./scene-navigation";
+import {
+  configuredOutputPath,
+  sceneWikilink,
+  writeGeneratedNote,
+} from "./generated-note";
 import {
   compareTimeframes,
   deriveUnits,
@@ -13,8 +20,6 @@ import {
   type TimeframeUnit,
   type TimeframeValues,
 } from "./timeframe";
-
-const DEFAULT_TARGET = "manuscript.md";
 
 const FORMAT_LABELS: Record<TimeframeFormat, string> = {
   "epoch-datetime-dmy": "Epoch date time (num dd/mm/yyyy hh:mm:ss)",
@@ -170,50 +175,23 @@ export async function writeTimeline(
   draft: MultipleSceneDraft,
   result: TimelineResult
 ): Promise<void> {
+  if (!draft.timelineEnabled) {
+    return;
+  }
+
   if (result.entries.length === 0 && result.errors.length === 0) {
     return;
   }
 
-  const path = timelinePath(app, draft);
-  const contents = renderTimeline(result);
-
-  if (
-    (await app.vault.adapter.exists(path)) &&
-    (await app.vault.adapter.read(path)) === contents
-  ) {
-    return;
-  }
-
-  const folder = path.split("/").slice(0, -1).join("/");
-  if (folder && !(await app.vault.adapter.exists(folder))) {
-    await app.vault.createFolder(folder).catch(() => undefined);
-  }
-
-  await app.vault.adapter.write(path, contents);
-}
-
-/** Compiled manuscript path with `_timeline` before the extension. */
-function timelinePath(app: App, draft: MultipleSceneDraft): string {
-  const workflow = draft.workflow ? get(workflows)[draft.workflow] : undefined;
-  const step = workflow?.steps.find(
-    (candidate) => candidate.description.canonicalID === "write-to-note"
+  const path = configuredOutputPath(
+    app,
+    draft,
+    draft.timelineOutputPath,
+    DEFAULT_TIMELINE_OUTPUT_PATH,
+    ".md"
   );
-  const configured = step?.optionValues?.["target"];
-  const target =
-    typeof configured === "string" && configured.trim().length > 0
-      ? configured.trim()
-      : DEFAULT_TARGET;
-  const rawTarget = target.replace("$1", draft.title);
-  const withExtension = /\.\w+$/.test(rawTarget)
-    ? rawTarget
-    : `${rawTarget}.md`;
-  const compiled = withExtension.startsWith("/")
-    ? normalizePath(withExtension.slice(1))
-    : normalizePath(
-        `${projectFolderPath(draft, app.vault)}/${withExtension}`
-      );
-
-  return compiled.replace(/(\.[^./]+)$/, "_timeline$1");
+  const contents = renderTimeline(result);
+  await writeGeneratedNote(app, path, contents);
 }
 
 function sanitize(text: string): string {
@@ -434,16 +412,14 @@ function renderTimeline(result: TimelineResult): string {
         ? unitValues(entry.values, below, ":")
         : unitValues(entry.values, present, ":");
 
-    const notePath = entry.path.replace(/\.md$/i, "");
-    const alias = (notePath.split("/").pop() ?? entry.sceneTitle).replace(
-      /\|/g,
-      "\\|"
-    );
-
     table.push(
       `| ${primaryCell} | ${
         firstOfPeriod ? periodCell : ""
-      } | ${cadenceCell} | [[${notePath}\\|${alias}]] |`
+      } | ${cadenceCell} | ${sceneWikilink(
+        entry.path,
+        entry.sceneTitle,
+        true
+      )} |`
     );
 
     lastPrimaryKey = primaryKey;

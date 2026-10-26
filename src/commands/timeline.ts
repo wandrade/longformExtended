@@ -11,9 +11,9 @@ export const rebuildTimeline: CommandBuilder = (plugin) => ({
   checkCallback(checking: boolean) {
     const draft = get(selectedDraft);
     if (checking) {
-      return !!draft && draft.format === "scenes";
+      return !!draft && draft.format === "scenes" && draft.timelineEnabled;
     }
-    if (!draft || draft.format !== "scenes") {
+    if (!draft || draft.format !== "scenes" || !draft.timelineEnabled) {
       return;
     }
 
