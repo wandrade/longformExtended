@@ -4,7 +4,7 @@ import { get } from "svelte/store";
 import { repeat } from "lodash";
 
 import type { CommandBuilder } from "./types";
-import { activeFile, selectedTab } from "src/view/stores";
+import { activeFile, selectedNotesTab, selectedTab } from "src/view/stores";
 import {
   drafts as draftsStore,
   projects as projectsStore,
@@ -305,7 +305,8 @@ export const focusNewSceneField: CommandBuilder = (plugin) => ({
     }
 
     showLeaf(plugin);
-    selectedTab.set("Scenes");
+    selectedNotesTab.set("Scenes");
+    selectedTab.set("Notes");
     setTimeout(() => {
       activeDocument.getElementById("new-scene").focus();
     }, 0);

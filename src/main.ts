@@ -26,7 +26,12 @@ import {
   type WordCountSession,
 } from "./model/types";
 import { DEFAULT_SETTINGS, TRACKED_SETTINGS_PATHS } from "./model/types";
-import { activeFile, goalProgress, selectedTab } from "./view/stores";
+import {
+  activeFile,
+  goalProgress,
+  selectedNotesTab,
+  selectedTab,
+} from "./view/stores";
 import { ICON_NAME, ICON_SVG } from "./view/icon";
 import { LongformExtendedSettingsTab } from "./view/settings/LongformSettings";
 import {
@@ -53,6 +58,8 @@ import { draftForPath } from "./model/scene-navigation";
 import { WritingSessionTracker } from "./model/writing-session-tracker";
 import NewProjectModal from "./view/project-lifecycle/new-project-modal";
 import { LongformExtendedAPI } from "./api/LongformAPI";
+import { PLOT_GRID_VIEW_TYPE } from "./model/plot-grid";
+import { PlotGridView } from "./view/plot-grid/plot-grid-view";
 
 const LONGFORM_EXTENDED_LEAF_CLASS = "longform-extended-leaf";
 
@@ -84,6 +91,39 @@ export default class LongformExtendedPlugin extends Plugin {
       VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER,
       (leaf: WorkspaceLeaf) => new ExplorerPane(leaf)
     );
+
+    // `registerBasesView` does not exist before Obsidian 1.10, and returns
+    // false when the Bases core plugin is disabled. Either way the plugin must
+    // load normally; the generated Base keeps its native table fallback view.
+    const basesViewRegistered =
+      typeof this.registerBasesView === "function" &&
+      this.registerBasesView(PLOT_GRID_VIEW_TYPE, {
+        name: "Subplot Grid",
+        icon: "table",
+        factory: (controller, containerEl) =>
+          new PlotGridView(controller, containerEl, this.app),
+        // Declared so the generated view options survive serialization in the
+        // `.base` file. The generator writes the resolved vault-relative paths.
+        options: () => [
+          {
+            type: "text",
+            key: "plotsDir",
+            displayName: "Subplots folder",
+            default: "",
+          },
+          {
+            type: "text",
+            key: "charactersDir",
+            displayName: "Characters folder",
+            default: "",
+          },
+        ],
+      });
+    if (!basesViewRegistered) {
+      console.warn(
+        "[Longform Extended] Bases is not enabled; the subplot grid view is unavailable."
+      );
+    }
 
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
@@ -283,7 +323,8 @@ export default class LongformExtendedPlugin extends Plugin {
 
     const defaultToScenes = once(function (d: Draft) {
       if (d && d.format === "scenes") {
-        selectedTab.set("Scenes");
+        selectedNotesTab.set("Scenes");
+        selectedTab.set("Notes");
       }
     });
 

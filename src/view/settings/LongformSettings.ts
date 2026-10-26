@@ -52,6 +52,42 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
     });
 
     new Setting(containerEl)
+      .setName("New subplot template")
+      .addSearch((cb) => {
+        new FileSuggest(this.app, cb.inputEl);
+        cb.setPlaceholder("templates/Subplot.md")
+          .setValue(settings.plotTemplate)
+          .onChange((v) => {
+            pluginSettings.update((s) => ({
+              ...s,
+              plotTemplate: v,
+            }));
+          });
+      });
+    containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
+      el.innerHTML =
+        "This file will be used as a template when creating new subplots via the New Subplot… field. If you use a templating plugin (Templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the Project > Project Metadata settings in the Longform Extended pane.";
+    });
+
+    new Setting(containerEl)
+      .setName("New character template")
+      .addSearch((cb) => {
+        new FileSuggest(this.app, cb.inputEl);
+        cb.setPlaceholder("templates/Character.md")
+          .setValue(settings.characterTemplate)
+          .onChange((v) => {
+            pluginSettings.update((s) => ({
+              ...s,
+              characterTemplate: v,
+            }));
+          });
+      });
+    containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
+      el.innerHTML =
+        "This file will be used as a template when creating new characters via the New Character… field. If you use a templating plugin (Templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the Project > Project Metadata settings in the Longform Extended pane.";
+    });
+
+    new Setting(containerEl)
       .setName("Show scene numbers in Scenes tab")
       .setDesc(
         "If on, shows numbers for scenes with subscenes separated by periods, e.g. 1.1.2. Create subscenes by dragging a scene to an indent under an existing scene, or us an indent command."
@@ -69,7 +105,7 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Write scene index to frontmatter")
       .setDesc(
-        "If enabled, will add a scene index, and scene number, to the frontmatter of scene files."
+        "If enabled, will add a scene index, and scene number, to the frontmatter of scene notes."
       )
       .addToggle((toggle) => {
         toggle.setValue(settings.writeProperty);

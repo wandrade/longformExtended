@@ -7,6 +7,7 @@
     writeKanbanBase,
     writeKanbanWordCounts,
   } from "src/model/kanban";
+  import { writePlotGrid } from "src/model/plot-grid";
   import {
     pluginSettings,
     selectedDraft,
@@ -16,6 +17,7 @@
   import { buildTimeline, writeTimeline } from "src/model/timeline";
   import {
     DEFAULT_KANBAN_OUTPUT_PATH,
+    DEFAULT_PLOT_GRID_OUTPUT_PATH,
     DEFAULT_TIMELINE_OUTPUT_PATH,
     type MultipleSceneDraft,
   } from "src/model/types";
@@ -29,6 +31,7 @@
   const REFRESH_TOOLTIP = "Force immediate generation of status files.";
   const OPEN_TIMELINE_TOOLTIP = "Open timeline";
   const OPEN_KANBAN_TOOLTIP = "Open kanban";
+  const OPEN_PLOT_GRID_TOOLTIP = "Open subplot grid";
 
   let busy = false;
   let draft: MultipleSceneDraft | null = null;
@@ -39,8 +42,11 @@
       : null;
   $: timelineEnabled = !!draft && draft.timelineEnabled;
   $: kanbanEnabled = !!draft && draft.kanbanEnabled;
+  $: plotGridEnabled = !!draft && draft.plotGridEnabled;
   $: refreshDisabled =
-    busy || !draft || (!timelineEnabled && !kanbanEnabled);
+    busy ||
+    !draft ||
+    (!timelineEnabled && !kanbanEnabled && !plotGridEnabled);
 
   /**
    * Words counted toward the session goal for the configured scope, or `null`
@@ -120,6 +126,16 @@
     );
   }
 
+  function plotGridPath(current: MultipleSceneDraft): string {
+    return configuredOutputPath(
+      app,
+      current,
+      current.plotGridOutputPath,
+      DEFAULT_PLOT_GRID_OUTPUT_PATH,
+      ".base"
+    );
+  }
+
   async function openOutput(path: string, label: string): Promise<void> {
     const file = app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
@@ -145,7 +161,9 @@
     if (
       busy ||
       !current ||
-      (!current.timelineEnabled && !current.kanbanEnabled)
+      (!current.timelineEnabled &&
+        !current.kanbanEnabled &&
+        !current.plotGridEnabled)
     ) {
       return;
     }
@@ -161,6 +179,10 @@
         const kanban = await buildKanban(app, current);
         await writeKanbanBase(app, current, kanban);
         await writeKanbanWordCounts(app, current, kanban);
+      }
+
+      if (current.plotGridEnabled) {
+        await writePlotGrid(app, current);
       }
 
       new Notice("Status generation complete.");
@@ -187,6 +209,13 @@
       return;
     }
     void openOutput(kanbanPath(draft), "Kanban");
+  }
+
+  function openPlotGrid(): void {
+    if (!draft || !draft.plotGridEnabled) {
+      return;
+    }
+    void openOutput(plotGridPath(draft), "Subplot grid");
   }
 </script>
 
@@ -245,6 +274,16 @@
         on:click={openKanban}
       >
         <Icon iconName="kanban" />
+      </button>
+      <button
+        type="button"
+        class="clickable-icon longform-extended-status-button"
+        aria-label={OPEN_PLOT_GRID_TOOLTIP}
+        disabled={!plotGridEnabled}
+        use:tooltip={OPEN_PLOT_GRID_TOOLTIP}
+        on:click={openPlotGrid}
+      >
+        <Icon iconName="layout-grid" />
       </button>
     </div>
   {:else}
@@ -309,7 +348,7 @@
 
   .longform-extended-status-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--size-4-2);
   }
 

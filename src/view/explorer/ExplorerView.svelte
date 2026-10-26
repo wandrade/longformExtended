@@ -2,14 +2,17 @@
   import CompileView from "../compile/CompileView.svelte";
 
   import { selectedDraft } from "src/model/stores";
-  import { selectedTab } from "../stores";
+  import { selectedNotesTab, selectedTab } from "../stores";
   import { waitingForSync } from "src/model/stores";
 
   import NewSceneField from "./NewSceneField.svelte";
+  import NewAuxiliaryField from "./NewAuxiliaryField.svelte";
   import ProjectPicker from "./ProjectPicker.svelte";
   import SceneList from "./SceneList.svelte";
+  import AuxiliaryNoteList from "./AuxiliaryNoteList.svelte";
   import ProjectDetails from "./ProjectDetails.svelte";
   import StatusView from "./StatusView.svelte";
+  import NotesSubTab from "./NotesSubTab.svelte";
   import { needsMigration } from "src/model/migration";
   import { getContext } from "svelte";
   import Tab from "./Tab.svelte";
@@ -23,7 +26,7 @@
     if (
       $selectedDraft &&
       $selectedDraft.format === "single" &&
-      ($selectedTab === "Scenes" || $selectedTab === "Status")
+      ($selectedTab === "Notes" || $selectedTab === "Status")
     ) {
       $selectedTab = "Project";
     }
@@ -34,7 +37,7 @@
   <div class="longform-extended-explorer">
     <p>
       Longform Extended has been upgraded and requires a migration to a new format.
-      Deprecated index files will be deleted, and some scene files may move.
+      Deprecated index files will be deleted, and some scene notes may move.
       It’s recommended to back up your vault before migrating.
     </p>
     <p>
@@ -61,16 +64,29 @@
       <div>
         <div class="tabs">
           <div class="tab-list">
-            <Tab tab="Scenes" />
+            <Tab tab="Notes" />
             <Tab tab="Project" />
             <Tab tab="Compile" />
             <Tab tab="Status" />
           </div>
         </div>
-        {#if $selectedTab === "Scenes"}
+        {#if $selectedTab === "Notes"}
           <div class="tab-panel-container">
-            <SceneList />
-            <NewSceneField />
+            <div class="sub-tab-list">
+              <NotesSubTab tab="Scenes" />
+              <NotesSubTab tab="Plots" />
+              <NotesSubTab tab="Characters" />
+            </div>
+            {#if $selectedNotesTab === "Scenes"}
+              <SceneList />
+              <NewSceneField />
+            {:else if $selectedNotesTab === "Plots"}
+              <AuxiliaryNoteList kind="plots" />
+              <NewAuxiliaryField kind="plots" />
+            {:else}
+              <AuxiliaryNoteList kind="characters" />
+              <NewAuxiliaryField kind="characters" />
+            {/if}
           </div>
         {:else if $selectedTab === "Project"}
           <div class="tab-panel-container">
@@ -125,6 +141,12 @@
   .tab-list {
     margin: 0;
     font-size: 0; /* To remove spacing between tabs */
+  }
+
+  .sub-tab-list {
+    margin: 0 0 var(--size-4-2) 0;
+    padding-bottom: var(--size-4-1);
+    border-bottom: 1px solid var(--background-modifier-border);
   }
 
   .tab-panel-container {

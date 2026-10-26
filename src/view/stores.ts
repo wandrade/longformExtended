@@ -19,8 +19,11 @@ import type { Draft, DraftWordCounts } from "src/model/types";
 // Writable stores
 export const activeFile = writable<TFile | null>(null);
 
-export type ExplorerTab = "Scenes" | "Project" | "Compile" | "Status";
-export const selectedTab = writable<ExplorerTab>("Project");
+export type ExplorerTab = "Notes" | "Project" | "Compile" | "Status";
+export const selectedTab = writable<ExplorerTab>("Notes");
+
+export type NotesTab = "Scenes" | "Plots" | "Characters";
+export const selectedNotesTab = writable<NotesTab>("Scenes");
 
 const statsFor = (
   file: TFile,

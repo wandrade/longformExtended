@@ -1,7 +1,14 @@
 <script lang="ts">
   import { last } from "lodash";
-  import { normalizePath } from "obsidian";
+  import { Notice, normalizePath } from "obsidian";
   import { draftForPath, projectFolderPath } from "src/model/scene-navigation";
+  import {
+    describePlotGridDirectoryConflict,
+    plotGridDirectoryConflictMessage,
+    plotGridDirectoryConflicts,
+    resolvePlotGridDirectories,
+  } from "src/model/plot-grid";
+  import type { MultipleSceneDraft } from "src/model/types";
   import { pluginSettings, projects } from "src/model/stores";
   import {
     drafts,
@@ -28,6 +35,7 @@
   let showDrafts = true;
   let showKanban = true;
   let showTimeline = true;
+  let showPlotGrid = true;
 
   function titleChanged(event: Event) {
     let newTitle = (event.target as any).value;
@@ -60,20 +68,80 @@
   }
 
   let sceneFolderInput: HTMLInputElement;
+  let plotGridPlotsDirInput: HTMLInputElement;
+  let plotGridCharactersDirInput: HTMLInputElement;
   onMount(() => {
-    if (sceneFolderInput && $selectedDraft.format === "scenes") {
+    if ($selectedDraft && $selectedDraft.format === "scenes") {
       const projectPath = projectFolderPath($selectedDraft, app.vault);
-      new FolderSuggest(app, sceneFolderInput, projectPath);
+      if (sceneFolderInput) {
+        new FolderSuggest(app, sceneFolderInput, projectPath);
+      }
+      if (plotGridPlotsDirInput) {
+        new FolderSuggest(app, plotGridPlotsDirInput, projectPath);
+      }
+      if (plotGridCharactersDirInput) {
+        new FolderSuggest(app, plotGridCharactersDirInput, projectPath);
+      }
     }
   });
 
+  /**
+   * The folder conflicts in the stored project configuration. The Project
+   * Metadata inputs show this inline, and every blur re-validates a candidate
+   * value before it is stored.
+   */
+  let directoryConflicts: ReturnType<
+    typeof plotGridDirectoryConflicts
+  > = [];
+  $: {
+    if ($selectedDraft && $selectedDraft.format === "scenes") {
+      directoryConflicts = plotGridDirectoryConflicts(
+        resolvePlotGridDirectories(app, $selectedDraft)
+      );
+    } else {
+      directoryConflicts = [];
+    }
+  }
+
+  /**
+   * Rejects a candidate directory configuration that violates the distinct,
+   * non-nested rule: the input reverts to the stored value and a Notice
+   * explains the conflict. Returns true when the change was rejected.
+   */
+  function rejectInvalidDirectories(
+    candidate: MultipleSceneDraft,
+    input: HTMLInputElement,
+    storedValue: string
+  ): boolean {
+    const conflicts = plotGridDirectoryConflicts(
+      resolvePlotGridDirectories(app, candidate)
+    );
+    if (conflicts.length === 0) {
+      return false;
+    }
+    input.value = storedValue;
+    new Notice(plotGridDirectoryConflictMessage(conflicts));
+    return true;
+  }
+
   async function sceneFolderChanged(event: Event) {
-    const newFolder = (event.target as any).value;
-    if (newFolder.length <= 0 || !$selectedDraft) {
+    const input = event.target as HTMLInputElement;
+    const newFolder = input.value;
+    const draft = $selectedDraft;
+    if (
+      newFolder.length <= 0 ||
+      !draft ||
+      draft.format !== "scenes"
+    ) {
       return;
     }
-    const root = app.vault.getAbstractFileByPath($selectedDraft.vaultPath)
-      .parent.path;
+
+    const candidate: MultipleSceneDraft = { ...draft, sceneFolder: newFolder };
+    if (rejectInvalidDirectories(candidate, input, draft.sceneFolder)) {
+      return;
+    }
+
+    const root = app.vault.getAbstractFileByPath(draft.vaultPath).parent.path;
     const path = normalizePath(`${root}/${newFolder}`);
     const exists = await app.vault.adapter.exists(path);
     if (exists) {
@@ -92,12 +160,25 @@
   }
 
   let sceneTemplateInput: HTMLInputElement;
+  let plotTemplateInput: HTMLInputElement;
+  let characterTemplateInput: HTMLInputElement;
   onMount(() => {
-    if (sceneTemplateInput && $selectedDraft.format === "scenes") {
-      new FileSuggest(app, sceneTemplateInput);
+    if ($selectedDraft.format === "scenes") {
+      if (sceneTemplateInput) {
+        new FileSuggest(app, sceneTemplateInput);
+      }
+      if (plotTemplateInput) {
+        new FileSuggest(app, plotTemplateInput);
+      }
+      if (characterTemplateInput) {
+        new FileSuggest(app, characterTemplateInput);
+      }
     }
   });
-  async function sceneTemplateChanged(event: Event) {
+  async function templateChanged(
+    field: "sceneTemplate" | "plotTemplate" | "characterTemplate",
+    event: Event
+  ) {
     let newTemplate = (event.target as any).value;
     if (!$selectedDraft) {
       return;
@@ -116,12 +197,24 @@
             d.vaultPath === $selectedDraftVaultPath &&
             d.format === "scenes"
           ) {
-            d.sceneTemplate = newTemplate;
+            d[field] = newTemplate;
           }
           return d;
         })
       );
     }
+  }
+
+  function sceneTemplateChanged(event: Event) {
+    return templateChanged("sceneTemplate", event);
+  }
+
+  function plotTemplateChanged(event: Event) {
+    return templateChanged("plotTemplate", event);
+  }
+
+  function characterTemplateChanged(event: Event) {
+    return templateChanged("characterTemplate", event);
   }
 
   function timeframeTagNameChanged(event: Event) {
@@ -224,6 +317,20 @@
     );
   }
 
+  function kanbanIncludePlotsChanged(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, kanbanIncludePlots: checked }
+          : d
+      )
+    );
+  }
+
   function timelineEnabledChanged(event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     if (!$selectedDraft) {
@@ -247,6 +354,84 @@
       allDrafts.map((d) =>
         d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
           ? { ...d, timelineOutputPath: value }
+          : d
+      )
+    );
+  }
+
+  function plotGridEnabledChanged(event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, plotGridEnabled: checked }
+          : d
+      )
+    );
+  }
+
+  function plotGridOutputPathChanged(event: Event) {
+    const value = (event.target as any).value;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, plotGridOutputPath: value }
+          : d
+      )
+    );
+  }
+
+  function plotGridPlotsDirChanged(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = input.value;
+    const draft = $selectedDraft;
+    if (!draft || draft.format !== "scenes") {
+      return;
+    }
+    const candidate: MultipleSceneDraft = {
+      ...draft,
+      plotGridPlotsDir: value,
+    };
+    if (
+      rejectInvalidDirectories(candidate, input, draft.plotGridPlotsDir)
+    ) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, plotGridPlotsDir: value }
+          : d
+      )
+    );
+  }
+
+  function plotGridCharactersDirChanged(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = input.value;
+    const draft = $selectedDraft;
+    if (!draft || draft.format !== "scenes") {
+      return;
+    }
+    const candidate: MultipleSceneDraft = {
+      ...draft,
+      plotGridCharactersDir: value,
+    };
+    if (
+      rejectInvalidDirectories(candidate, input, draft.plotGridCharactersDir)
+    ) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, plotGridCharactersDir: value }
           : d
       )
     );
@@ -340,6 +525,41 @@
               scenes to a new folder, move them in your vault first, then
               change this setting.
             </p>
+            <label for="longform-extended-project-plot-grid-plots-dir"
+              >Subplot Folder</label
+            >
+            <input
+              id="longform-extended-project-plot-grid-plots-dir"
+              type="text"
+              value={$selectedDraft.plotGridPlotsDir}
+              bind:this={plotGridPlotsDirInput}
+              on:blur={plotGridPlotsDirChanged}
+            />
+            <p class="longform-extended-project-warning">
+              Changing this folder does not move notes. Relative to the
+              project folder. Defaults to "Subplots".
+            </p>
+            <label for="longform-extended-project-plot-grid-characters-dir"
+              >Character Folder</label
+            >
+            <input
+              id="longform-extended-project-plot-grid-characters-dir"
+              type="text"
+              value={$selectedDraft.plotGridCharactersDir}
+              bind:this={plotGridCharactersDirInput}
+              on:blur={plotGridCharactersDirChanged}
+            />
+            <p class="longform-extended-project-warning">
+              Changing this folder does not move notes. Relative to the
+              project folder. Defaults to "Characters".
+            </p>
+            {#if directoryConflicts.length > 0}
+              <p class="longform-extended-project-error">
+                {directoryConflicts
+                  .map(describePlotGridDirectoryConflict)
+                  .join(" ")}
+              </p>
+            {/if}
             <label for="longform-extended-project-scene-template">Scene Template</label
             >
             <input
@@ -352,6 +572,36 @@
             <p class="longform-extended-project-warning">
               This file will be used as a template when creating new scenes
               via the New Scene… field. If you use a templating plugin
+              (Templater or the core plugin) it will be used to process this
+              template.
+            </p>
+            <label for="longform-extended-project-plot-template">Subplot Template</label
+            >
+            <input
+              id="longform-extended-project-plot-template"
+              type="text"
+              value={$selectedDraft.plotTemplate}
+              bind:this={plotTemplateInput}
+              on:blur={plotTemplateChanged}
+            />
+            <p class="longform-extended-project-warning">
+              This file will be used as a template when creating new subplots
+              via the New Subplot… field. If you use a templating plugin (Templater or
+              the core plugin) it will be used to process this template.
+            </p>
+            <label for="longform-extended-project-character-template"
+              >Character Template</label
+            >
+            <input
+              id="longform-extended-project-character-template"
+              type="text"
+              value={$selectedDraft.characterTemplate}
+              bind:this={characterTemplateInput}
+              on:blur={characterTemplateChanged}
+            />
+            <p class="longform-extended-project-warning">
+              This file will be used as a template when creating new characters
+              via the New Character… field. If you use a templating plugin
               (Templater or the core plugin) it will be used to process this
               template.
             </p>
@@ -433,6 +683,21 @@
               >Save word counts</label
             >
           </div>
+          <div class="longform-extended-kanban-toggle">
+            <input
+              id="longform-extended-project-kanban-include-plots"
+              type="checkbox"
+              checked={$selectedDraft.kanbanIncludePlots}
+              on:change={kanbanIncludePlotsChanged}
+            />
+            <label for="longform-extended-project-kanban-include-plots"
+              >Include subplots</label
+            >
+          </div>
+          <p class="longform-extended-project-warning">
+            Include notes from the Subplot Folder on the kanban board, alongside
+            project scenes. Character notes are not included.
+          </p>
         </div>
       {/if}
     </div>
@@ -504,6 +769,48 @@
             Relative to the project folder. Start with "/" for the vault root.
             "$1" is replaced with the project title. Defaults to
             "Build/$1_timeline.md".
+          </p>
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    <div class="longform-extended-project-section">
+      <div
+        class="longform-extended-project-details-section-header"
+        on:click={() => {
+          showPlotGrid = !showPlotGrid;
+        }}
+      >
+        <Disclosure collapsed={!showPlotGrid} />
+        <h4>Subplot Grid</h4>
+      </div>
+      {#if showPlotGrid}
+        <div>
+          <div class="longform-extended-plot-grid-toggle">
+            <input
+              id="longform-extended-project-plot-grid-enabled"
+              type="checkbox"
+              checked={$selectedDraft.plotGridEnabled}
+              on:change={plotGridEnabledChanged}
+            />
+            <label for="longform-extended-project-plot-grid-enabled"
+              >Enable subplot grid</label
+            >
+          </div>
+          <label for="longform-extended-project-plot-grid-output-path"
+            >Subplot Grid Output Path</label
+          >
+          <input
+            id="longform-extended-project-plot-grid-output-path"
+            type="text"
+            value={$selectedDraft.plotGridOutputPath}
+            on:blur={plotGridOutputPathChanged}
+          />
+          <p class="longform-extended-project-warning">
+            Relative to the project folder. Start with "/" for the vault root.
+            "$1" is replaced with the project title. Defaults to
+            "Base/$1_plotgrid.base". ".base" is added if omitted.
           </p>
         </div>
       {/if}
@@ -614,7 +921,8 @@
   }
 
   .longform-extended-kanban-toggle,
-  .longform-extended-timeline-toggle {
+  .longform-extended-timeline-toggle,
+  .longform-extended-plot-grid-toggle {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -623,7 +931,8 @@
   }
 
   .longform-extended-kanban-toggle input[type="checkbox"],
-  .longform-extended-timeline-toggle input[type="checkbox"] {
+  .longform-extended-timeline-toggle input[type="checkbox"],
+  .longform-extended-plot-grid-toggle input[type="checkbox"] {
     width: var(--checkbox-size, 16px);
     height: var(--checkbox-size, 16px);
     flex: none;
@@ -631,7 +940,8 @@
   }
 
   .longform-extended-kanban-toggle label,
-  .longform-extended-timeline-toggle label {
+  .longform-extended-timeline-toggle label,
+  .longform-extended-plot-grid-toggle label {
     display: inline;
     margin-top: 0;
     cursor: pointer;
@@ -647,6 +957,13 @@
 
   p.longform-extended-project-warning {
     color: var(--text-faint);
+    font-size: var(--font-smallest);
+    margin: var(--size-2-1) 0 0 var(--size-2-1);
+    line-height: normal;
+  }
+
+  p.longform-extended-project-error {
+    color: var(--text-error);
     font-size: var(--font-smallest);
     margin: var(--size-2-1) 0 0 var(--size-2-1);
     line-height: normal;

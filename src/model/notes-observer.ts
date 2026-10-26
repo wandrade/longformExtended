@@ -12,11 +12,13 @@ import {
   writeKanbanWordCounts,
 } from "./kanban";
 import { configuredOutputPath } from "./generated-note";
+import { isPlotGridPath, writePlotGrid } from "./plot-grid";
 import { draftForPath } from "./scene-navigation";
 import { drafts as draftsStore, draftWordCounts } from "./stores";
 import { buildTimeline, writeTimeline } from "./timeline";
 import {
   DEFAULT_KANBAN_OUTPUT_PATH,
+  DEFAULT_PLOT_GRID_OUTPUT_PATH,
   DEFAULT_TIMELINE_OUTPUT_PATH,
   type MultipleSceneDraft,
 } from "./types";
@@ -28,7 +30,7 @@ import {
 const REBUILD_DEBOUNCE_MS = 400;
 
 /** Generated outputs must never trigger a rebuild. */
-const GENERATED_SUFFIXES = ["_timeline.md", "_kanban.base"];
+const GENERATED_SUFFIXES = ["_timeline.md", "_kanban.base", "_plotgrid.base"];
 
 /** Rebuilds generated notes when scene values or project structure change. */
 export class ProjectNotesObserver {
@@ -40,6 +42,7 @@ export class ProjectNotesObserver {
   private rebuildTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private rebuilding = new Set<string>();
   private pending = new Set<string>();
+  private plotGridSkips = new Map<string, string>();
   private destroyed = false;
 
   constructor(app: App) {
@@ -71,6 +74,7 @@ export class ProjectNotesObserver {
       clearTimeout(timeout);
     }
     this.rebuildTimeouts.clear();
+    this.plotGridSkips.clear();
   }
 
   /** A vault file or folder was created. */
@@ -131,10 +135,10 @@ export class ProjectNotesObserver {
   }
 
   /**
-   * True when the path is one of a project's configured timeline/kanban
-   * outputs. The suffix check above covers the defaults; this also covers
-   * custom output paths, which would otherwise look like ordinary project
-   * files and retrigger a rebuild whenever they are written.
+   * True when the path is one of a project's configured timeline, kanban, or
+   * plot-grid outputs. The suffix check above covers the defaults; this also
+   * covers custom output paths, which would otherwise look like ordinary
+   * project files and retrigger a rebuild whenever they are written.
    */
   private isConfiguredOutput(
     path: string,
@@ -163,6 +167,17 @@ export class ProjectNotesObserver {
         if (path === kanbanPath) {
           return true;
         }
+
+        const plotGridPath = configuredOutputPath(
+          this.app,
+          draft,
+          draft.plotGridOutputPath,
+          DEFAULT_PLOT_GRID_OUTPUT_PATH,
+          ".base"
+        );
+        if (path === plotGridPath) {
+          return true;
+        }
       } catch {
         // A project note that was just deleted or renamed may not resolve yet.
       }
@@ -181,29 +196,54 @@ export class ProjectNotesObserver {
    * scene paths are matched exactly first. Otherwise the path's folder is
    * used so that scenes which are being created, deleted, or renamed before
    * the drafts store reflects them still map to their project.
+   *
+   * Plot/character row directories are matched independently of the project
+   * folder, so a `Bible/` directory at the vault root still maps its notes to
+   * the project that reads them.
    */
   private draftsForPath(
     path: string,
     drafts: MultipleSceneDraft[]
   ): MultipleSceneDraft[] {
     const normalized = normalizePath(path);
+    const matched = new Map<string, MultipleSceneDraft>();
+    const add = (candidates: MultipleSceneDraft[]) => {
+      for (const candidate of candidates) {
+        matched.set(candidate.vaultPath, candidate);
+      }
+    };
 
     const direct = draftForPath(normalized, drafts);
     if (direct && direct.format === "scenes") {
-      return [direct];
+      add([direct]);
+    } else {
+      const sceneMatches = drafts
+        .map((draft) => ({ draft, folder: this.sceneFolderFor(draft) }))
+        .filter(({ folder }) => isDirectlyInside(folder, normalized));
+      if (sceneMatches.length > 0) {
+        add(mostSpecific(sceneMatches));
+      } else {
+        const projectMatches = drafts
+          .map((draft) => ({
+            draft,
+            folder: this.projectFolderFor(draft),
+          }))
+          .filter(({ folder }) => isInsideProjectFolder(folder, normalized));
+        add(mostSpecific(projectMatches));
+      }
     }
 
-    const sceneMatches = drafts
-      .map((draft) => ({ draft, folder: this.sceneFolderFor(draft) }))
-      .filter(({ folder }) => isDirectlyInside(folder, normalized));
-    if (sceneMatches.length > 0) {
-      return mostSpecific(sceneMatches);
+    for (const draft of drafts) {
+      try {
+        if (isPlotGridPath(this.app, draft, normalized)) {
+          add([draft]);
+        }
+      } catch {
+        // A project note that was just deleted or renamed may not resolve.
+      }
     }
 
-    const projectMatches = drafts
-      .map((draft) => ({ draft, folder: this.projectFolderFor(draft) }))
-      .filter(({ folder }) => isInsideProjectFolder(folder, normalized));
-    return mostSpecific(projectMatches);
+    return Array.from(matched.values());
   }
 
   /** The project note's folder, or the string parent if it is missing. */
@@ -246,6 +286,7 @@ export class ProjectNotesObserver {
 
       void this.rebuildTimeline(current);
       void this.rebuildKanban(current);
+      void this.rebuildPlotGrid(current);
     }, REBUILD_DEBOUNCE_MS);
 
     this.rebuildTimeouts.set(draft.vaultPath, timeout);
@@ -281,6 +322,27 @@ export class ProjectNotesObserver {
     await this.rebuild(draft, "wordcounts", async () => {
       const result = await buildKanban(this.app, draft);
       await writeKanbanWordCounts(this.app, draft, result);
+    });
+  }
+
+  private async rebuildPlotGrid(draft: MultipleSceneDraft): Promise<void> {
+    if (!draft.plotGridEnabled) {
+      return;
+    }
+    await this.rebuild(draft, "plotgrid", async () => {
+      const result = await writePlotGrid(this.app, draft);
+      if (result.written) {
+        this.plotGridSkips.delete(draft.vaultPath);
+        return;
+      }
+      // Report each skip condition once; otherwise every project change would
+      // repeat the same "no notes" message.
+      if (this.plotGridSkips.get(draft.vaultPath) !== result.reason) {
+        this.plotGridSkips.set(draft.vaultPath, result.reason);
+        console.log(
+          `[Longform Extended] Subplot grid not written for "${draft.title}": ${result.reason}.`
+        );
+      }
     });
   }
 
@@ -324,6 +386,8 @@ export class ProjectNotesObserver {
       this.syncWordCounts(draft);
     } else if (kind === "timeline") {
       this.rebuildTimeline(draft);
+    } else if (kind === "plotgrid") {
+      this.rebuildPlotGrid(draft);
     }
   }
 
@@ -351,6 +415,7 @@ export class ProjectNotesObserver {
       if (draft.format === "scenes") {
         this.rebuildTimeline(draft);
         this.rebuildKanban(draft);
+        this.rebuildPlotGrid(draft);
       }
     }
   }
@@ -376,10 +441,17 @@ export class ProjectNotesObserver {
         draft.kanbanShowUnassigned,
         draft.kanbanSaveWordCounts,
         draft.kanbanEnabled,
+        draft.kanbanIncludePlots,
         draft.kanbanOutputPath,
         draft.timelineEnabled,
         draft.timelineOutputPath,
-        draft.scenes.map((scene) => scene.title).join("\u0000"),
+        draft.plotGridEnabled,
+        draft.plotGridOutputPath,
+        draft.plotGridPlotsDir,
+        draft.plotGridCharactersDir,
+        draft.scenes
+          .map((scene) => `${scene.title}\u0000${scene.indent}`)
+          .join("\u0000"),
       ].join("\u0001");
       const previous = this.signatures.get(draft.vaultPath);
       this.signatures.set(draft.vaultPath, signature);

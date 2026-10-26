@@ -20,6 +20,7 @@ import {
 import { startNewSession } from "./word-counts";
 import { rebuildTimeline } from "./timeline";
 import { rebuildKanban } from "./kanban";
+import { rebuildPlotGrid } from "./plot-grid";
 
 const commandBuilders = [
   compileCurrent,
@@ -41,6 +42,7 @@ const commandBuilders = [
   startNewSession,
   rebuildTimeline,
   rebuildKanban,
+  rebuildPlotGrid,
 ];
 
 export function addCommands(plugin: LongformExtendedPlugin) {

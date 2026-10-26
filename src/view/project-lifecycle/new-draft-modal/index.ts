@@ -2,7 +2,7 @@ import { App, Modal, normalizePath } from "obsidian";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { scenePath, scenePathForFolder } from "src/model/scene-navigation";
 import { selectedDraft, selectedDraftVaultPath } from "src/model/stores";
-import type { Draft } from "src/model/types";
+import type { Draft, MultipleSceneDraft } from "src/model/types";
 import { get } from "svelte/store";
 import NewDraftModal from "./NewDraftModal.svelte";
 import { appContext } from "src/view/utils";
@@ -65,12 +65,17 @@ export default class NewDraftModalContainer extends Modal {
           }
 
           // insert draft into frontmatter
-          const newDraft = {
+          const newDraft: MultipleSceneDraft = {
             ...draft,
             title: draft.title,
             titleInFrontmatter: true,
             draftTitle,
             scenes: copyScenes ? draft.scenes : [],
+            // Plot/character notes are not copied to the new draft folder, so
+            // start their organizational overlays empty. They repopulate from
+            // the folders on the next load.
+            plots: [],
+            characters: [],
           };
           await insertDraftIntoFrontmatter(this.app, newVaultPath, newDraft);
           selectedDraftVaultPath.set(newVaultPath);

@@ -39,6 +39,11 @@ export const DEFAULT_TIME_FORMAT: TimeframeFormat = "datetime";
 export const DEFAULT_TIMELINE_OUTPUT_PATH = "Build/$1_timeline.md";
 export const DEFAULT_KANBAN_COLUMNS = "Planned Draft Reviewed";
 export const DEFAULT_KANBAN_OUTPUT_PATH = "Build/$1_kanban.base";
+export const DEFAULT_KANBAN_INCLUDE_PLOTS = true;
+export const DEFAULT_PLOT_GRID_ENABLED = true;
+export const DEFAULT_PLOT_GRID_OUTPUT_PATH = "Base/$1_plotgrid.base";
+export const DEFAULT_PLOT_GRID_PLOTS_DIR = "Subplots";
+export const DEFAULT_PLOT_GRID_CHARACTERS_DIR = "Characters";
 export const KANBAN_STATUS_TAG = "status";
 /**
  * Plugin-managed frontmatter property that the generated Bases board groups by
@@ -66,15 +71,30 @@ export type MultipleSceneDraft = {
   ignoredFiles: string[] | null;
   unknownFiles: string[];
   sceneTemplate: string | null;
+  plotTemplate: string | null;
+  characterTemplate: string | null;
+  /**
+   * Organizational order/indent overlay for the Plots and Characters tabs.
+   * The configured folders are the membership source of truth; these lists
+   * only record the order and nesting shown in the tree.
+   */
+  plots: IndentedScene[];
+  characters: IndentedScene[];
   timeframeTagName: string;
   timeFormat: TimeframeFormat;
   kanbanColumns: string;
   kanbanShowUnassigned: boolean;
   kanbanSaveWordCounts: boolean;
   kanbanEnabled: boolean;
+  /** Include notes from the configured Plot Folder on the kanban board. */
+  kanbanIncludePlots: boolean;
   kanbanOutputPath: string;
   timelineEnabled: boolean;
   timelineOutputPath: string;
+  plotGridEnabled: boolean;
+  plotGridOutputPath: string;
+  plotGridPlotsDir: string;
+  plotGridCharactersDir: string;
 };
 
 export type SingleSceneDraft = {
@@ -152,6 +172,8 @@ export interface LongformExtendedPluginSettings {
   sessionFile: string;
   numberScenes: boolean;
   sceneTemplate: string | null;
+  plotTemplate: string | null;
+  characterTemplate: string | null;
   waitForSync: boolean;
   fallbackWaitEnabled: boolean;
   fallbackWaitTime: number;
@@ -184,6 +206,8 @@ export const DEFAULT_SETTINGS: LongformExtendedPluginSettings = {
   sessionFile: DEFAULT_SESSION_FILE,
   numberScenes: false,
   sceneTemplate: null,
+  plotTemplate: null,
+  characterTemplate: null,
   writeProperty: false,
   projects: {},
   waitForSync: false,
@@ -208,6 +232,8 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformExtendedPluginSettings)[] = 
   "sessionFile",
   "numberScenes",
   "sceneTemplate",
+  "plotTemplate",
+  "characterTemplate",
   "waitForSync",
   "fallbackWaitEnabled",
   "fallbackWaitTime",
@@ -228,6 +254,8 @@ export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformExtendedPluginSetti
     "sessionFile",
     "numberScenes",
     "sceneTemplate",
+    "plotTemplate",
+    "characterTemplate",
     "waitForSync",
     "fallbackWaitEnabled",
     "fallbackWaitTime",

@@ -1,10 +1,12 @@
 import { TFile, type App } from "obsidian";
 import { get } from "svelte/store";
 
+import { auxiliaryFolder, auxiliaryNoteFiles } from "./auxiliary-notes";
 import {
   configuredOutputPath,
   writeGeneratedNote,
 } from "./generated-note";
+import { isInsidePlotGridDirectory } from "./plot-grid";
 import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
 import { drafts as draftsStore, draftWordCounts } from "./stores";
 import {
@@ -239,6 +241,76 @@ async function clearStaleHelpers(
 }
 
 /**
+ * Reads one note's status/helper, reconciles a Bases drag into the real status,
+ * writes anything missing, and files the note into its column. Returns true
+ * when the note has a status (so the board has at least one card).
+ */
+async function processKanbanNote(
+  app: App,
+  title: string,
+  path: string,
+  file: TFile,
+  columns: string[],
+  showUnassigned: boolean,
+  cards: Record<string, KanbanCard[]>,
+  unassigned: KanbanCard[],
+  errors: KanbanError[]
+): Promise<boolean> {
+  const cached = app.metadataCache.getFileCache(file);
+  if (!cached) {
+    // Not indexed yet. Leave it active so cleanup does not strip its helper;
+    // the next rebuild will pick it up once the cache is ready.
+    return false;
+  }
+  const cachedStatus = statusValue(cached.frontmatter?.[KANBAN_STATUS_TAG]);
+  const cachedHelper = helperValue(cached.frontmatter?.[KANBAN_HELPER_TAG]);
+  const observed = readCachedState(path, cachedStatus, cachedHelper);
+
+  const status = reconcileStatus(
+    path,
+    observed.status,
+    observed.helper,
+    columns,
+    showUnassigned
+  );
+  const helper = expectedHelper(status, columns, showUnassigned);
+
+  if (observed.status !== status || observed.helper !== (helper ?? "")) {
+    const beforeStatus = observed.status;
+    const beforeHelper = observed.helper;
+    await app.fileManager.processFrontMatter(file, (frontmatter) => {
+      if (beforeStatus !== status) {
+        if (status === null) {
+          delete frontmatter[KANBAN_STATUS_TAG];
+        } else {
+          frontmatter[KANBAN_STATUS_TAG] = status;
+        }
+      }
+      if (helper === null) {
+        delete frontmatter[KANBAN_HELPER_TAG];
+      } else {
+        frontmatter[KANBAN_HELPER_TAG] = helper;
+      }
+    });
+    recordWrite(path, beforeStatus, beforeHelper, status, helper);
+  }
+  sceneStates.set(path, { status, helper: helper ?? "" });
+
+  if (status === null) {
+    unassigned.push({ title, path });
+    return false;
+  }
+
+  if (!columns.includes(status)) {
+    errors.push({ sceneTitle: title, status });
+    return true;
+  }
+
+  cards[status].push({ title, path });
+  return true;
+}
+
+/**
  * Groups scenes into their configured kanban columns by status and keeps the
  * board helper property (`longformKanbanStatus`) in sync.
  *
@@ -248,6 +320,9 @@ async function clearStaleHelpers(
  * statuses use the column title as their helper value; invalid statuses share
  * "Incorrectly Assigned"; missing statuses use "Unassigned" only when that
  * column is enabled.
+ *
+ * When `kanbanIncludePlots` is set, notes from the configured Plot Folder are
+ * processed exactly like scenes. Character-folder notes are never included.
  */
 export async function buildKanban(
   app: App,
@@ -283,62 +358,50 @@ export async function buildKanban(
     }
 
     activePaths.add(path);
-
-    const cached = app.metadataCache.getFileCache(file);
-    if (!cached) {
-      // Not indexed yet. Leave it active so cleanup does not strip its helper;
-      // the next rebuild will pick it up once the cache is ready.
-      continue;
-    }
-    const cachedStatus = statusValue(cached.frontmatter?.[KANBAN_STATUS_TAG]);
-    const cachedHelper = helperValue(cached.frontmatter?.[KANBAN_HELPER_TAG]);
-    const observed = readCachedState(path, cachedStatus, cachedHelper);
-
-    const status = reconcileStatus(
-      path,
-      observed.status,
-      observed.helper,
-      columns,
-      showUnassigned
-    );
-    const helper = expectedHelper(status, columns, showUnassigned);
-
     if (
-      observed.status !== status ||
-      observed.helper !== (helper ?? "")
+      await processKanbanNote(
+        app,
+        scene.title,
+        path,
+        file,
+        columns,
+        showUnassigned,
+        cards,
+        unassigned,
+        errors
+      )
     ) {
-      const beforeStatus = observed.status;
-      const beforeHelper = observed.helper;
-      await app.fileManager.processFrontMatter(file, (frontmatter) => {
-        if (beforeStatus !== status) {
-          if (status === null) {
-            delete frontmatter[KANBAN_STATUS_TAG];
-          } else {
-            frontmatter[KANBAN_STATUS_TAG] = status;
-          }
-        }
-        if (helper === null) {
-          delete frontmatter[KANBAN_HELPER_TAG];
-        } else {
-          frontmatter[KANBAN_HELPER_TAG] = helper;
-        }
-      });
-      recordWrite(path, beforeStatus, beforeHelper, status, helper);
+      hasAnyStatus = true;
     }
-    sceneStates.set(path, { status, helper: helper ?? "" });
+  }
 
-    if (status === null) {
-      unassigned.push({ title: scene.title, path });
-      continue;
+  if (draft.kanbanIncludePlots) {
+    for (const note of auxiliaryNoteFiles(app, draft, "plots")) {
+      if (activePaths.has(note.path)) {
+        continue;
+      }
+      const file = app.vault.getAbstractFileByPath(note.path);
+      if (!(file instanceof TFile)) {
+        continue;
+      }
+
+      activePaths.add(note.path);
+      if (
+        await processKanbanNote(
+          app,
+          note.name,
+          note.path,
+          file,
+          columns,
+          showUnassigned,
+          cards,
+          unassigned,
+          errors
+        )
+      ) {
+        hasAnyStatus = true;
+      }
     }
-
-    hasAnyStatus = true;
-    if (!columns.includes(status)) {
-      errors.push({ sceneTitle: scene.title, status });
-      continue;
-    }
-
-    cards[status].push({ title: scene.title, path });
   }
 
   await clearStaleHelpers(app, draft, activePaths);
@@ -388,6 +451,8 @@ export async function writeKanbanWordCounts(
     return;
   }
   const counts = storedCounts as Record<string, number>;
+  // Plot notes have no draft word counts; never write `wordCount` to them.
+  const plotFolder = auxiliaryFolder(app, draft, "plots");
 
   const written = new Set<string>();
   for (const cards of Object.values(result.cards)) {
@@ -396,6 +461,10 @@ export async function writeKanbanWordCounts(
         continue;
       }
       written.add(card.path);
+
+      if (isInsidePlotGridDirectory(plotFolder, card.path)) {
+        continue;
+      }
 
       const count = counts[card.title];
       if (typeof count !== "number") {
@@ -457,20 +526,67 @@ function renderKanbanBase(
   // The helper is both the membership marker and the grouped property, so
   // notes without it (unlisted notes, containers, hidden unassigned notes) are
   // excluded. Grouping by a writable note property keeps cards draggable.
-  const filters = [
+  // With Include plots, the board accepts notes from either the scene folder
+  // or the configured plot folder; character notes are never included.
+  const plotFolder = draft.kanbanIncludePlots
+    ? auxiliaryFolder(app, draft, "plots")
+    : null;
+  const plotFolderFilter =
+    plotFolder === null ? null : plotFolder === "" ? "/" : plotFolder;
+  const folderFilters = [
     `file.inFolder(${JSON.stringify(sceneFolderPath(draft, app.vault))})`,
-    `!note.${KANBAN_HELPER_TAG}.isEmpty()`,
   ];
+  if (plotFolderFilter !== null) {
+    folderFilters.push(
+      `file.inFolder(${JSON.stringify(plotFolderFilter)})`
+    );
+  }
+
+  const filterLines: string[] = ["filters:", "  and:"];
+  if (folderFilters.length === 1) {
+    filterLines.push(`    - ${yamlQuote(folderFilters[0])}`);
+  } else {
+    filterLines.push("    - or:");
+    for (const filter of folderFilters) {
+      filterLines.push(`        - ${yamlQuote(filter)}`);
+    }
+  }
+  filterLines.push(
+    `    - ${yamlQuote(`!note.${KANBAN_HELPER_TAG}.isEmpty()`)}`
+  );
+
+  // Plot cards have no draft word counts, so with Include plots the word-count
+  // column is a display-only formula that blanks plots while scenes keep
+  // showing the value written to their `wordCount` property.
+  const useWordCountFormula =
+    plotFolderFilter !== null && draft.kanbanSaveWordCounts;
+  const formulaLines = useWordCountFormula
+    ? [
+        "formulas:",
+        "  kanban_word_count: |-",
+        `    if(file.inFolder(${JSON.stringify(
+          plotFolderFilter
+        )}), "", wordCount)`,
+      ]
+    : [];
+  const propertyLines = useWordCountFormula
+    ? [
+        "properties:",
+        "  formula.kanban_word_count:",
+        '    displayName: "Word Count"',
+      ]
+    : [];
 
   const cardProperties = ["file.name"];
   if (draft.kanbanSaveWordCounts) {
-    cardProperties.push("note.wordCount");
+    cardProperties.push(
+      useWordCountFormula ? "formula.kanban_word_count" : "note.wordCount"
+    );
   }
 
   const lines = [
-    "filters:",
-    "  and:",
-    ...filters.map((filter) => `    - ${yamlQuote(filter)}`),
+    ...filterLines,
+    ...formulaLines,
     "views:",
     "  - type: kanban",
     "    name: Kanban",
@@ -482,6 +598,7 @@ function renderKanbanBase(
     ...(cardProperties.length > 1
       ? ["    order:", ...cardProperties.map((property) => `      - ${property}`)]
       : []),
+    ...propertyLines,
   ];
 
   return `${lines.join("\n")}\n`;

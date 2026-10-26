@@ -18,6 +18,11 @@
   import { scenePath } from "src/model/scene-navigation";
   import { selectElementContents, useApp } from "../utils";
   import { addAll, addScene, ignoreAll, ignoreScene } from "./scene-menu-items";
+  import {
+    entriesFromItemOrder,
+    indentedTreeVisibility,
+    toggleCollapsedItem,
+  } from "./indented-tree";
 
   const app = useApp();
 
@@ -62,21 +67,11 @@
     _collapsedItems: string[]
   ): SceneItem[] {
     const scenes = numberScenes(indentedScenes);
+    const visibility = indentedTreeVisibility(indentedScenes, _collapsedItems);
     const itemsToReturn: SceneItem[] = [];
-    let ignoringUntilIndent = Infinity;
 
     scenes.forEach(({ title, indent, numbering }, index) => {
-      const hidden = indent > ignoringUntilIndent;
-      if (!hidden) {
-        ignoringUntilIndent = Infinity;
-      }
-
-      const collapsed = _collapsedItems.contains(title);
-      if (collapsed) {
-        ignoringUntilIndent = Math.min(ignoringUntilIndent, indent);
-      }
-
-      const nextScene = index < scenes.length - 1 ? scenes[index + 1] : false;
+      const { hidden, collapsible } = visibility[index];
       const path = makeScenePath($selectedDraft as MultipleSceneDraft, title);
       const file = app.vault.getAbstractFileByPath(path);
       let status = undefined;
@@ -95,7 +90,7 @@
         name: title,
         indent,
         path,
-        collapsible: nextScene && nextScene.indent > indent,
+        collapsible,
         hidden,
         numbering,
         status,
@@ -124,10 +119,11 @@
 
   function itemOrderChanged(event: CustomEvent<SceneItem[]>) {
     if (currentDraftIndex >= 0 && $selectedDraft.format === "scenes") {
-      const scenes: IndentedScene[] = event.detail.map((d) => ({
-        title: d.name,
-        indent: d.name === draggingID ? draggingIndent : d.indent,
-      }));
+      const scenes: IndentedScene[] = entriesFromItemOrder(
+        event.detail,
+        draggingID,
+        draggingIndent
+      );
       ($drafts[currentDraftIndex] as MultipleSceneDraft).scenes = scenes;
 
       sceneHistory = [
@@ -159,11 +155,7 @@
   }
 
   function collapseItem(itemID: string) {
-    if (!collapsedItems.contains(itemID)) {
-      collapsedItems = [...collapsedItems, itemID];
-    } else {
-      collapsedItems = collapsedItems.filter((i) => i !== itemID);
-    }
+    collapsedItems = toggleCollapsedItem(collapsedItems, itemID);
   }
 
   // Grab the click context function and call it when a valid scene is clicked.

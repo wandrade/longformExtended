@@ -17,3 +17,146 @@
   margin-left: var(--size-4-2);
   color: var(--text-muted);
 }
+
+/* Plot Grid — transposed custom Bases view */
+.longform-plotgrid-view {
+  position: relative;
+  height: 100%;
+  overflow: auto;
+  padding: var(--size-4-2);
+  box-sizing: border-box;
+}
+
+.longform-plotgrid-empty {
+  padding: var(--size-4-8) var(--size-4-4);
+  color: var(--text-muted);
+  font-size: var(--font-ui-medium);
+  text-align: center;
+}
+
+.longform-plotgrid-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  padding-bottom: var(--size-4-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.longform-plotgrid-level-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+}
+
+.longform-plotgrid-level-select {
+  min-width: 12em;
+}
+
+.longform-plotgrid-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: var(--font-ui-small);
+}
+
+.longform-plotgrid-table th,
+.longform-plotgrid-table td {
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: var(--size-2-2) var(--size-4-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.longform-plotgrid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-width: 9em;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
+.longform-plotgrid-table thead th.longform-plotgrid-note-header {
+  max-width: 16em;
+  white-space: normal;
+}
+
+.longform-plotgrid-table tbody th.longform-plotgrid-row-header {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 10em;
+  max-width: 20em;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+  white-space: normal;
+}
+
+.longform-plotgrid-table thead th.longform-plotgrid-corner {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  min-width: 10em;
+  color: var(--text-muted);
+}
+
+.longform-plotgrid-table tbody tr:hover td,
+.longform-plotgrid-table tbody tr:hover th {
+  background-color: var(--background-modifier-hover);
+}
+
+.longform-plotgrid-note-link {
+  color: var(--link-color);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.longform-plotgrid-note-link:hover {
+  color: var(--link-color-hover);
+  text-decoration: underline;
+}
+
+.longform-plotgrid-cell {
+  min-width: 9em;
+}
+
+.longform-plotgrid-cell-editable {
+  cursor: text;
+}
+
+.longform-plotgrid-cell-editing {
+  padding: 0;
+}
+
+.longform-plotgrid-cell-readonly {
+  color: var(--text-muted);
+}
+
+.longform-plotgrid-input {
+  width: 100%;
+  min-width: 8em;
+  box-sizing: border-box;
+  padding: var(--size-2-1) var(--size-2-2);
+  border: 1px solid var(--background-modifier-border-focus);
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-form-field);
+  color: var(--text-normal);
+  font: inherit;
+}
+
+.longform-plotgrid-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.longform-plotgrid-input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  margin: var(--size-2-2);
+}

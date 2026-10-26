@@ -12,12 +12,23 @@ import { get, type Unsubscriber } from "svelte/store";
 import {
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_OUTPUT_PATH,
+  DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+  DEFAULT_PLOT_GRID_OUTPUT_PATH,
+  DEFAULT_PLOT_GRID_PLOTS_DIR,
   DEFAULT_TIMEFRAME_TAG_NAME,
   DEFAULT_TIMELINE_OUTPUT_PATH,
   DEFAULT_TIME_FORMAT,
   isTimeframeFormat,
   type Draft,
+  type MultipleSceneDraft,
 } from "./types";
+import {
+  auxiliaryFolder,
+  auxiliaryNoteFiles,
+  reconcileAuxiliaryList,
+  type AuxiliaryNoteKind,
+} from "./auxiliary-notes";
+import { isInsidePlotGridDirectory } from "./plot-grid";
 import {
   drafts as draftsStore,
   pluginSettings,
@@ -280,6 +291,8 @@ export class StoreVaultSync {
         });
       });
     }
+
+    this.addAuxiliaryNote(file);
   }
 
   async fileDeleted(file: TFile) {
@@ -313,7 +326,7 @@ export class StoreVaultSync {
             return d;
           });
         });
-      } else {
+      } else if (!this.removeAuxiliaryNote(file, drafts)) {
         // check unknown files, delete from there if present
         const inDraftUnknown = drafts.find(
           (d) => d.format === "scenes" && d.unknownFiles.contains(file.basename)
@@ -356,6 +369,8 @@ export class StoreVaultSync {
         selectedDraftVaultPath.set(file.path);
       }
     } else {
+      this.renameAuxiliaryNote(file, oldPath, drafts);
+
       // scene renamed
       const newTitle = fileNameFromPath(file.path);
       const foundOld = findScene(oldPath, drafts);
@@ -423,6 +438,160 @@ export class StoreVaultSync {
         }
       }
     }
+  }
+
+  /** The auxiliary tree a path belongs to for a draft, if any. */
+  private auxiliaryKindForPath(
+    draft: MultipleSceneDraft,
+    path: string
+  ): AuxiliaryNoteKind | null {
+    for (const kind of ["plots", "characters"] as const) {
+      if (
+        isInsidePlotGridDirectory(auxiliaryFolder(this.app, draft, kind), path)
+      ) {
+        return kind;
+      }
+    }
+    return null;
+  }
+
+  /** Adds a note that appeared in a plot/character folder to its overlay. */
+  private addAuxiliaryNote(file: TFile): boolean {
+    const isMember = get(draftsStore).some(
+      (draft) =>
+        draft.format === "scenes" &&
+        this.auxiliaryKindForPath(draft, file.path) !== null
+    );
+    if (!isMember) {
+      return false;
+    }
+
+    let changed = false;
+
+    draftsStore.update((allDrafts) => {
+      return allDrafts.map((draft) => {
+        if (draft.format !== "scenes") {
+          return draft;
+        }
+        const kind = this.auxiliaryKindForPath(draft, file.path);
+        if (!kind) {
+          return draft;
+        }
+        if (!draft[kind].some((entry) => entry.title === file.basename)) {
+          draft[kind] = [
+            ...draft[kind],
+            { title: file.basename, indent: 0 },
+          ];
+          changed = true;
+        }
+        return draft;
+      });
+    });
+
+    return changed;
+  }
+
+  /** Removes a deleted note from any plot/character overlay. */
+  private removeAuxiliaryNote(file: TFile, drafts: Draft[]): boolean {
+    let member = false;
+
+    for (const draft of drafts) {
+      if (
+        draft.format === "scenes" &&
+        this.auxiliaryKindForPath(draft, file.path)
+      ) {
+        member = true;
+      }
+    }
+    if (!member) {
+      return false;
+    }
+
+    draftsStore.update((allDrafts) => {
+      return allDrafts.map((draft) => {
+        if (draft.format !== "scenes") {
+          return draft;
+        }
+        const kind = this.auxiliaryKindForPath(draft, file.path);
+        if (kind) {
+          draft[kind] = draft[kind].filter(
+            (entry) => entry.title !== file.basename
+          );
+        }
+        return draft;
+      });
+    });
+    return true;
+  }
+
+  /**
+   * Keeps the overlay title in step with a rename or move. A rename inside the
+   * same tree preserves position and indent; a move out removes the entry; a
+   * move in appends it at the root.
+   */
+  private renameAuxiliaryNote(
+    file: TFile,
+    oldPath: string,
+    drafts: Draft[]
+  ): void {
+    const oldName = fileNameFromPath(oldPath);
+    const newName = file.basename;
+
+    let member = false;
+    for (const draft of drafts) {
+      if (
+        draft.format === "scenes" &&
+        (this.auxiliaryKindForPath(draft, oldPath) ||
+          this.auxiliaryKindForPath(draft, file.path))
+      ) {
+        member = true;
+      }
+    }
+    if (!member) {
+      return;
+    }
+
+    draftsStore.update((allDrafts) => {
+      return allDrafts.map((draft) => {
+        if (draft.format !== "scenes") {
+          return draft;
+        }
+        const oldKind = this.auxiliaryKindForPath(draft, oldPath);
+        const newKind = this.auxiliaryKindForPath(draft, file.path);
+        if (!oldKind && !newKind) {
+          return draft;
+        }
+
+        if (oldKind) {
+          const index = draft[oldKind].findIndex(
+            (entry) => entry.title === oldName
+          );
+          if (index >= 0 && oldKind === newKind) {
+            draft[oldKind][index] = {
+              ...draft[oldKind][index],
+              title: newName,
+            };
+            return draft;
+          }
+          if (index >= 0) {
+            draft[oldKind] = draft[oldKind].filter(
+              (entry) => entry.title !== oldName
+            );
+          }
+        }
+
+        if (
+          newKind &&
+          !draft[newKind].some((entry) => entry.title === newName)
+        ) {
+          draft[newKind] = [
+            ...draft[newKind],
+            { title: newName, indent: 0 },
+          ];
+        }
+        return draft;
+      });
+    });
   }
 
   async draftsStoreChanged(newValue: Draft[]) {
@@ -501,6 +670,8 @@ export class StoreVaultSync {
       const scenes = arraysToIndentedScenes(rawScenes);
       const sceneFolder = longformEntry["sceneFolder"] ?? "/";
       const sceneTemplate = longformEntry["sceneTemplate"] ?? null;
+      const plotTemplate = longformEntry["plotTemplate"] ?? null;
+      const characterTemplate = longformEntry["characterTemplate"] ?? null;
       const timeframeTagName =
         longformEntry["timeframeTagName"] ?? DEFAULT_TIMEFRAME_TAG_NAME;
       const timeFormat = isTimeframeFormat(longformEntry["timeFormat"])
@@ -515,6 +686,8 @@ export class StoreVaultSync {
       const kanbanSaveWordCounts =
         longformEntry["kanbanSaveWordCounts"] !== false;
       const kanbanEnabled = longformEntry["kanbanEnabled"] !== false;
+      const kanbanIncludePlots =
+        longformEntry["kanbanIncludePlots"] !== false;
       const timelineEnabled = longformEntry["timelineEnabled"] !== false;
       const kanbanOutputPath =
         typeof longformEntry["kanbanOutputPath"] === "string"
@@ -524,6 +697,19 @@ export class StoreVaultSync {
         typeof longformEntry["timelineOutputPath"] === "string"
           ? longformEntry["timelineOutputPath"]
           : DEFAULT_TIMELINE_OUTPUT_PATH;
+      const plotGridEnabled = longformEntry["plotGridEnabled"] !== false;
+      const plotGridOutputPath =
+        typeof longformEntry["plotGridOutputPath"] === "string"
+          ? longformEntry["plotGridOutputPath"]
+          : DEFAULT_PLOT_GRID_OUTPUT_PATH;
+      const plotGridPlotsDir =
+        typeof longformEntry["plotGridPlotsDir"] === "string"
+          ? longformEntry["plotGridPlotsDir"]
+          : DEFAULT_PLOT_GRID_PLOTS_DIR;
+      const plotGridCharactersDir =
+        typeof longformEntry["plotGridCharactersDir"] === "string"
+          ? longformEntry["plotGridCharactersDir"]
+          : DEFAULT_PLOT_GRID_CHARACTERS_DIR;
       const ignoredFiles: string[] = longformEntry["ignoredFiles"] ?? [];
       const normalizedSceneFolder = normalizePath(
         `${fileWithMetadata.file.parent.path}/${sceneFolder}`
@@ -546,7 +732,7 @@ export class StoreVaultSync {
         filenamesInSceneFolder.contains(title)
       );
 
-      const dirty = knownScenes.length !== scenes.length;
+      let dirty = knownScenes.length !== scenes.length;
 
       const sceneTitles = new Set(scenes.map((s) => s.title));
       const newScenes = filenamesInSceneFolder.filter(
@@ -558,6 +744,27 @@ export class StoreVaultSync {
       const unknownFiles = newScenes.filter(
         (s) => ignoredRegexes.find((r) => r.test(s)) === undefined
       );
+
+      // Reconcile the Plots/Characters tab overlays with their folders. The
+      // folders own membership; the overlays only own order and indentation.
+      const draftDirectories = {
+        vaultPath,
+        plotGridPlotsDir,
+        plotGridCharactersDir,
+      } as MultipleSceneDraft;
+      const plots = reconcileAuxiliaryList(
+        arraysToIndentedScenes(longformEntry["plots"] ?? []),
+        auxiliaryNoteFiles(this.app, draftDirectories, "plots").map(
+          (file) => file.name
+        )
+      );
+      const characters = reconcileAuxiliaryList(
+        arraysToIndentedScenes(longformEntry["characters"] ?? []),
+        auxiliaryNoteFiles(this.app, draftDirectories, "characters").map(
+          (file) => file.name
+        )
+      );
+      dirty = dirty || plots.dirty || characters.dirty;
 
       return {
         draft: {
@@ -571,15 +778,24 @@ export class StoreVaultSync {
           ignoredFiles,
           unknownFiles,
           sceneTemplate,
+          plotTemplate,
+          characterTemplate,
+          plots: plots.list,
+          characters: characters.list,
           timeframeTagName,
           timeFormat,
           kanbanColumns,
           kanbanShowUnassigned,
           kanbanSaveWordCounts,
           kanbanEnabled,
+          kanbanIncludePlots,
           kanbanOutputPath,
           timelineEnabled,
           timelineOutputPath,
+          plotGridEnabled,
+          plotGridOutputPath,
+          plotGridPlotsDir,
+          plotGridCharactersDir,
           workflow,
         },
         dirty,

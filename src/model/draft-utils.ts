@@ -113,13 +113,34 @@ export function setDraftOnFrontmatterObject(
     if (!draft.kanbanEnabled) {
       obj["longform"]["kanbanEnabled"] = false;
     }
+    if (!draft.kanbanIncludePlots) {
+      obj["longform"]["kanbanIncludePlots"] = false;
+    }
     if (!draft.timelineEnabled) {
       obj["longform"]["timelineEnabled"] = false;
     }
     obj["longform"]["timelineOutputPath"] = draft.timelineOutputPath;
+    if (!draft.plotGridEnabled) {
+      obj["longform"]["plotGridEnabled"] = false;
+    }
+    obj["longform"]["plotGridOutputPath"] = draft.plotGridOutputPath;
+    // The level now lives in the generated Base view, not the project note.
+    // Dropping the old key here also removes it from existing projects the
+    // next time their note is rewritten.
+    delete obj["longform"]["plotGridLevel"];
+    obj["longform"]["plotGridPlotsDir"] = draft.plotGridPlotsDir;
+    obj["longform"]["plotGridCharactersDir"] = draft.plotGridCharactersDir;
     obj["longform"]["scenes"] = indentedScenesToArrays(draft.scenes);
+    obj["longform"]["plots"] = indentedScenesToArrays(draft.plots);
+    obj["longform"]["characters"] = indentedScenesToArrays(draft.characters);
     if (draft.sceneTemplate) {
       obj["longform"]["sceneTemplate"] = draft.sceneTemplate;
+    }
+    if (draft.plotTemplate) {
+      obj["longform"]["plotTemplate"] = draft.plotTemplate;
+    }
+    if (draft.characterTemplate) {
+      obj["longform"]["characterTemplate"] = draft.characterTemplate;
     }
     obj["longform"]["ignoredFiles"] = draft.ignoredFiles;
   }
@@ -159,19 +180,25 @@ export function indentedScenesToArrays(indented: IndentedScene[]) {
   return result;
 }
 
+/**
+ * Converts Longform's nested `scenes` arrays into a flat, indented list.
+ *
+ * This must not mutate `arr`: callers pass the metadata cache's frontmatter
+ * array directly, and consuming it would leave later syncs with an empty
+ * scene list.
+ */
 export function arraysToIndentedScenes(
   arr: any,
   result: IndentedScene[] = [],
   currentIndent = -1
 ): IndentedScene[] {
   if (arr instanceof Array) {
-    if (arr.length === 0) {
-      return result;
+    let scenes = result;
+    for (const item of arr) {
+      const inner = arraysToIndentedScenes(item, [], currentIndent + 1);
+      scenes = scenes.concat(inner);
     }
-
-    const next = arr.shift();
-    const inner = arraysToIndentedScenes(next, [], currentIndent + 1);
-    return arraysToIndentedScenes(arr, [...result, ...inner], currentIndent);
+    return scenes;
   } else {
     return [
       {

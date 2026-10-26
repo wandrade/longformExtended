@@ -9,7 +9,7 @@
   class:selected={$selectedTab === tab}
   on:click={() => selectedTab.set(tab)}
 >
-  {#if tab == "Scenes"}
+  {#if tab == "Notes"}
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -20,14 +20,10 @@
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
-      class="clickable-icon lucide lucide-gallery-horizontal-end"
-      ><path d="M2 7v10" /><path d="M6 5v14" /><rect
-        width="12"
-        height="18"
-        x="10"
-        y="3"
-        rx="2"
-      /></svg
+      class="clickable-icon lucide lucide-notebook"
+      ><path d="M2 6h4" /><path d="M2 10h4" /><path d="M2 14h4" /><path
+        d="M2 18h4"
+      /><rect width="16" height="20" x="4" y="2" rx="2" /><path d="M16 2v20" /></svg
     >
   {/if}
   {#if tab == "Project"}

@@ -38,7 +38,7 @@ export default class ConfirmActionModal extends Modal {
       .onClick(this.noAction);
     new ButtonComponent(contentEl)
       .setButtonText(this.yesText)
-      .setWarning()
+      .setDestructive()
       .onClick(() => {
         this.yesAction();
         this.close();
