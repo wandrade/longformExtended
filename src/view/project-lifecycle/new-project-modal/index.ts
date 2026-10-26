@@ -1,10 +1,12 @@
 import { App, Modal, TFolder } from "obsidian";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { selectedDraftVaultPath } from "src/model/stores";
-import type {
-  Draft,
-  MultipleSceneDraft,
-  SingleSceneDraft,
+import {
+  DEFAULT_TIMEFRAME_TAG_NAME,
+  DEFAULT_TIME_FORMAT,
+  type Draft,
+  type MultipleSceneDraft,
+  type SingleSceneDraft,
 } from "src/model/types";
 import { selectedTab } from "src/view/stores";
 import NewProjectModal from "./NewProjectModal.svelte";
@@ -24,7 +26,7 @@ export default class NewProjectModalContainer extends Modal {
     contentEl.createEl("h1", { text: "Create Project" }, (el) => {
       el.style.margin = "0 0 var(--size-4-4) 0";
     });
-    const entrypoint = contentEl.createDiv("longform-add-create-project-root");
+    const entrypoint = contentEl.createDiv("longform-extended-add-create-project-root");
 
     const context = appContext(this);
     context.set("close", () => this.close());
@@ -34,7 +36,7 @@ export default class NewProjectModalContainer extends Modal {
         const exists = await this.app.vault.adapter.exists(path);
         if (exists) {
           console.log(
-            `[Longform] Cannot create project at ${path}, already exists.`
+            `[Longform Extended] Cannot create project at ${path}, already exists.`
           );
           return;
         }
@@ -58,6 +60,8 @@ export default class NewProjectModalContainer extends Modal {
               ignoredFiles: [],
               unknownFiles: [],
               sceneTemplate: null,
+              timeframeTagName: DEFAULT_TIMEFRAME_TAG_NAME,
+              timeFormat: DEFAULT_TIME_FORMAT,
             };
             return multi;
           } else {

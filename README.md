@@ -1,9 +1,80 @@
+<!-- TODO: Set up your donation link (GitHub Sponsors, Ko-fi, or similar), then update `fundingUrl` in manifest.json and the Sponsorship section below. -->
+# Longform Extended
+
+> [!NOTE]
+> **This is a fork.** Longform Extended is [Longform](https://github.com/kevboh/longform) with a few added visualization tools, and nothing else. It is meant to be the exact same plugin as Longform, so you should be able to use the two interchangeably without any trouble. If you already use Longform, you should not need to change a thing.
+
+## What This Is
+
+Longform Extended is a plugin for [Obsidian](https://obsidian.md) that helps you write and edit novels, screenplays, and other long projects. It keeps everything Longform does — a series of notes, or _scenes_, organized into an ordered manuscript, single-note projects for shorter works, drafts, word counts, and compile workflows — exactly as they are, and adds a small set of lightweight views on top. Your notes and frontmatter stay exactly as Longform expects them, so nothing about your existing projects changes.
+
+## What This Is Not
+
+Longform Extended is not a full writing suite in the style of heavier plugins that bolt on elaborate metadata systems and story databases. There are no new required fields, no per-scene character or plot schema, and no overcomplicated configuration. It is just Longform, plus a few extra visualization tools.
+
+## Added Features
+
+### Implemented
+
+- **Timeline view** — see your scenes laid out along a timeline, driven by a
+  per-scene `timeframe` value and a project-wide time format (see
+  [Timeline](#timeline)).
+
+### Wishlist
+
+- **Plot grid** — a table for tracking your plots and subplots across scenes.
+- **Corkboard** — a board of scene cards you can drag to rearrange.
+
+## Timeline
+
+The timeline lays your scenes out along a time axis, so you can see the order
+of your story at a glance. Each scene's position comes from a `timeframe`
+value in its frontmatter, which you configure in the Project tab's Project
+Metadata. See [TIMELINE.md](./docs/TIMELINE.md) for the full documentation.
+
+### Timeframe Tag Name
+
+The frontmatter property that holds a scene's timeframe value. It defaults to
+`timeframe`, so a scene might have:
+
+```yaml
+timeframe: 04/03/2026 09:30
+```
+
+Rename it if `timeframe` clashes with something else in your vault.
+
+### Time Format
+
+Choose the format whose biggest unit matches your story's span — smaller units
+can be left off (see Partial values below). The options are:
+
+- **Epoch date time (num dd/mm/yyyy hh:mm:ss)** — an epoch number, then a
+  day-first date, then a time. The `num` is an epoch: a number for a span
+  larger than a year, handy when a story crosses ages.
+- **Epoch date time (num mm/dd/yyyy hh:mm:ss)** — the same, with a month-first
+  date.
+- **Date time (dd/mm/yyyy hh:mm:ss)** — a day-first date and a time.
+- **Time only (hh:mm:ss)** — just a time, for a story that stays within one
+  day.
+- **Chronological order (num)** — a single number that just orders scenes, like
+  `1`, `2`, `3`.
+
+### Partial values
+
+You don't have to fill in every unit. You can drop units from right to left —
+from the smallest up — as long as you stay consistent:
+
+- `num dd/mm/yyyy hh:mm` — seconds omitted.
+- `num dd/mm/yyyy hh` — seconds and minutes omitted.
+- `num dd/mm/yyyy` — the whole time omitted.
+
+You cannot drop units from left to right, so you can't drop the epoch or the
+date and keep the time. Pick the smallest unit you'll ever need and use it for
+every scene.
+
 ## Longform
 
 Longform is a plugin for [Obsidian](https://obsidian.md) that helps you write and edit novels, screenplays, and other long projects. It lets you organize a series of notes, or _scenes_, into an ordered manuscript. It also supports single-note projects for shorter works.
-
-> [!TIP]
-> If you’d like a way to sync, share your manuscripts with others, and edit them on the web check out my other project, [screen.garden](https://screen.garden).
 
 Major features include:
 
@@ -146,8 +217,11 @@ Longform does a lot of complex tracking to bridge a project’s metadata with th
 
 ## Sponsorship
 
-Any [sponsorship](https://github.com/sponsors/kevboh) is deeply appreciated, although by no means necessary.
+Any [sponsorship](https://github.com/sponsors/wandrade) is deeply appreciated, although by no means necessary.
 
 ## License
 
-See [LICENSE.md](./LICENSE.md). You can view the license’s history [here](https://git.sr.ht/~boringcactus/fafol/tree/master/LICENSE.md).
+This fork is dual-licensed.
+
+- The original [Longform](https://github.com/kevboh/longform) code remains under its original license, the Fuck Around and Find Out License. See [LICENSE.md](./LICENSE.md). You can view that license’s history [here](https://git.sr.ht/~boringcactus/fafol/tree/master/LICENSE.md).
+- All additions and changes made in this fork are under a separate license that allows private use and modification but requires consent for redistribution. See [LICENSE-ADDITIONS.md](./LICENSE-ADDITIONS.md).

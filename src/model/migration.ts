@@ -4,8 +4,10 @@ import { writable } from "svelte/store";
 import { insertDraftIntoFrontmatter } from "./draft-utils";
 import { pluginSettings } from "./stores";
 import {
-  LONGFORM_CURRENT_PLUGIN_DATA_VERSION,
-  type LongformPluginSettings,
+  DEFAULT_TIMEFRAME_TAG_NAME,
+  DEFAULT_TIME_FORMAT,
+  LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION,
+  type LongformExtendedPluginSettings,
   type MultipleSceneDraft,
 } from "./types";
 
@@ -14,21 +16,27 @@ const INDEX_MIGRATION_NOTICE =
 
 export const needsMigration = writable<boolean>(false);
 
-export function determineMigrationStatus(settings: LongformPluginSettings) {
-  needsMigration.set(settings.version < LONGFORM_CURRENT_PLUGIN_DATA_VERSION);
+/**
+ * The version values compared below are data-format versions inherited from
+ * upstream Longform FORKED_VERSION. They are independent of Longform
+ * Extended's own release version (see manifest.json), so do not align them
+ * with the fork's semver.
+ */
+export function determineMigrationStatus(settings: LongformExtendedPluginSettings) {
+  needsMigration.set(settings.version < LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION);
 }
 
-export async function migrate(settings: LongformPluginSettings, app: App) {
-  if (settings.version >= LONGFORM_CURRENT_PLUGIN_DATA_VERSION) {
+export async function migrate(settings: LongformExtendedPluginSettings, app: App) {
+  if (settings.version >= LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION) {
     console.log(
-      `[Longform] Attempted to migrate settings with version ${settings.version} > current (${LONGFORM_CURRENT_PLUGIN_DATA_VERSION}); ignoring.`
+      `[Longform Extended] Attempted to migrate settings with version ${settings.version} > current (${LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION}); ignoring.`
     );
     return;
   }
 
   let currentVersion = settings.version;
 
-  while (currentVersion < LONGFORM_CURRENT_PLUGIN_DATA_VERSION) {
+  while (currentVersion < LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION) {
     // Projects 1.0 -> Projects 2.0
     if (currentVersion === 2) {
       // for each tracked project, for each draft in each tracked project
@@ -38,7 +46,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
 
       const projectPaths = Object.keys(settings.projects);
       for (const projectPath of projectPaths) {
-        console.log(`[Longform] Migrating ${projectPath} to Projects 2.0…`);
+        console.log(`[Longform Extended] Migrating ${projectPath} to Projects 2.0…`);
         const project = settings.projects[projectPath];
         const normalizedProjectPath = normalizePath(projectPath);
 
@@ -68,7 +76,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
           await app.vault.adapter.append(indexPath, INDEX_MIGRATION_NOTICE);
         } catch (error) {
           console.log(
-            `[Longform] Error appending deprecation notice to old index file`,
+            `[Longform Extended] Error appending deprecation notice to old index file`,
             error
           );
         }
@@ -91,6 +99,8 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
             ignoredFiles: [project.indexFile],
             unknownFiles: [],
             sceneTemplate: null,
+            timeframeTagName: DEFAULT_TIMEFRAME_TAG_NAME,
+            timeFormat: DEFAULT_TIME_FORMAT,
           };
 
           await insertDraftIntoFrontmatter(app, vaultPath, draft);
@@ -100,7 +110,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
             ),
             normalizedProjectPath
           );
-          console.log(`[Longform] Wrote only draft to ${vaultPath}`);
+          console.log(`[Longform Extended] Wrote only draft to ${vaultPath}`);
         } else {
           for (const oldDraft of drafts) {
             const vaultPathParent = normalizePath(
@@ -110,7 +120,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
               await app.vault.createFolder(vaultPathParent);
             } catch (error) {
               console.log(
-                `[Longform] Error creating folder during migration`,
+                `[Longform Extended] Error creating folder during migration`,
                 error
               );
             }
@@ -132,6 +142,8 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
               ignoredFiles: [],
               unknownFiles: [],
               sceneTemplate: null,
+              timeframeTagName: DEFAULT_TIMEFRAME_TAG_NAME,
+              timeFormat: DEFAULT_TIME_FORMAT,
             };
 
             await insertDraftIntoFrontmatter(app, vaultPath, draft);
@@ -141,7 +153,7 @@ export async function migrate(settings: LongformPluginSettings, app: App) {
               ),
               vaultPathParent
             );
-            console.log(`[Longform] Wrote ${oldDraft.name} to ${vaultPath}`);
+            console.log(`[Longform Extended] Wrote ${oldDraft.name} to ${vaultPath}`);
           }
         }
       }

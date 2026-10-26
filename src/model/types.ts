@@ -1,5 +1,41 @@
-export const LONGFORM_CURRENT_PLUGIN_DATA_VERSION = 3;
-export const LONGFORM_CURRENT_INDEX_VERSION = 1;
+/**
+ * Data-format version for settings stored in data.json. Inherited from
+ * upstream Longform (see FORKED_VERSION); this is a different axis from the
+ * fork's own release version in manifest.json and must not be tied to it.
+ */
+export const LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION = 3;
+/**
+ * Data-format version for the project index stored on disk. Inherited from
+ * upstream Longform (see FORKED_VERSION) and independent of Longform
+ * Extended's own release version.
+ */
+export const LONGFORM_EXTENDED_CURRENT_INDEX_VERSION = 1;
+
+/**
+ * The upstream Longform release this fork was based on. Used as a reference
+ * anchor so the fork's own versioning (see manifest.json) stays independent.
+ */
+export const FORKED_VERSION = "2.1.0";
+
+export type TimeframeFormat =
+  | "epoch-datetime-dmy"
+  | "epoch-datetime-mdy"
+  | "datetime"
+  | "time"
+  | "number";
+
+export function isTimeframeFormat(value: unknown): value is TimeframeFormat {
+  return (
+    value === "epoch-datetime-dmy" ||
+    value === "epoch-datetime-mdy" ||
+    value === "datetime" ||
+    value === "time" ||
+    value === "number"
+  );
+}
+
+export const DEFAULT_TIMEFRAME_TAG_NAME = "timeframe";
+export const DEFAULT_TIME_FORMAT: TimeframeFormat = "datetime";
 
 export type IndentedScene = {
   title: string;
@@ -18,6 +54,8 @@ export type MultipleSceneDraft = {
   ignoredFiles: string[] | null;
   unknownFiles: string[];
   sceneTemplate: string | null;
+  timeframeTagName: string;
+  timeFormat: TimeframeFormat;
 };
 
 export type SingleSceneDraft = {
@@ -78,7 +116,7 @@ export type WordCountSession = {
   >;
 };
 
-export interface LongformPluginSettings {
+export interface LongformExtendedPluginSettings {
   version: number;
   selectedDraftVaultPath: string | null;
   workflows: Record<string, SerializedWorkflow> | null;
@@ -110,8 +148,8 @@ export interface LongformPluginSettings {
 
 export const DEFAULT_SESSION_FILE = "longform-sessions.json";
 
-export const DEFAULT_SETTINGS: LongformPluginSettings = {
-  version: LONGFORM_CURRENT_PLUGIN_DATA_VERSION,
+export const DEFAULT_SETTINGS: LongformExtendedPluginSettings = {
+  version: LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION,
   selectedDraftVaultPath: null,
   workflows: null,
   userScriptFolder: null,
@@ -134,7 +172,7 @@ export const DEFAULT_SETTINGS: LongformPluginSettings = {
   fallbackWaitTime: 5,
 };
 
-export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
+export const TRACKED_SETTINGS_PATHS: (keyof LongformExtendedPluginSettings)[] = [
   "version",
   "projects",
   "selectedDraftVaultPath",
@@ -157,7 +195,7 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformPluginSettings)[] = [
   "writeProperty",
 ];
 
-export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformPluginSettings)[] =
+export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformExtendedPluginSettings)[] =
   [
     "sessionStorage",
     "userScriptFolder",

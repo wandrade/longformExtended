@@ -122,6 +122,36 @@
     }
   }
 
+  function timeframeTagNameChanged(event: Event) {
+    const value = (event.target as any).value;
+    if (value.length <= 0 || !$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) => {
+        if (d.vaultPath === $selectedDraftVaultPath && d.format === "scenes") {
+          d.timeframeTagName = value;
+        }
+        return d;
+      })
+    );
+  }
+
+  function timeFormatChanged(event: Event) {
+    const value = (event.target as any).value;
+    if (value.length <= 0 || !$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) => {
+        if (d.vaultPath === $selectedDraftVaultPath && d.format === "scenes") {
+          d.timeFormat = value;
+        }
+        return d;
+      })
+    );
+  }
+
   let projectCount: number;
   let draftCount: number | null;
   let sceneCount: number | null;
@@ -177,9 +207,9 @@
 
 <div>
   {#if $selectedDraft}
-    <div class="longform-project-section">
+    <div class="longform-extended-project-section">
       <div
-        class="longform-project-details-section-header"
+        class="longform-extended-project-details-section-header"
         on:click={() => {
           showMetdata = !showMetdata;
         }}
@@ -189,41 +219,71 @@
       </div>
       {#if showMetdata}
         <div>
-          <label for="longform-project-title">Title</label>
+          <label for="longform-extended-project-title">Title</label>
           <input
-            id="longform-project-title"
+            id="longform-extended-project-title"
             type="text"
             value={$selectedDraft.title}
             on:change={titleChanged}
           />
           {#if $selectedDraft.format === "scenes"}
-            <label for="longform-project-scene-folder">Scene Folder</label>
+            <label for="longform-extended-project-scene-folder">Scene Folder</label>
             <input
-              id="longform-project-scene-folder"
+              id="longform-extended-project-scene-folder"
               type="text"
               value={$selectedDraft.sceneFolder}
               bind:this={sceneFolderInput}
               on:blur={sceneFolderChanged}
             />
-            <p class="longform-project-warning">
+            <p class="longform-extended-project-warning">
               Changing scene folder does not move scenes. If you’re moving
               scenes to a new folder, move them in your vault first, then
               change this setting.
             </p>
-            <label for="longform-project-scene-template">Scene Template</label
+            <label for="longform-extended-project-scene-template">Scene Template</label
             >
             <input
-              id="longform-project-scene-template"
+              id="longform-extended-project-scene-template"
               type="text"
               value={$selectedDraft.sceneTemplate}
               bind:this={sceneTemplateInput}
               on:blur={sceneTemplateChanged}
             />
-            <p class="longform-project-warning">
+            <p class="longform-extended-project-warning">
               This file will be used as a template when creating new scenes
               via the New Scene… field. If you use a templating plugin
               (Templater or the core plugin) it will be used to process this
               template.
+            </p>
+            <label for="longform-extended-project-timeframe-tag">Timeframe Tag Name</label
+            >
+            <input
+              id="longform-extended-project-timeframe-tag"
+              type="text"
+              value={$selectedDraft.timeframeTagName}
+              on:blur={timeframeTagNameChanged}
+            />
+            <p class="longform-extended-project-warning">
+              The frontmatter property used to place each scene on the
+              timeline. Defaults to "timeframe", which works whether you use
+              dates, times, or plain numbers.
+            </p>
+            <label for="longform-extended-project-time-format">Time Format</label>
+            <select
+              id="longform-extended-project-time-format"
+              value={$selectedDraft.timeFormat}
+              on:change={timeFormatChanged}
+            >
+              <option value="epoch-datetime-dmy">Epoch date time (num dd/mm/yyyy hh:mm:ss)</option>
+              <option value="epoch-datetime-mdy">Epoch date time (num mm/dd/yyyy hh:mm:ss)</option>
+              <option value="datetime">Date time (dd/mm/yyyy hh:mm:ss)</option>
+              <option value="time">Time only (hh:mm:ss)</option>
+              <option value="number">Chronological order (num)</option>
+            </select>
+            <p class="longform-extended-project-warning">
+              Pick the format with the biggest unit you'll ever need — smaller
+              units are optional. e.g. "num dd/mm/yyyy hh:mm" drops seconds,
+              "num dd/mm/yyyy" drops the time.
             </p>
           {/if}
         </div>
@@ -231,13 +291,13 @@
     </div>
   {/if}
   <div
-    class="longform-project-section word-counts"
+    class="longform-extended-project-section word-counts"
     style={`--progress-text-color:${
       goalPercentage >= 43 ? "var(--text-on-accent)" : "var(--text-accent)"
     }`}
   >
     <div
-      class="longform-project-details-section-header"
+      class="longform-extended-project-details-section-header"
       on:click={() => {
         showWordCount = !showWordCount;
       }}
@@ -275,10 +335,10 @@
       </div>
     {/if}
   </div>
-  <div class="longform-project-section">
+  <div class="longform-extended-project-section">
     <div class="drafts-title-container">
       <div
-        class="longform-project-details-section-header"
+        class="longform-extended-project-details-section-header"
         on:click={() => {
           showDrafts = !showDrafts;
         }}
@@ -297,23 +357,23 @@
 </div>
 
 <style>
-  .longform-project-section {
+  .longform-extended-project-section {
     margin-top: var(--size-4-4);
     padding-bottom: var(--size-4-2);
     padding-left: var(--size-4-8);
   }
 
-  .longform-project-section + .longform-project-section {
+  .longform-extended-project-section + .longform-extended-project-section {
     border-top: var(--border-width) solid var(--background-modifier-border);
     padding-top: var(--size-4-4);
   }
 
-  .longform-project-section .right-triangle {
+  .longform-extended-project-section .right-triangle {
     margin-left: var(--size-4-1);
     margin-right: var(--size-4-2);
   }
 
-  .longform-project-details-section-header {
+  .longform-extended-project-details-section-header {
     display: flex;
     flex-direction: row;
     justify-content: start;
@@ -342,7 +402,7 @@
     line-height: var(--line-height-tight);
   }
 
-  p.longform-project-warning {
+  p.longform-extended-project-warning {
     color: var(--text-faint);
     font-size: var(--font-smallest);
     margin: var(--size-2-1) 0 0 var(--size-2-1);
