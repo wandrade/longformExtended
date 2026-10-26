@@ -1,10 +1,10 @@
 {
-  "id": "longform",
-  "name": "Longform",
+  "id": "longform-extended",
+  "name": "Longform Extended",
   "version": "2.0.0",
   "minAppVersion": "1.0",
-  "description": "Write novels, screenplays, and other long projects in Obsidian.",
-  "author": "Kevin Barrett",
-  "authorUrl": "https://kevinbarrett.org",
+  "description": "Write novels, screenplays, and other long projects in Obsidian, with added timeline, plot grid, and corkboard views.",
+  "author": "Werner Thomassen Andrade",
+  "authorUrl": "https://github.com/wandrade/longformExtended",
   "isDesktopOnly": false
 }
