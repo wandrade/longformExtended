@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   arraysToIndentedScenes,
+  draftForStoredPath,
   draftTitle,
   formatSceneNumber,
   indentedScenesToArrays,
@@ -341,5 +342,77 @@ describe("draftTitle", () => {
     expect(draftTitle(makeSceneDraft({ draftTitle: null }))).toBe(
       "Books/My/Book.md"
     );
+  });
+});
+
+describe("draftForStoredPath", () => {
+  const familiarShadow = makeSceneDraft({
+    title: "Familiar Shadow",
+    vaultPath: "Familiar Shadow/Familiar Shadow.md",
+  });
+  const theClearing = makeSceneDraft({
+    title: "The Clearing",
+    vaultPath: "The Clearing/The Clearing.md",
+  });
+  const sunny: SingleSceneDraft = {
+    format: "single",
+    title: "Sunny's Day",
+    titleInFrontmatter: true,
+    draftTitle: null,
+    vaultPath: "Sunny's Day/Sunny's Day.md",
+    workflow: null,
+  };
+
+  it("keeps an exact path match", () => {
+    expect(
+      draftForStoredPath(
+        "The Clearing/The Clearing.md",
+        [familiarShadow, sunny, theClearing]
+      )
+    ).toBe(theClearing);
+  });
+
+  it("finds a project after its folder moved", () => {
+    expect(
+      draftForStoredPath("Longform/Familiar Shadow/Familiar Shadow.md", [
+        familiarShadow,
+        sunny,
+        theClearing,
+      ])
+    ).toBe(familiarShadow);
+  });
+
+  it("prefers the same parent folder for duplicate filenames", () => {
+    const otherBook = makeSceneDraft({
+      title: "Other Book",
+      vaultPath: "Other Book/Book.md",
+    });
+    const book = makeSceneDraft({
+      title: "Book",
+      vaultPath: "Book/Book.md",
+    });
+
+    expect(
+      draftForStoredPath("Old/Book/Book.md", [otherBook, book])
+    ).toBe(book);
+  });
+
+  it("selects the first project when no path was saved", () => {
+    expect(
+      draftForStoredPath(null, [theClearing, sunny, familiarShadow])
+    ).toBe(familiarShadow);
+  });
+
+  it("falls back to the first project when the old path has no match", () => {
+    expect(
+      draftForStoredPath("Removed/Old Project/Old Project.md", [
+        theClearing,
+        familiarShadow,
+      ])
+    ).toBe(familiarShadow);
+  });
+
+  it("returns null when there are no drafts", () => {
+    expect(draftForStoredPath("Anything.md", [])).toBeNull();
   });
 });

@@ -55,6 +55,7 @@ import {
 import { addCommands } from "./commands";
 import { determineMigrationStatus } from "./model/migration";
 import { draftForPath } from "./model/scene-navigation";
+import { draftForStoredPath } from "./model/draft-utils";
 import { WritingSessionTracker } from "./model/writing-session-tracker";
 import NewProjectModal from "./view/project-lifecycle/new-project-modal";
 import { LongformExtendedAPI } from "./api/LongformAPI";
@@ -73,6 +74,7 @@ export default class LongformExtendedPlugin extends Plugin {
   private unsubscribeSettings: Unsubscriber;
   private unsubscribeWorkflows: Unsubscriber;
   private unsubscribeDrafts: Unsubscriber;
+  private unsubscribeDraftSelection: Unsubscriber;
   private unsubscribeSelectedDraft: Unsubscriber;
   private unsubscribeSessions: Unsubscriber;
   private unsubscribeGoalNotification: Unsubscriber;
@@ -219,6 +221,7 @@ export default class LongformExtendedPlugin extends Plugin {
     this.notesObserver.destroy();
     this.unsubscribeSettings();
     this.unsubscribeWorkflows();
+    this.unsubscribeDraftSelection?.();
     this.unsubscribeSelectedDraft();
     this.unsubscribeDrafts();
     this.unsubscribeSessions();
@@ -437,6 +440,32 @@ export default class LongformExtendedPlugin extends Plugin {
 
     this.initLeaf();
     initialized.set(true);
+
+    // A stored path can outlive the project it pointed at (moved folder,
+    // renamed file, or a fresh install with no saved selection). Resolve it
+    // once projects exist, and keep resolving as late discoveries arrive.
+    this.ensureSelectedDraft();
+    this.unsubscribeDraftSelection = drafts.subscribe(() => {
+      if (get(initialized)) {
+        this.ensureSelectedDraft();
+      }
+    });
+  }
+
+  private ensureSelectedDraft(): void {
+    const storedPath = get(selectedDraftVaultPath);
+    const selected = draftForStoredPath(storedPath, get(drafts));
+    if (!selected || selected.vaultPath === storedPath) {
+      return;
+    }
+
+    selectedDraftVaultPath.set(selected.vaultPath);
+    pluginSettings.update((settings) => ({
+      ...settings,
+      selectedDraftVaultPath: selected.vaultPath,
+    }));
+    this.cachedSettings = get(pluginSettings);
+    void this.saveSettings();
   }
 
   initLeaf(): void {
@@ -452,7 +481,8 @@ export default class LongformExtendedPlugin extends Plugin {
 
   private watchProjects(): void {
     // STORE-VAULT SYNC
-    void this.storeVaultSync.discoverDrafts();
+    // storeVaultSync.initialize() has already completed the initial discovery.
+    // Running it a second time here stacked duplicate store subscriptions.
 
     this.registerEvent(
       this.app.metadataCache.on("changed", (file, data, cache) =>
