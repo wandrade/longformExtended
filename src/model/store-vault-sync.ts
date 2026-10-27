@@ -155,7 +155,7 @@ export class StoreVaultSync {
   }
 
   destroy(): void {
-    this.unsubscribeDraftsStore();
+    this.unsubscribeDraftsStore?.();
   }
 
   private isSyncEnabled(): boolean {
@@ -231,9 +231,14 @@ export class StoreVaultSync {
     try {
       await this.waitForSync();
       await this.discoverDrafts();
-
-      this.isInitializing = false;
-    } catch {
+    } catch (error) {
+      // A failure here used to be silent and left the explorer with no drafts.
+      // Log it and let the metadata-cache listeners recover what they can.
+      console.error(
+        "[Longform Extended] Failed to discover projects during startup:",
+        error
+      );
+    } finally {
       this.isInitializing = false;
     }
   }
@@ -245,8 +250,19 @@ export class StoreVaultSync {
     );
     const draftFiles = resolvedFiles.filter((f) => f !== null);
 
+    // One malformed project must not hide every other project in the vault.
     const possibleDrafts = await Promise.all(
-      draftFiles.map((f) => this.draftFor(f))
+      draftFiles.map(async (f) => {
+        try {
+          return await this.draftFor(f);
+        } catch (error) {
+          console.error(
+            `[Longform Extended] Failed to load project at ${f.file.path}:`,
+            error
+          );
+          return null;
+        }
+      })
     );
     const drafts = possibleDrafts.filter((d) => d !== null);
 
@@ -267,6 +283,9 @@ export class StoreVaultSync {
     );
     draftsStore.set(draftsToWrite);
 
+    // discoverDrafts can run again after a metadata-cache refresh. Replacing
+    // the subscription keeps a single writer instead of stacking one per run.
+    this.unsubscribeDraftsStore?.();
     this.unsubscribeDraftsStore = draftsStore.subscribe((drafts) => {
       void this.draftsStoreChanged(drafts);
     });

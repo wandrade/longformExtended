@@ -3,7 +3,7 @@
 
   import { selectedDraft } from "src/model/stores";
   import { selectedNotesTab, selectedTab } from "../stores";
-  import { waitingForSync } from "src/model/stores";
+  import { initialized, waitingForSync } from "src/model/stores";
 
   import NewSceneField from "./NewSceneField.svelte";
   import NewAuxiliaryField from "./NewAuxiliaryField.svelte";
@@ -82,6 +82,13 @@
       Waiting for Obsidian Sync to complete...
     </div>
   </div>
+{:else if !$initialized}
+  <div class="longform-extended-sync-wait">
+    <div class="longform-extended-spinner"></div>
+    <div class="longform-extended-sync-message">
+      Loading projects...
+    </div>
+  </div>
 {:else}
   <div class="longform-extended-explorer">
     <ProjectPicker />
@@ -124,7 +131,7 @@
           </div>
         {/if}
       </div>
-    {:else}
+    {:else if $selectedDraft}
       <div>
         <div class="tabs">
           <div class="tab-list">
@@ -142,6 +149,10 @@
           </div>
         {/if}
       </div>
+    {:else}
+      <p class="longform-extended-empty">
+        Select a project to get started.
+      </p>
     {/if}
   </div>
 {/if}
@@ -154,6 +165,12 @@
   .longform-extended-migrate-button {
     background-color: var(--interactive-accent);
     color: var(--text-on-accent);
+  }
+
+  .longform-extended-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--size-4-4) 0;
   }
 
   .longform-extended-migrate-button:hover {

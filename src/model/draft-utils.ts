@@ -18,6 +18,72 @@ export function draftTitle(draft: Draft): string {
   return draft.draftTitle ?? draft.vaultPath;
 }
 
+/**
+ * Picks the draft that should be selected when the saved vault path no longer
+ * exists. This happens when a project folder is moved or renamed (or when a
+ * fresh install has no saved selection), and leaving the selection unresolved
+ * makes the explorer render an empty shell until the user switches projects.
+ *
+ * Resolution order:
+ * 1. an exact path match;
+ * 2. the same filename (preferring the same parent folder when duplicated);
+ * 3. a draft whose title matches the old filename or folder;
+ * 4. the first draft by title.
+ *
+ * Returns `null` only when there are no drafts.
+ */
+export function draftForStoredPath(
+  storedPath: string | null,
+  drafts: Draft[]
+): Draft | null {
+  if (drafts.length === 0) {
+    return null;
+  }
+
+  if (storedPath) {
+    const exact = drafts.find((draft) => draft.vaultPath === storedPath);
+    if (exact) {
+      return exact;
+    }
+
+    const storedParts = storedPath.split("/");
+    const fileName = storedParts[storedParts.length - 1];
+    const folderName =
+      storedParts.length > 1 ? storedParts[storedParts.length - 2] : null;
+
+    const sameFile = drafts.filter((draft) => {
+      const pathParts = draft.vaultPath.split("/");
+      return pathParts[pathParts.length - 1] === fileName;
+    });
+    if (sameFile.length === 1) {
+      return sameFile[0];
+    }
+    if (sameFile.length > 1) {
+      return (
+        sameFile.find((draft) => {
+          const pathParts = draft.vaultPath.split("/");
+          return pathParts[pathParts.length - 2] === folderName;
+        }) ?? sameFile[0]
+      );
+    }
+
+    const storedTitle = fileName.replace(/\.md$/i, "");
+    const sameTitle = drafts.find(
+      (draft) => draft.title === storedTitle || draft.title === folderName
+    );
+    if (sameTitle) {
+      return sameTitle;
+    }
+  }
+
+  return [...drafts].sort((left, right) => {
+    const byTitle = left.title.localeCompare(right.title);
+    return byTitle !== 0
+      ? byTitle
+      : left.vaultPath.localeCompare(right.vaultPath);
+  })[0];
+}
+
 type SceneInsertionLocation = {
   at: "before" | "after" | "end";
   relativeTo: number | null;

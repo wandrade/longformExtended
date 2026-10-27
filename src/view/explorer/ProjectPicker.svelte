@@ -36,7 +36,7 @@
   function projectSelected(event: Event) {
     // @ts-ignore
     const title = event.target.value;
-    if ($selectedDraft && title === $selectedDraft.title) {
+    if (!title || ($selectedDraft && title === $selectedDraft.title)) {
       return;
     }
     const newProject = $projects[title];
@@ -64,9 +64,12 @@
         <select
           name="projects"
           class="dropdown"
-          value={$selectedDraft ? $selectedDraft.title : projectOptions[0]}
+          value={$selectedDraft ? $selectedDraft.title : ""}
           on:change={projectSelected}
         >
+          {#if !$selectedDraft}
+            <option value="" disabled>Select a project…</option>
+          {/if}
           {#each projectOptions as projectOption}
             <option class="projectOption" value={projectOption}
               >{projectOption}</option
