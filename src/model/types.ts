@@ -201,7 +201,6 @@ export interface LongformExtendedPluginSettings {
   version: number;
   selectedDraftVaultPath: string | null;
   workflows: Record<string, SerializedWorkflow> | null;
-  userScriptFolder: string | null;
   sessionStorage: "data" | "plugin-folder" | "file";
   sessions: WordCountSession[];
   showWordCountInStatusBar: boolean;
@@ -235,7 +234,6 @@ export const DEFAULT_SETTINGS: LongformExtendedPluginSettings = {
   version: LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION,
   selectedDraftVaultPath: null,
   workflows: null,
-  userScriptFolder: null,
   sessionStorage: "data",
   sessions: [],
   showWordCountInStatusBar: true,
@@ -261,7 +259,6 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformExtendedPluginSettings)[] = 
   "version",
   "projects",
   "selectedDraftVaultPath",
-  "userScriptFolder",
   "sessionStorage",
   "sessions",
   "showWordCountInStatusBar",
@@ -285,7 +282,6 @@ export const TRACKED_SETTINGS_PATHS: (keyof LongformExtendedPluginSettings)[] = 
 export const PASSTHROUGH_SAVE_SETTINGS_PATHS: (keyof LongformExtendedPluginSettings)[] =
   [
     "sessionStorage",
-    "userScriptFolder",
     "showWordCountInStatusBar",
     "startNewSessionEachDay",
     "sessionGoal",

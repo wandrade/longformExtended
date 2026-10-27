@@ -500,6 +500,10 @@ Once Longform Extended is listed in the Community plugins directory, install it 
 
 To install manually, copy `main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/longform-extended/` in your vault, then enable the plugin from **Settings → Community plugins**. `longform-extended` is this fork's plugin folder name; it is not upstream Longform's `longform/` folder.
 
+## Removed: user-script compile steps
+
+Longform Extended 0.0.1 removed user-script compile steps. The feature executed arbitrary user-provided `.js` files from the vault and was removed for security and linter compliance. The same `window.eval` loader shipped in Longform 2.1.0 (2025-03-19). ESLint's `no-eval` rule has existed since ESLint v0.0.2; what changed is Obsidian's review enforcement. Obsidian's automated community review went live in May 2026, allowing existing releases a temporary exception but new releases/plugins now need to comply.
+
 ## Longform
 
 Longform is a plugin for [Obsidian](https://obsidian.md) that helps you write and edit novels, screenplays, and other long projects. It lets you organize a series of notes, or _scenes_, into an ordered manuscript. It also supports single-note projects for shorter works.

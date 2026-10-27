@@ -7,10 +7,7 @@ import type {
   LongformExtendedPluginSettings,
   DraftWordCounts,
 } from "./types";
-import type {
-  Workflow,
-  CompileStep,
-} from "src/compile/steps/abstract-compile-step";
+import type { Workflow } from "src/compile/steps/abstract-compile-step";
 
 // WRITEABLE STORES
 
@@ -39,11 +36,6 @@ export const selectedDraftVaultPath = writable<string | null>(null);
  * Writeable store of all known workflows, indexed by name.
  */
 export const workflows = writable<Record<string, Workflow>>({});
-
-/**
- * Writeable store of all loaded user script steps, or `null` if none are loaded.
- */
-export const userScriptSteps = writable<CompileStep[] | null>(null);
 
 /**
  * Writeable store of recent writing session word counts, ordered by start date descending.

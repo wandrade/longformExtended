@@ -247,7 +247,7 @@ describe("AddFrontmatterStep", () => {
 });
 
 describe("makeBuiltinStep", () => {
-  it("fills in IDs, defaults, and script metadata", () => {
+  it("fills in IDs and defaults", () => {
     const step = makeBuiltinStep(
       {
         id: "test-step",
@@ -273,12 +273,10 @@ describe("makeBuiltinStep", () => {
           ],
         },
         compile: (input) => input,
-      },
-      true
+      }
     );
 
     expect(step.description.canonicalID).toBe("test-step");
-    expect(step.description.isScript).toBe(true);
     expect(step.optionValues).toEqual({
       text: "default value",
       flag: false,

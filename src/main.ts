@@ -41,7 +41,6 @@ import {
 } from "./compile/serialization";
 import type { Workflow } from "./compile";
 import { DEFAULT_WORKFLOWS } from "./compile";
-import { UserScriptObserver } from "./model/user-script-observer";
 import { StoreVaultSync } from "./model/store-vault-sync";
 import { ProjectNotesObserver } from "./model/notes-observer";
 import {
@@ -77,7 +76,6 @@ export default class LongformExtendedPlugin extends Plugin {
   private unsubscribeSelectedDraft: Unsubscriber;
   private unsubscribeSessions: Unsubscriber;
   private unsubscribeGoalNotification: Unsubscriber;
-  private userScriptObserver: UserScriptObserver;
   writingSessionTracker: WritingSessionTracker;
   public api: LongformExtendedAPI;
 
@@ -217,7 +215,6 @@ export default class LongformExtendedPlugin extends Plugin {
   }
 
   onunload(): void {
-    this.userScriptObserver.destroy();
     this.storeVaultSync.destroy();
     this.notesObserver.destroy();
     this.unsubscribeSettings();
@@ -250,15 +247,6 @@ export default class LongformExtendedPlugin extends Plugin {
     pluginSettings.set(_pluginSettings);
     selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
     determineMigrationStatus(_pluginSettings);
-
-    // We load user scripts imperatively first to cover cases where we need to deserialize
-    // workflows that may contain them.
-    const userScriptFolder = settings["userScriptFolder"];
-    this.userScriptObserver = new UserScriptObserver(
-      this.app.vault,
-      userScriptFolder
-    );
-    await this.userScriptObserver.loadUserSteps();
 
     let _workflows = settings["workflows"];
 
@@ -318,8 +306,6 @@ export default class LongformExtendedPlugin extends Plugin {
   }
 
   private async postLayoutInit(): Promise<void> {
-    this.userScriptObserver.beginObserving();
-
     // Initialize StoreVaultSync with sync awareness
     await this.storeVaultSync.initialize();
 
@@ -465,31 +451,6 @@ export default class LongformExtendedPlugin extends Plugin {
   }
 
   private watchProjects(): void {
-    // USER SCRIPTS
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        this.userScriptObserver.fileEventCallback(file);
-      })
-    );
-
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        this.userScriptObserver.fileEventCallback(file);
-      })
-    );
-
-    this.registerEvent(
-      this.app.vault.on("delete", (file) => {
-        this.userScriptObserver.fileEventCallback(file);
-      })
-    );
-
-    this.registerEvent(
-      this.app.vault.on("rename", (file) => {
-        this.userScriptObserver.fileEventCallback(file);
-      })
-    );
-
     // STORE-VAULT SYNC
     void this.storeVaultSync.discoverDrafts();
 

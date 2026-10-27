@@ -9,18 +9,14 @@ import type { Unsubscriber } from "svelte/store";
 import { get } from "svelte/store";
 
 import type LongformExtendedPlugin from "../../main";
-import { pluginSettings, userScriptSteps } from "src/model/stores";
-import { FolderSuggest } from "./folder-suggest";
+import { pluginSettings } from "src/model/stores";
 import { DEFAULT_SESSION_FILE } from "src/model/types";
 import { FileSuggest } from "./file-suggest";
 import { syncSceneIndices } from "src/model/store-vault-sync";
 
 export class LongformExtendedSettingsTab extends PluginSettingTab {
   plugin: LongformExtendedPlugin;
-  private unsubscribeUserScripts: Unsubscriber;
   private unsubscribeSettings: Unsubscriber;
-  private stepsSummary: HTMLElement;
-  private stepsList: HTMLUListElement;
 
   constructor(app: App, plugin: LongformExtendedPlugin) {
     super(app, plugin);
@@ -122,59 +118,6 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
           }
         });
       });
-
-    new Setting(containerEl).setName("Compile").setHeading();
-
-    new Setting(containerEl)
-      .setName("User script step folder")
-      .setDesc(
-        ".js files in this folder will be available as User Script Steps in the Compile panel."
-      )
-      .addSearch((cb) => {
-        new FolderSuggest(this.app, cb.inputEl);
-        cb.setPlaceholder("My/script/steps/")
-          .setValue(settings.userScriptFolder)
-          .onChange((v) => {
-            pluginSettings.update((s) => ({
-              ...s,
-              userScriptFolder: v,
-            }));
-          });
-      });
-
-    this.stepsSummary = containerEl.createSpan();
-    this.stepsList = containerEl.createEl("ul", {
-      cls: "longform-extended-settings-user-steps",
-    });
-    this.unsubscribeUserScripts = userScriptSteps.subscribe((steps) => {
-      if (steps && steps.length > 0) {
-        this.stepsSummary.innerText = `Loaded ${steps.length} step${steps.length !== 1 ? "s" : ""
-          }:`;
-      } else {
-        this.stepsSummary.innerText = "No steps loaded.";
-      }
-      if (this.stepsList) {
-        this.stepsList.empty();
-        if (steps) {
-          steps.forEach((s) => {
-            const stepEl = this.stepsList.createEl("li");
-            stepEl.createSpan({
-              text: s.description.name,
-              cls: "longform-extended-settings-user-step-name",
-            });
-            stepEl.createSpan({
-              text: `(${s.description.canonicalID})`,
-              cls: "longform-extended-settings-user-step-id",
-            });
-          });
-        }
-      }
-    });
-    containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
-      el.setText(
-        "User Script Steps are automatically loaded from this folder. Changes to .js files in this folder are synced with Longform Extended after a slight delay. If your script does not appear here or in the Compile tab, you may have an error in your script—check the dev console for it."
-      );
-    });
 
     new Setting(containerEl).setName("Word counts & sessions").setHeading();
     new Setting(containerEl)
@@ -403,7 +346,6 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
   }
 
   hide(): void {
-    this.unsubscribeUserScripts();
     this.unsubscribeSettings();
   }
 }

@@ -71,8 +71,6 @@ export interface CompileStepDescription {
   name: string;
   /** Longer text description of the step, shown under it in UI. Normal case. */
   description: string;
-  /** `true` if this step corresponds to a user-provided .js file in the vault. */
-  isScript: boolean;
   /** The kinds (scene, join, and manuscript) of step this step can be. */
   availableKinds: CompileStepKind[];
   /** An array of options, if any, for the step. */
@@ -175,20 +173,18 @@ export type Workflow = {
 export function makeBuiltinStep(
   v: {
     id: string;
-    description: Omit<CompileStepDescription, "canonicalID" | "isScript">;
+    description: Omit<CompileStepDescription, "canonicalID">;
     compile: (
       input: CompileInput,
       context: CompileContext
     ) => CompileInput | Promise<CompileInput>;
-  },
-  isScript = false
+  }
 ): CompileStep {
   return {
     ...v,
     description: {
       ...v.description,
       canonicalID: v.id,
-      isScript: isScript,
     },
     optionValues: v.description.options.reduce((agg, opt) => {
       return {
@@ -215,7 +211,6 @@ export const PLACEHOLDER_MISSING_STEP: CompileStep = {
     canonicalID: "placeholder-missing-step",
     name: "",
     description: "",
-    isScript: false,
     availableKinds: [],
     options: [],
   },
