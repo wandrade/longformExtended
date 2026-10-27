@@ -502,7 +502,7 @@ To install manually, copy `main.js`, `manifest.json`, and `styles.css` into `.ob
 
 ## Removed: user-script compile steps
 
-Longform Extended 0.0.1 removed user-script compile steps. The feature executed arbitrary user-provided `.js` files from the vault and was removed for security and linter compliance. The same `window.eval` loader shipped in Longform 2.1.0 (2025-03-19). ESLint's `no-eval` rule has existed since ESLint v0.0.2; what changed is Obsidian's review enforcement. Obsidian's automated community review went live in May 2026, allowing existing releases a temporary exception but new releases/plugins now need to comply.
+Longform Extended 1.0.0 removed user-script compile steps. The feature executed arbitrary user-provided `.js` files from the vault and was removed for security and linter compliance. The same `window.eval` loader shipped in Longform 2.1.0 (2025-03-19). ESLint's `no-eval` rule has existed since ESLint v0.0.2; what changed is Obsidian's review enforcement. Obsidian's automated community review went live in May 2026, allowing existing releases a temporary exception but new releases/plugins now need to comply.
 
 ## Longform
 
