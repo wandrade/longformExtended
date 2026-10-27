@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help improve Longform
+about: Create a report to help improve Longform Extended
 title: 'Bug: Your title here'
 labels: bug
 assignees: ''
@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Versions**
-Longform version:
+Longform Extended version:
 Obsidian version:
 OS [e.g. macOS, Windows, iOS, Android]: 
 Theme:
