@@ -11,6 +11,7 @@ import { get } from "svelte/store";
 import type LongformExtendedPlugin from "../../main";
 import { pluginSettings } from "src/model/stores";
 import { DEFAULT_SESSION_FILE } from "src/model/types";
+import { BUILD_COMMIT, BUILD_TIME } from "src/build-info";
 import { FileSuggest } from "./file-suggest";
 import { syncSceneIndices } from "src/model/store-vault-sync";
 
@@ -301,6 +302,12 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
           }
         });
       });
+
+    new Setting(containerEl).setName("Build").setHeading();
+
+    new Setting(containerEl)
+      .setName(`Version ${this.plugin.manifest.version}`)
+      .setDesc(`Commit ${BUILD_COMMIT} · built ${BUILD_TIME}`);
 
     new Setting(containerEl).setName("Credits").setHeading();
 
