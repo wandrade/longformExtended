@@ -15,15 +15,22 @@ import {
   type Value,
 } from "obsidian";
 
+import { get } from "svelte/store";
+
+import { noteGroupSingularName } from "../../model/note-groups";
 import {
   comparePlotGridRows,
   PLOT_GRID_ALL_LEVEL_VALUE,
   PLOT_GRID_VIEW_TYPE,
   plotGridDefaultLevelValue,
+  plotGridDirectories,
   plotGridRowLabel,
+  plotGridRowLabelPrefix,
   plotGridRowProperty,
   type PlotGridRowProperty,
 } from "../../model/plot-grid";
+import { drafts } from "../../model/stores";
+import { singularDisplayName, type MultipleSceneDraft } from "../../model/types";
 
 const NOTE_PREFIX = "note.";
 const ALL_LEVEL_LABEL = "All";
@@ -194,6 +201,9 @@ export class PlotGridView extends BasesView {
 
     this.renderLevelSelect(root, levels, selectedLevel.value);
 
+    // The two-line row headers use the project's display names. Resolve them
+    // once per render and share them across every column.
+    const rowLabels = this.rowLabelPrefixes();
     const table = root.createEl("table", {
       cls: "longform-plotgrid-table",
     });
@@ -206,7 +216,7 @@ export class PlotGridView extends BasesView {
       const header = headRow.createEl("th", {
         cls: "longform-plotgrid-note-header",
       });
-      this.renderNoteLink(header, entry.file);
+      this.renderNoteLink(header, entry.file, rowLabels);
     }
 
     const body = table.createEl("tbody");
@@ -281,10 +291,15 @@ export class PlotGridView extends BasesView {
 
   /**
    * Renders the clickable note header. When the plot and character
-   * directories differ the shared label helper prefixes `(plot)` or
-   * `(character)`; that prefix gets its own line via a `<br>`.
+   * directories differ the shared label helper prefixes the project's singular
+   * display name, e.g. `(Subplot)`; that prefix gets its own line via a
+   * `<br>`.
    */
-  private renderNoteLink(container: HTMLElement, file: TFile): void {
+  private renderNoteLink(
+    container: HTMLElement,
+    file: TFile,
+    rowLabels: { plots?: string; characters?: string }
+  ): void {
     const link = container.createEl("a", {
       cls: "internal-link longform-plotgrid-note-link",
     });
@@ -299,7 +314,9 @@ export class PlotGridView extends BasesView {
       this.configString("plotsDir"),
       this.configString("charactersDir"),
       file.path,
-      file.basename
+      file.basename,
+      rowLabels.plots,
+      rowLabels.characters
     );
     const lineBreak = label.indexOf("\n");
     if (lineBreak >= 0) {
@@ -489,6 +506,81 @@ export class PlotGridView extends BasesView {
   private configString(key: string): string {
     const value = this.config?.get(key);
     return typeof value === "string" ? value.trim() : "";
+  }
+
+  /**
+   * The two-line row-label prefixes, e.g. `(Subplot)\n`. The Base config only
+   * carries the resolved row folders, so the project draft is located by
+   * matching those folders; its display names are the presentation source.
+   * A hand-edited Base may instead carry an explicit label, and older Bases
+   * fall back to the built-in prefixes in `plotGridRowLabel`.
+   */
+  private rowLabelPrefixes(): { plots?: string; characters?: string } {
+    const draft = this.projectDraft();
+    if (draft) {
+      return {
+        plots: plotGridRowLabelPrefix(
+          noteGroupSingularName(draft, "plots")
+        ),
+        characters: plotGridRowLabelPrefix(
+          noteGroupSingularName(draft, "characters")
+        ),
+      };
+    }
+    return {
+      plots: this.configRowLabel("plots"),
+      characters: this.configRowLabel("characters"),
+    };
+  }
+
+  /** The loaded project whose resolved row folders match this Base's config. */
+  private projectDraft(): MultipleSceneDraft | null {
+    const plotsDir = this.configString("plotsDir");
+    const charactersDir = this.configString("charactersDir");
+    if (plotsDir.length === 0 || charactersDir.length === 0) {
+      return null;
+    }
+
+    for (const draft of get(drafts)) {
+      if (draft.format !== "scenes") {
+        continue;
+      }
+      const directories = plotGridDirectories(this.app, draft);
+      if (
+        directories.plots === plotsDir &&
+        directories.characters === charactersDir
+      ) {
+        return draft;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * An explicit row-label prefix from a hand-edited Base. Accepts a full
+   * prefix, a parenthesized name, or a plain display name.
+   */
+  private configRowLabel(
+    kind: "plots" | "characters"
+  ): string | undefined {
+    const keys =
+      kind === "plots"
+        ? ["plotLabel", "plotsLabel", "plotsDisplayName"]
+        : ["characterLabel", "charactersLabel", "charactersDisplayName"];
+    for (const key of keys) {
+      const value = this.configString(key);
+      if (value.length === 0) {
+        continue;
+      }
+      if (value.includes("\n")) {
+        return value;
+      }
+      if (value.startsWith("(") && value.endsWith(")")) {
+        return plotGridRowLabelPrefix(value.slice(1, -1));
+      }
+      return plotGridRowLabelPrefix(singularDisplayName(value));
+    }
+    return undefined;
   }
 }
 

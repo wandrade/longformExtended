@@ -3,9 +3,12 @@ import { normalizePath, type App, type TFile } from "obsidian";
 import { configuredOutputPath, writeGeneratedNote } from "./generated-note";
 import { sceneFolderPath } from "./scene-navigation";
 import {
+  DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_PLOT_GRID_CHARACTERS_DIR,
   DEFAULT_PLOT_GRID_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
+  DEFAULT_PLOTS_DISPLAY_NAME,
+  singularDisplayName,
   type IndentedScene,
   type MultipleSceneDraft,
 } from "./types";
@@ -132,9 +135,8 @@ export function plotGridIndents(scenes: IndentedScene[]): number[] {
 }
 
 /**
- * The hierarchy nodes at a level, in document order. Each node carries the
- * titles of its ancestors so the path remains available for display and for
- * migrating values written before keys were based on the node title alone.
+ * The hierarchy nodes at a level, in document order. Each node includes the
+ * titles of its ancestors.
  */
 export function plotGridNodesAtLevel(
   scenes: IndentedScene[],
@@ -227,34 +229,36 @@ export function slugPlotGridSegment(title: string): string {
     .replace(/_+$/, "");
 }
 
+/** Reserves a free key, appending `_2`, `_3`, and so on on collision. */
+function uniquePlotGridKey(base: string, used: Set<string>): string {
+  let key = base;
+  let suffix = 2;
+  while (used.has(key)) {
+    key = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  used.add(key);
+  return key;
+}
+
 /**
  * Builds the collision-safe columns for a level. Keys are the slugged title of
- * the node at that level (not its ancestor path), prefixed with `plotgrid_`; a
- * collision appends `_2`, `_3`, and so on.
+ * the node at that level (not its ancestor path), prefixed with `plotgrid_`.
  */
 export function plotGridColumns(
   scenes: IndentedScene[],
   level: number
 ): PlotGridColumn[] {
   const used = new Set<string>();
-  const columns: PlotGridColumn[] = [];
 
-  for (const node of plotGridNodesAtLevel(scenes, level)) {
+  return plotGridNodesAtLevel(scenes, level).map((node) => {
     const bare = slugPlotGridSegment(node.title) || "node";
-    const base = `${PLOT_GRID_KEY_PREFIX}${bare}`;
-
-    let key = base;
-    let suffix = 2;
-    while (used.has(key)) {
-      key = `${base}_${suffix}`;
-      suffix += 1;
-    }
-    used.add(key);
-
-    columns.push({ key, title: node.title, path: node.path });
-  }
-
-  return columns;
+    return {
+      key: uniquePlotGridKey(`${PLOT_GRID_KEY_PREFIX}${bare}`, used),
+      title: node.title,
+      path: node.path,
+    };
+  });
 }
 
 /** One hierarchy level and its ordered columns. */
@@ -327,21 +331,9 @@ export function plotGridDeepestColumns(
     : plotGridColumns(scenes, indents.length - 1);
 }
 
-/** The `note.plotgrid_*` IDs for columns, ordered and deduped by key. */
+/** The `note.plotgrid_*` IDs for columns, in order. */
 function plotGridNoteProperties(columns: PlotGridColumn[]): string[] {
-  const seen = new Set<string>();
-  const properties: string[] = [];
-
-  for (const column of columns) {
-    const property = `note.${column.key}`;
-    if (seen.has(property)) {
-      continue;
-    }
-    seen.add(property);
-    properties.push(property);
-  }
-
-  return properties;
+  return columns.map((column) => `note.${column.key}`);
 }
 
 /** A generated view's level filter entry. */
@@ -357,12 +349,7 @@ export type PlotGridLevelViewOption = {
 /** The value of the view's `All` level option. */
 export const PLOT_GRID_ALL_LEVEL_VALUE = "all";
 
-/**
- * The view's level filter entries: `All` first (every level, top-down and in
- * document order), then each level in scene document order. Both the option
- * list and the emitted YAML use the same order, so the view's rows follow the
- * Scenes tab/tree rather than an alphabetical property set.
- */
+/** The view's level filter entries: `All` first, then each level. */
 export function plotGridLevelViewOptions(
   levels: PlotGridLevel[]
 ): PlotGridLevelViewOption[] {
@@ -412,16 +399,10 @@ function legacyPlotGridKeys(columns: PlotGridColumn[]): Map<string, string> {
       .map(slugPlotGridSegment)
       .filter((segment) => segment.length > 0);
     const bare = segments.length > 0 ? segments.join("__") : "node";
-    const base = `${PLOT_GRID_KEY_PREFIX}${bare}`;
-
-    let legacyKey = base;
-    let suffix = 2;
-    while (used.has(legacyKey)) {
-      legacyKey = `${base}_${suffix}`;
-      suffix += 1;
-    }
-    used.add(legacyKey);
-    keys.set(column.key, legacyKey);
+    keys.set(
+      column.key,
+      uniquePlotGridKey(`${PLOT_GRID_KEY_PREFIX}${bare}`, used)
+    );
   }
 
   return keys;
@@ -452,24 +433,77 @@ export function isInsidePlotGridDirectory(
 }
 
 /**
+ * Builds the two-line row-label prefix from a singular display name, e.g.
+ * `Subplot` -> `(Subplot)\n`. The display name is used as configured; only
+ * its case is preserved.
+ */
+export function plotGridRowLabelPrefix(label: string): string {
+  return `(${label})\n`;
+}
+
+/** The project-facing grid title, e.g. `Subplot Grid` or `Argument Grid`. */
+export function plotGridTitle(draft: MultipleSceneDraft): string {
+  const plots = singularDisplayName(
+    draft.plotsDisplayName?.trim() || DEFAULT_PLOTS_DISPLAY_NAME
+  );
+  return `${plots} Grid`;
+}
+
+/** The configured singular row-label prefixes for a draft. */
+export function plotGridRowLabelPrefixes(draft: MultipleSceneDraft): {
+  plots: string;
+  characters: string;
+} {
+  return {
+    plots: plotGridRowLabelPrefix(
+      singularDisplayName(
+        draft.plotsDisplayName?.trim() || DEFAULT_PLOTS_DISPLAY_NAME
+      )
+    ),
+    characters: plotGridRowLabelPrefix(
+      singularDisplayName(
+        draft.charactersDisplayName?.trim() || DEFAULT_CHARACTERS_DISPLAY_NAME
+      )
+    ),
+  };
+}
+
+/**
  * The label a row displays: `(plot)\nName` or `(character)\nName`. Callers
  * pass the resolved, vault-relative directories, which the project settings
  * keep distinct and non-nested. Plots are checked first so nested paths still
- * resolve deterministically.
+ * resolve deterministically. `plotLabel` and `characterLabel` are full
+ * prefixes; the defaults preserve the constant labels.
  */
 export function plotGridRowLabel(
   plots: string,
   characters: string,
   path: string,
-  name: string
+  name: string,
+  plotLabel: string = PLOT_GRID_PLOT_LABEL_PREFIX,
+  characterLabel: string = PLOT_GRID_CHARACTER_LABEL_PREFIX
 ): string {
   if (isInsidePlotGridDirectory(plots, path)) {
-    return `${PLOT_GRID_PLOT_LABEL_PREFIX}${name}`;
+    return `${normalizeRowLabel(plotLabel)}${name}`;
   }
   if (isInsidePlotGridDirectory(characters, path)) {
-    return `${PLOT_GRID_CHARACTER_LABEL_PREFIX}${name}`;
+    return `${normalizeRowLabel(characterLabel)}${name}`;
   }
   return name;
+}
+
+/**
+ * Accepts either a full two-line prefix (`(Subplot)\n`) or a plain display
+ * name (`Subplot`), so callers can pass the configured singular name directly.
+ */
+function normalizeRowLabel(label: string): string {
+  if (label.endsWith("\n")) {
+    return label;
+  }
+  if (label.startsWith("(") && label.endsWith(")")) {
+    return `${label}\n`;
+  }
+  return `(${label})\n`;
 }
 
 /**
@@ -574,20 +608,11 @@ export function resolvePlotGridDirectories(
   app: App,
   draft: MultipleSceneDraft
 ): ResolvedPlotGridDirectories {
+  const { plots, characters } = plotGridDirectories(app, draft);
   return {
     scene: normalizeDirectory(sceneFolderPath(draft, app.vault)),
-    plots: resolvePlotGridDirectory(
-      app,
-      draft,
-      draft.plotGridPlotsDir,
-      DEFAULT_PLOT_GRID_PLOTS_DIR
-    ),
-    characters: resolvePlotGridDirectory(
-      app,
-      draft,
-      draft.plotGridCharactersDir,
-      DEFAULT_PLOT_GRID_CHARACTERS_DIR
-    ),
+    plots,
+    characters,
   };
 }
 
@@ -708,12 +733,8 @@ export function plotGridRowFiles(
   directories: PlotGridDirectories
 ): TFile[] {
   const byPath = new Map<string, TFile>();
-  const folders =
-    directories.plots === directories.characters
-      ? [directories.plots]
-      : [directories.plots, directories.characters];
 
-  for (const folder of folders) {
+  for (const folder of directories.filters) {
     const files = app.vault
       .getMarkdownFiles()
       .filter((file) => isInsidePlotGridDirectory(folder, file.path))
@@ -824,10 +845,8 @@ async function ensurePlotGridDataFor(
 }
 
 /**
- * Ensures every level's prefixed column keys exist on every row note,
- * preserving every existing value. This is the public step-3 entry point used
- * by the observer; it does nothing when the hierarchy has no levels or no
- * notes were found.
+ * Ensures every level's prefixed column keys exist on every row note, preserving
+ * existing values. Does nothing when the hierarchy has no levels.
  */
 export async function ensurePlotGridData(
   app: App,
@@ -862,12 +881,19 @@ function folderFilter(directory: string): string {
  * strings parse (they are decoded with `JSON.parse`). Plots are checked before
  * characters, which gives nested directories a deterministic precedence.
  */
-function rowLabelFormula(plots: string, characters: string): string {
-  const plotLabel = JSON.stringify(PLOT_GRID_PLOT_LABEL_PREFIX);
-  const characterLabel = JSON.stringify(PLOT_GRID_CHARACTER_LABEL_PREFIX);
+function rowLabelFormula(
+  plots: string,
+  characters: string,
+  plotLabel: string,
+  characterLabel: string
+): string {
   return [
-    `if(${folderFilter(plots)}, file.asLink(${plotLabel} + file.name),`,
-    `if(${folderFilter(characters)}, file.asLink(${characterLabel} + file.name),`,
+    `if(${folderFilter(plots)}, file.asLink(${JSON.stringify(
+      plotLabel
+    )} + file.name),`,
+    `if(${folderFilter(characters)}, file.asLink(${JSON.stringify(
+      characterLabel
+    )} + file.name),`,
     "file.asLink()))",
   ].join(" ");
 }
@@ -887,7 +913,10 @@ function rowRankFormula(plots: string, characters: string): string {
 
 function renderPlotGridBaseContents(
   levels: PlotGridLevel[],
-  directories: PlotGridDirectories
+  directories: PlotGridDirectories,
+  plotLabel: string = PLOT_GRID_PLOT_LABEL_PREFIX,
+  characterLabel: string = PLOT_GRID_CHARACTER_LABEL_PREFIX,
+  gridTitle = "Subplot Grid"
 ): string {
   const columns = plotGridAllColumns(levels);
   const rowProperties = plotGridNoteProperties(columns);
@@ -913,17 +942,17 @@ function renderPlotGridBaseContents(
   if (labeled) {
     lines.push(
       `  ${PLOT_GRID_ROW_LABEL_FORMULA}: |-`,
-      `    ${rowLabelFormula(directories.plots, directories.characters)}`
+      `    ${rowLabelFormula(
+        directories.plots,
+        directories.characters,
+        plotLabel,
+        characterLabel
+      )}`
     );
   }
 
-  // The order is shared by both views: the custom view filters the row
-  // properties down to `note.plotgrid_*`, and the native table shows the
-  // notes-as-rows fallback. The row label formula replaces file.name as the
-  // visible row name when the directories differ. Both views sort by the rank
-  // formula first so the Main plot leads, then by name. Columns are the unique
-  // all-levels columns, top-down and in scene document order, so the native
-  // fallback and the custom view's All option list them identically.
+  // Both views share this order; the custom view filters it to
+  // `note.plotgrid_*`, and both sort by rank so the Main plot leads.
   const order: string[] = [];
   if (labeled) {
     order.push(`formula.${PLOT_GRID_ROW_LABEL_FORMULA}`);
@@ -943,7 +972,7 @@ function renderPlotGridBaseContents(
   lines.push(
     "views:",
     `  - type: ${PLOT_GRID_VIEW_TYPE}`,
-    "    name: Subplot Grid",
+    `    name: ${yamlQuote(gridTitle)}`,
     `    plotsDir: ${yamlQuote(directories.plots)}`,
     `    charactersDir: ${yamlQuote(directories.characters)}`,
     "    levels:"
@@ -966,7 +995,7 @@ function renderPlotGridBaseContents(
   lines.push(...sort);
   lines.push(
     "  - type: table",
-    "    name: Subplot Grid (Table)",
+    `    name: ${yamlQuote(`${gridTitle} (Table)`)}`,
     "    order:"
   );
   for (const property of order) {
@@ -1008,7 +1037,14 @@ export function renderPlotGridBase(
     return null;
   }
 
-  return renderPlotGridBaseContents(levels, directories);
+  const labels = plotGridRowLabelPrefixes(draft);
+  return renderPlotGridBaseContents(
+    levels,
+    directories,
+    labels.plots,
+    labels.characters,
+    plotGridTitle(draft)
+  );
 }
 
 /**
@@ -1077,10 +1113,17 @@ export async function writePlotGrid(
     DEFAULT_PLOT_GRID_OUTPUT_PATH,
     ".base"
   );
+  const labels = plotGridRowLabelPrefixes(draft);
   await writeGeneratedNote(
     app,
     path,
-    renderPlotGridBaseContents(levels, directories)
+    renderPlotGridBaseContents(
+      levels,
+      directories,
+      labels.plots,
+      labels.characters,
+      plotGridTitle(draft)
+    )
   );
 
   return {

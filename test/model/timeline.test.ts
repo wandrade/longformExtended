@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { App, TFile } from "obsidian";
+import { TFile, type App } from "obsidian";
 
 import {
   buildPlotTimeline,
+  buildTimeline,
   plotTimelineMentions,
   readTimelinePlotNotes,
   renderTimeline,
   renderTimelinePlotTable,
   timelinePlotColumns,
+  writeTimeline,
   type TimelineEntry,
   type TimelinePlotTable,
   type TimelineResult,
@@ -35,6 +37,10 @@ function makeDraft(
     characterTemplate: null,
     plots: [],
     characters: [],
+    sceneDisplayName: "Scenes",
+    plotsDisplayName: "Subplots",
+    charactersDisplayName: "Characters",
+    noteGroups: [],
     timeframeTagName: "timeframe",
     timeFormat: "datetime",
     kanbanColumns: "Planned Draft Reviewed",
@@ -80,33 +86,56 @@ type FakeWorld = {
   app: App;
   bodies: Map<string, string>;
   frontmatter: Map<string, Record<string, unknown>>;
+  generated: Map<string, string>;
 };
+
+function fileAt(path: string): TFile {
+  const file = new TFile();
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  Object.assign(file, {
+    path,
+    name,
+    basename: name.replace(/\.md$/i, ""),
+  });
+  return file;
+}
 
 function makeWorld(files: string[]): FakeWorld {
   const bodies = new Map<string, string>();
   const frontmatter = new Map<string, Record<string, unknown>>();
+  const fileObjects = new Map<string, TFile>();
   for (const file of files) {
     bodies.set(file, "");
     frontmatter.set(file, {});
+    fileObjects.set(file, fileAt(file));
   }
+
+  const project = fileAt("Books/My/Book.md");
+  Object.assign(project, { parent: { path: "Books/My" } });
+  const generated = new Map<string, string>();
+  const folders = new Set<string>();
 
   const app = {
     vault: {
       getAbstractFileByPath: (path: string) => {
         if (path === "Books/My/Book.md") {
-          return { parent: { path: "Books/My" } };
+          return project;
         }
-        return null;
+        return fileObjects.get(path) ?? null;
       },
-      getMarkdownFiles: () =>
-        Array.from(bodies.keys()).map((path) => {
-          const name = path.slice(path.lastIndexOf("/") + 1);
-          return {
-            path,
-            basename: name.replace(/\.md$/i, ""),
-          } as TFile;
-        }),
+      getMarkdownFiles: () => Array.from(fileObjects.values()),
       read: async (file: TFile) => bodies.get(file.path) ?? "",
+      createFolder: async (path: string) => {
+        folders.add(path);
+      },
+      adapter: {
+        exists: async (path: string) =>
+          generated.has(path) || folders.has(path) || bodies.has(path),
+        read: async (path: string) => generated.get(path) ?? "",
+        write: async (path: string, contents: string) => {
+          generated.set(path, contents);
+        },
+      },
     },
     metadataCache: {
       getFileCache: (file: { path: string }) => ({
@@ -115,7 +144,7 @@ function makeWorld(files: string[]): FakeWorld {
     },
   } as unknown as App;
 
-  return { app, bodies, frontmatter };
+  return { app, bodies, frontmatter, generated };
 }
 
 describe("plot timeline columns", () => {
@@ -763,5 +792,513 @@ describe("plot timeline table rendering", () => {
     expect(rendered).toContain("## Problems");
     expect(rendered).not.toContain("| Subplot |");
     expect(rendered).not.toContain("Full Story");
+  });
+});
+
+describe("buildTimeline", () => {
+  it("collects leaf scenes, skips containers, sorts, and reports problems", async () => {
+    const { app, frontmatter } = makeWorld([
+      "Books/My/Scenes/Scene 1.md",
+      "Books/My/Scenes/Scene 2.md",
+      "Books/My/Scenes/Scene 3.md",
+      "Books/My/Scenes/Scene 4.md",
+      "Books/My/Scenes/Scene 5.md",
+      "Books/My/Scenes/Scene 6.md",
+    ]);
+    frontmatter.set("Books/My/Scenes/Scene 1.md", {
+      timeframe: "04/03/2026 09:30",
+    });
+    frontmatter.set("Books/My/Scenes/Scene 2.md", {
+      timeframe: "05/03/2026 10:00",
+    });
+    frontmatter.set("Books/My/Scenes/Scene 3.md", {
+      timeframe: "06/03/2026",
+    });
+    frontmatter.set("Books/My/Scenes/Scene 5.md", {
+      timeframe: "not a date",
+    });
+    frontmatter.set("Books/My/Scenes/Scene 6.md", {
+      timeframe: "32/03/2026 10:00",
+    });
+
+    const draft = makeDraft({
+      scenes: [
+        { title: "Act 1", indent: 0 },
+        { title: "Scene 1", indent: 1 },
+        { title: "Scene 2", indent: 1 },
+        { title: "Scene 3", indent: 1 },
+        { title: "Scene 4", indent: 1 },
+        { title: "Scene 5", indent: 1 },
+        { title: "Scene 6", indent: 1 },
+      ],
+    });
+
+    const result = await buildTimeline(app, draft);
+
+    expect(result.entries.map((scene) => scene.sceneTitle)).toEqual([
+      "Scene 1",
+      "Scene 2",
+    ]);
+    expect(result.entries[0].values).toEqual({
+      day: 4,
+      month: 3,
+      year: 2026,
+      hour: 9,
+      minute: 30,
+    });
+    expect(result.missing).toEqual(["Scene 4"]);
+    // The structural Act is not a timeline event and has no timeframe entry.
+    expect(result.missing).not.toContain("Act 1");
+    expect(
+      result.errors
+        .map((error) => `${error.sceneTitle}:${error.kind}`)
+        .sort()
+    ).toEqual([
+      "Scene 3:inconsistent",
+      "Scene 5:format",
+      "Scene 6:range",
+    ]);
+    expect(result.units).toEqual([
+      "year",
+      "month",
+      "day",
+      "hour",
+      "minute",
+    ]);
+    expect(result.primaryUnit).toBe("day");
+    expect(result.secondaryUnit).toBe("day");
+  });
+
+  it("sorts number timelines and keeps duplicate values", async () => {
+    const { app, frontmatter } = makeWorld([
+      "Books/My/Scenes/Scene 10.md",
+      "Books/My/Scenes/Scene 2.md",
+      "Books/My/Scenes/Scene 1.md",
+    ]);
+    frontmatter.set("Books/My/Scenes/Scene 10.md", { timeframe: 10 });
+    frontmatter.set("Books/My/Scenes/Scene 2.md", { timeframe: 2 });
+    frontmatter.set("Books/My/Scenes/Scene 1.md", { timeframe: 1 });
+
+    const draft = makeDraft({
+      timeFormat: "number",
+      scenes: [
+        { title: "Scene 10", indent: 0 },
+        { title: "Scene 2", indent: 0 },
+        { title: "Scene 1", indent: 0 },
+      ],
+    });
+
+    const result = await buildTimeline(app, draft);
+
+    expect(result.entries.map((scene) => scene.sceneTitle)).toEqual([
+      "Scene 1",
+      "Scene 2",
+      "Scene 10",
+    ]);
+    // `number` is not part of the coarsest-first unit list, so a number
+    // timeline reports no present units; headers still use the primary unit.
+    expect(result.units).toEqual([]);
+    expect(result.primaryUnit).toBe("number");
+    expect(result.secondaryUnit).toBe("number");
+    expect(result.errors).toEqual([]);
+    expect(timelinePlotColumns(result).map((column) => column.header)).toEqual([
+      "1",
+      "2",
+      "10",
+    ]);
+  });
+
+  it("accepts partial time-only values", async () => {
+    const { app, frontmatter } = makeWorld([
+      "Books/My/Scenes/Scene 1.md",
+      "Books/My/Scenes/Scene 2.md",
+    ]);
+    frontmatter.set("Books/My/Scenes/Scene 1.md", { timeframe: "09:30" });
+    frontmatter.set("Books/My/Scenes/Scene 2.md", { timeframe: "10:15" });
+
+    const draft = makeDraft({
+      timeFormat: "time",
+      scenes: [
+        { title: "Scene 1", indent: 0 },
+        { title: "Scene 2", indent: 0 },
+      ],
+    });
+
+    const result = await buildTimeline(app, draft);
+
+    expect(result.entries.map((scene) => scene.values)).toEqual([
+      { hour: 9, minute: 30 },
+      { hour: 10, minute: 15 },
+    ]);
+    expect(result.units).toEqual(["hour", "minute"]);
+    expect(result.errors).toEqual([]);
+  });
+});
+
+describe("writeTimeline", () => {
+  it("skips writing when disabled or when there is nothing to report", async () => {
+    const disabled = makeWorld([]);
+    await writeTimeline(
+      disabled.app,
+      makeDraft({ timelineEnabled: false }),
+      makeResult({ entries: [entry("Scene 1", "Scenes/Scene 1.md", {})] })
+    );
+    expect(disabled.generated.size).toBe(0);
+
+    const empty = makeWorld([]);
+    await writeTimeline(empty.app, makeDraft(), makeResult());
+    expect(empty.generated.size).toBe(0);
+  });
+
+  it("writes the scene table with a custom output path", async () => {
+    const { app, generated } = makeWorld([]);
+    const result = makeResult({
+      units: ["day", "hour", "minute"],
+      primaryUnit: "day",
+      secondaryUnit: "hour",
+      entries: [
+        entry("Scene 1", "Scenes/Scene 1.md", {
+          day: 1,
+          hour: 9,
+          minute: 30,
+        }),
+      ],
+    });
+
+    await writeTimeline(
+      app,
+      makeDraft({
+        plotGridEnabled: false,
+        timelineOutputPath: "Output/$1-timeline",
+      }),
+      result
+    );
+
+    const contents = generated.get("Books/My/Output/Book-timeline.md");
+    expect(contents).toBeDefined();
+    expect(contents).toContain("# Story Timeline");
+    expect(contents).toContain("```mermaid");
+    expect(contents).toContain("| | | | |");
+    expect(contents).not.toContain("| Subplot |");
+  });
+
+  it("writes the transposed plot table when the plot grid is enabled", async () => {
+    const { app, bodies, generated } = makeWorld([
+      "Books/My/Bible/Plots/Main.md",
+    ]);
+    bodies.set("Books/My/Bible/Plots/Main.md", "Scene 1");
+
+    await writeTimeline(
+      app,
+      makeDraft({
+        plotGridEnabled: true,
+        scenes: [{ title: "Scene 1", indent: 0 }],
+      }),
+      makeResult({
+        units: ["number"],
+        primaryUnit: "number",
+        secondaryUnit: "number",
+        entries: [entry("Scene 1", "Books/My/Scenes/Scene 1.md", { number: 1 })],
+      })
+    );
+
+    const contents = generated.get("Books/My/Build/Book_timeline.md");
+    expect(contents).toContain("```mermaid");
+    expect(contents).toContain("| Subplot |");
+    expect(contents).toContain("| Full Story |");
+    expect(contents).toContain("| Main |");
+  });
+
+  it("writes Problems instead of tables when the timeline has errors", async () => {
+    const { app, generated } = makeWorld([]);
+
+    await writeTimeline(
+      app,
+      makeDraft({ plotGridEnabled: true }),
+      makeResult({
+        errors: [
+          {
+            sceneTitle: "Scene 1",
+            kind: "format",
+            message: "does not match the configured format.",
+          },
+        ],
+      })
+    );
+
+    const contents = generated.get("Books/My/Build/Book_timeline.md");
+    expect(contents).toContain("## Problems");
+    expect(contents).not.toContain("| Subplot |");
+    expect(contents).not.toContain("```mermaid");
+  });
+});
+
+describe("scene timeline rendering", () => {
+  it("renders number entries as chronological Mermaid sections", () => {
+    const result = makeResult({
+      title: "Book: One",
+      format: "number",
+      units: ["number"],
+      primaryUnit: "number",
+      secondaryUnit: "number",
+      entries: [
+        entry("Scene 1", "Scenes/Scene 1.md", { number: 1 }),
+        entry("Scene 2", "Scenes/Scene 2.md", { number: 2 }),
+        entry("Scene 3", "Scenes/Scene 3.md", { number: 3 }),
+      ],
+    });
+
+    const rendered = renderTimeline(result);
+
+    expect(rendered).toContain("```mermaid");
+    expect(rendered).toContain("    title Book - One");
+    expect(rendered).toContain("    section Timeline");
+    expect(rendered).toContain("        1 : Scene 1");
+    expect(rendered).toContain("        2 : Scene 2");
+    expect(rendered).toContain("        3 : Scene 3");
+  });
+
+  it("groups date entries by primary unit and nests the between units", () => {
+    const result = makeResult({
+      units: ["day", "hour", "minute"],
+      primaryUnit: "day",
+      secondaryUnit: "hour",
+      entries: [
+        entry("Scene 1", "Scenes/Scene 1.md", {
+          day: 1,
+          hour: 8,
+          minute: 30,
+        }),
+        entry("Scene 2", "Scenes/Scene 2.md", {
+          day: 1,
+          hour: 8,
+          minute: 45,
+        }),
+        entry("Scene 3", "Scenes/Scene 3.md", {
+          day: 1,
+          hour: 9,
+          minute: 0,
+        }),
+        entry("Scene 4", "Scenes/Scene 4.md", {
+          day: 2,
+          hour: 8,
+          minute: 0,
+        }),
+      ],
+    });
+
+    const rendered = renderTimeline(result);
+
+    expect(rendered).toContain("    section 01");
+    expect(rendered).toContain("    section 02");
+    expect(rendered).toContain("        08 : 30<br>Scene 1");
+    expect(rendered).toContain(": 45<br>Scene 2");
+    expect(rendered).toContain("        09 : 00<br>Scene 3");
+    expect(rendered).toContain("        08 : 00<br>Scene 4");
+    // Entries in the same period share one period label.
+    expect(rendered.match(/ {8}08 : /g)).toHaveLength(2);
+  });
+
+  it("combines the Mermaid timeline with a supplied plot table", () => {
+    const result = makeResult({
+      units: ["number"],
+      primaryUnit: "number",
+      secondaryUnit: "number",
+      entries: [entry("Scene 1", "Scenes/Scene 1.md", { number: 1 })],
+    });
+    const table: TimelinePlotTable = {
+      columns: timelinePlotColumns(result),
+      lines: [
+        { name: "Full Story", fullStory: true, mentions: new Set<string>() },
+      ],
+      unmentioned: [],
+    };
+
+    const rendered = renderTimeline(result, table);
+
+    expect(rendered.indexOf("```mermaid")).toBeGreaterThanOrEqual(0);
+    expect(rendered.indexOf("| Subplot |")).toBeGreaterThan(
+      rendered.indexOf("```mermaid")
+    );
+    expect(rendered).toContain("| Full Story |");
+  });
+});
+
+describe("timeline mention matching", () => {
+  const columns = [
+    { key: "plotgrid_scene_1", title: "Scene 1", path: ["Scene 1"] },
+  ];
+
+  it("does not match a title embedded in a longer number", () => {
+    const mentions = plotTimelineMentions(
+      {
+        path: "Bible/Plots/Main.md",
+        name: "Main",
+        body: "Scene 10 is the only event.",
+        frontmatter: {},
+      },
+      [
+        entry("Scene 1", "Scenes/Scene 1.md", {}),
+        entry("Scene 10", "Scenes/Scene 10.md", {}),
+      ],
+      columns
+    );
+
+    expect(mentions.has("Scene 10")).toBe(true);
+    expect(mentions.has("Scene 1")).toBe(false);
+  });
+
+  it("matches links by path, heading target, and alias", () => {
+    const mentions = plotTimelineMentions(
+      {
+        path: "Bible/Plots/Main.md",
+        name: "Main",
+        body:
+          "[[Scenes/Scene 3#Beat|Third]] and [[Scenes/Scene 1|First]]; " +
+          "[[Other/Scene 2]] matches by basename.",
+        frontmatter: {},
+      },
+      [
+        entry("Scene 1", "Scenes/Scene 1.md", {}),
+        entry("Scene 2", "Scenes/Scene 2.md", {}),
+        entry("Scene 3", "Scenes/Scene 3.md", {}),
+        entry("Scene 4", "Scenes/Scene 4.md", {}),
+      ],
+      columns
+    );
+
+    expect(Array.from(mentions).sort()).toEqual([
+      "Scene 1",
+      "Scene 2",
+      "Scene 3",
+    ]);
+  });
+
+  it("reads nested frontmatter values and non-empty cell arrays", () => {
+    const mentions = plotTimelineMentions(
+      {
+        path: "Bible/Plots/Main.md",
+        name: "Main",
+        body: "",
+        frontmatter: {
+          plotgrid_scene_1: ["mentioned"],
+          refs: ["Scene 2"],
+          nested: { text: "Scene 3" },
+          count: 4,
+          done: true,
+        },
+      },
+      [
+        entry("Scene 1", "Scenes/Scene 1.md", {}),
+        entry("Scene 2", "Scenes/Scene 2.md", {}),
+        entry("Scene 3", "Scenes/Scene 3.md", {}),
+      ],
+      columns
+    );
+
+    expect(Array.from(mentions).sort()).toEqual([
+      "Scene 1",
+      "Scene 2",
+      "Scene 3",
+    ]);
+  });
+});
+
+describe("timeline levels with generic scene depth", () => {
+  it("uses scene hierarchy ancestors and ignores non-scene grid cells", async () => {
+    const { app, bodies, frontmatter } = makeWorld([
+      "Books/My/Bible/Plots/Main.md",
+      "Books/My/Bible/Plots/Sub.md",
+    ]);
+    // Main has a chapter-level cell, which is not a scene-level mention.
+    frontmatter.set("Books/My/Bible/Plots/Main.md", {
+      plotgrid_chapter_a: "yes",
+    });
+    bodies.set(
+      "Books/My/Bible/Plots/Main.md",
+      "[[Books/My/Scenes/Scene 1]]"
+    );
+    bodies.set("Books/My/Bible/Plots/Sub.md", "[[Books/My/Scenes/Scene 3]]");
+
+    const draft = makeDraft({
+      timeFormat: "number",
+      scenes: [
+        { title: "Act A", indent: 0 },
+        { title: "Chapter A", indent: 2 },
+        { title: "Scene 1", indent: 4 },
+        { title: "Scene 2", indent: 4 },
+        { title: "Act B", indent: 0 },
+        { title: "Chapter B", indent: 2 },
+        { title: "Scene 3", indent: 4 },
+      ],
+    });
+    const result = makeResult({
+      format: "number",
+      units: ["number"],
+      primaryUnit: "number",
+      secondaryUnit: "number",
+      entries: [
+        entry("Scene 1", "Books/My/Scenes/Scene 1.md", { number: 1 }),
+        entry("Scene 2", "Books/My/Scenes/Scene 2.md", { number: 2 }),
+        entry("Scene 3", "Books/My/Scenes/Scene 3.md", { number: 3 }),
+      ],
+    });
+
+    const table = await buildPlotTimeline(app, draft, result);
+
+    expect(table.levels?.map((level) => level.level)).toEqual([2, 1, 0]);
+    expect(table.levels?.map((level) => level.label)).toEqual([
+      "Scene 1, Scene 2, Scene 3",
+      "Chapter A, Chapter B",
+      "Act A, Act B",
+    ]);
+    expect(table.levels?.[1].nodes.get("Scene 1")).toEqual({
+      title: "Chapter A",
+      path: "Books/My/Scenes/Chapter A.md",
+    });
+    expect(table.levels?.[1].nodes.get("Scene 3")).toEqual({
+      title: "Chapter B",
+      path: "Books/My/Scenes/Chapter B.md",
+    });
+    expect(table.levels?.[2].nodes.get("Scene 2")).toEqual({
+      title: "Act A",
+      path: "Books/My/Scenes/Act A.md",
+    });
+    // The chapter-level cell did not mark Scene 1; only the body link did.
+    expect(table.lines[1].mentions.has("Scene 1")).toBe(true);
+    expect(
+      table.unmentioned.map((timelineEntry) => timelineEntry.sceneTitle)
+    ).toEqual(["Scene 2"]);
+  });
+});
+
+describe("timeline display names", () => {
+  it("uses the configured plot label for the table's first column", () => {
+    const result = makeResult({
+      entries: [
+        entry("Scene 1", "Books/My/Scenes/Scene 1.md", {
+          year: 2020,
+          month: 1,
+          day: 1,
+          hour: 1,
+          minute: 0,
+          second: 0,
+        }),
+      ],
+    });
+    const table: TimelinePlotTable = {
+      columns: timelinePlotColumns(result),
+      lines: [
+        { name: "Full Story", fullStory: true, mentions: new Set<string>() },
+      ],
+      unmentioned: [],
+    };
+
+    expect(renderTimelinePlotTable(result, table, "Thread")).toContain(
+      "| Thread |"
+    );
+    expect(renderTimeline(result, table, "Thread")).toContain("| Thread |");
+    // The default remains the singular form of the default display name.
+    expect(renderTimelinePlotTable(result, table)).toContain("| Subplot |");
   });
 });

@@ -2,12 +2,16 @@ import { App, Modal, TFolder } from "obsidian";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { selectedDraftVaultPath } from "src/model/stores";
 import {
+  DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_INCLUDE_PLOTS,
   DEFAULT_KANBAN_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+  DEFAULT_PLOT_GRID_ENABLED,
   DEFAULT_PLOT_GRID_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
+  DEFAULT_PLOTS_DISPLAY_NAME,
+  DEFAULT_SCENE_DISPLAY_NAME,
   DEFAULT_TIMEFRAME_TAG_NAME,
   DEFAULT_TIMELINE_OUTPUT_PATH,
   DEFAULT_TIME_FORMAT,
@@ -64,6 +68,10 @@ export default class NewProjectModalContainer extends Modal {
               workflow: null,
               sceneFolder: "Scenes",
               scenes: [],
+              sceneDisplayName: DEFAULT_SCENE_DISPLAY_NAME,
+              plotsDisplayName: DEFAULT_PLOTS_DISPLAY_NAME,
+              charactersDisplayName: DEFAULT_CHARACTERS_DISPLAY_NAME,
+              noteGroups: [],
               ignoredFiles: [],
               unknownFiles: [],
               sceneTemplate: null,
@@ -81,7 +89,7 @@ export default class NewProjectModalContainer extends Modal {
               kanbanOutputPath: DEFAULT_KANBAN_OUTPUT_PATH,
               timelineEnabled: true,
               timelineOutputPath: DEFAULT_TIMELINE_OUTPUT_PATH,
-              plotGridEnabled: true,
+              plotGridEnabled: DEFAULT_PLOT_GRID_ENABLED,
               plotGridOutputPath: DEFAULT_PLOT_GRID_OUTPUT_PATH,
               plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
               plotGridCharactersDir: DEFAULT_PLOT_GRID_CHARACTERS_DIR,
@@ -103,7 +111,7 @@ export default class NewProjectModalContainer extends Modal {
         await insertDraftIntoFrontmatter(this.app, path, newDraft);
         selectedDraftVaultPath.set(path);
         if (format === "scenes") {
-          selectedNotesTab.set("Scenes");
+          selectedNotesTab.set("scenes");
           selectedTab.set("Notes");
         } else {
           selectedTab.set("Project");

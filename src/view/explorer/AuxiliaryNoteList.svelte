@@ -13,6 +13,10 @@
     auxiliaryNoteFiles,
     type AuxiliaryNoteKind,
   } from "src/model/auxiliary-notes";
+  import {
+    noteGroupEntries,
+    setNoteGroupEntries,
+  } from "src/model/note-groups";
   import { scenePathForFolder } from "src/model/scene-navigation";
   import { selectElementContents, useApp } from "../utils";
   import {
@@ -40,7 +44,7 @@
   $: {
     if ($selectedDraft && $selectedDraft.format === "scenes") {
       items = itemsFromEntries(
-        $selectedDraft[kind],
+        noteGroupEntries($selectedDraft, kind),
         collapsedItems,
         $selectedDraft
       );
@@ -124,7 +128,7 @@
     drafts.update((allDrafts) => {
       const draft = allDrafts[index] as MultipleSceneDraft;
       if (draft && draft.format === "scenes") {
-        draft[kind] = entries;
+        setNoteGroupEntries(draft, kind, entries);
       }
       return allDrafts;
     });

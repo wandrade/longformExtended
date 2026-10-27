@@ -41,7 +41,7 @@ export const DEFAULT_KANBAN_COLUMNS = "Planned Draft Reviewed";
 export const DEFAULT_KANBAN_OUTPUT_PATH = "Build/$1_kanban.base";
 export const DEFAULT_KANBAN_INCLUDE_PLOTS = true;
 export const DEFAULT_PLOT_GRID_ENABLED = true;
-export const DEFAULT_PLOT_GRID_OUTPUT_PATH = "Base/$1_plotgrid.base";
+export const DEFAULT_PLOT_GRID_OUTPUT_PATH = "Build/$1_plotgrid.base";
 export const DEFAULT_PLOT_GRID_PLOTS_DIR = "Subplots";
 export const DEFAULT_PLOT_GRID_CHARACTERS_DIR = "Characters";
 export const KANBAN_STATUS_TAG = "status";
@@ -59,6 +59,42 @@ export type IndentedScene = {
   indent: number;
 };
 
+export const DEFAULT_SCENE_DISPLAY_NAME = "Scenes";
+export const DEFAULT_PLOTS_DISPLAY_NAME = "Subplots";
+export const DEFAULT_CHARACTERS_DISPLAY_NAME = "Characters";
+
+/**
+ * A user-configured note group. `folder` is stored relative to the project
+ * folder, like the built-in folder settings. `entries` is only the order and
+ * indent overlay; the folder's notes are the membership source of truth.
+ */
+export type NoteGroup = {
+  name: string;
+  folder: string;
+  /** Optional template file used when creating notes in this group. */
+  template?: string | null;
+  entries: IndentedScene[];
+};
+
+/** The default folder for a new custom group: spaces become underscores. */
+export function defaultNoteGroupFolder(name: string): string {
+  return name.trim().replace(/\s+/g, "_");
+}
+
+/**
+ * Derives a singular label from a plural display name: `Scenes` -> `Scene`,
+ * `Subplots` -> `Subplot`, `Stories` -> `Story`, `Magic` -> `Magic`.
+ */
+export function singularDisplayName(displayName: string): string {
+  if (displayName.endsWith("ies") && displayName.length > 3) {
+    return `${displayName.slice(0, -3)}y`;
+  }
+  if (displayName.endsWith("s") && displayName.length > 1) {
+    return displayName.slice(0, -1);
+  }
+  return displayName;
+}
+
 export type MultipleSceneDraft = {
   format: "scenes";
   title: string;
@@ -68,6 +104,12 @@ export type MultipleSceneDraft = {
   workflow: string | null;
   sceneFolder: string;
   scenes: IndentedScene[];
+  /** Presentation labels for the three built-in note groups. */
+  sceneDisplayName: string;
+  plotsDisplayName: string;
+  charactersDisplayName: string;
+  /** Project-defined note groups, in tab order. */
+  noteGroups: NoteGroup[];
   ignoredFiles: string[] | null;
   unknownFiles: string[];
   sceneTemplate: string | null;

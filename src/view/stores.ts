@@ -14,6 +14,7 @@ import {
   fileNameFromPath,
 } from "src/model/note-utils";
 import { draftForPath } from "src/model/scene-navigation";
+import type { NoteGroupKey } from "src/model/note-groups";
 import type { Draft, DraftWordCounts } from "src/model/types";
 
 // Writable stores
@@ -22,8 +23,12 @@ export const activeFile = writable<TFile | null>(null);
 export type ExplorerTab = "Notes" | "Project" | "Compile" | "Status";
 export const selectedTab = writable<ExplorerTab>("Notes");
 
-export type NotesTab = "Scenes" | "Plots" | "Characters";
-export const selectedNotesTab = writable<NotesTab>("Scenes");
+/**
+ * The selected Notes sub-tab. Built-in groups use their stable keys and custom
+ * groups use `custom:${name}`; labels come from the project display names.
+ */
+export type NotesTab = NoteGroupKey;
+export const selectedNotesTab = writable<NotesTab>("scenes");
 
 const statsFor = (
   file: TFile,

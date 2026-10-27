@@ -16,6 +16,8 @@ import {
   plotGridLevels,
   plotGridLevelViewOptions,
   plotGridDirectories,
+  plotGridDirectoryConflictMessage,
+  plotGridDeepestColumns,
   plotGridIndents,
   plotGridLevelOptions,
   plotGridNodesAtLevel,
@@ -25,6 +27,8 @@ import {
   plotGridRowProperty,
   renderPlotGridBase,
   resolvePlotGridDirectories,
+  resolvePlotGridDirectory,
+  isInsidePlotGridDirectory,
   slugPlotGridSegment,
   writePlotGrid,
 } from "src/model/plot-grid";
@@ -49,6 +53,10 @@ function makeDraft(
     characterTemplate: null,
     plots: [],
     characters: [],
+    sceneDisplayName: "Scenes",
+    plotsDisplayName: "Subplots",
+    charactersDisplayName: "Characters",
+    noteGroups: [],
     timeframeTagName: "timeframe",
     timeFormat: "datetime",
     kanbanColumns: "Planned Draft Reviewed",
@@ -655,6 +663,25 @@ describe("plot grid row labels", () => {
     ).toBe(`${PLOT_GRID_PLOT_LABEL_PREFIX}Mara Vell`);
   });
 
+  it("accepts configured display names or full label prefixes", () => {
+    const args = [
+      "Bible/Plots",
+      "Bible/Characters",
+      "Bible/Plots/Main.md",
+      "Main",
+    ] as const;
+
+    expect(plotGridRowLabel(...args, "Thread", "Cast")).toBe(
+      `(Thread)\nMain`
+    );
+    expect(plotGridRowLabel(...args, "(Thread)\n", "(Cast)\n")).toBe(
+      `(Thread)\nMain`
+    );
+    expect(
+      plotGridRowLabel(...args, "(Thread)", "(Cast)")
+    ).toBe(`(Thread)\nMain`);
+  });
+
   it("gives plots precedence when the directories are nested", () => {
     // Characters are nested inside plots, so both file.inFolder checks match.
     const nested = ["Bible/Plots", "Bible/Plots/Characters"] as const;
@@ -786,6 +813,22 @@ describe("plot grid column ordering", () => {
 });
 
 describe("plot grid Base rendering", () => {
+  it("uses the configured display names in the row-label formula", () => {
+    const { app } = makeWorld(["Books/My/Bible/Plots/a.md"]);
+    const draft = makeDraft({
+      scenes: HIERARCHY,
+      plotsDisplayName: "Threads",
+      charactersDisplayName: "Cast",
+    });
+
+    const rendered = renderPlotGridBase(app, draft);
+
+    expect(rendered).toContain('file.asLink("(Thread)\\n" + file.name)');
+    expect(rendered).toContain('file.asLink("(Cast)\\n" + file.name)');
+    expect(rendered).toContain("    name: 'Thread Grid'");
+    expect(rendered).toContain("    name: 'Thread Grid (Table)'");
+  });
+
   it("renders one filter, only prefixed columns, a sort, and display names", () => {
     const { app } = makeWorld(["Books/My/Bible/Plots/a.md"]);
     const draft = makeDraft({
@@ -802,7 +845,7 @@ describe("plot grid Base rendering", () => {
         "    if(file.inFolder(\"Books/My/Bible/Plots\"), if(file.basename.lower() == \"main\", 0, 1), if(file.inFolder(\"Books/My/Bible/Plots\"), 2, 3))",
         "views:",
         "  - type: longform-plotgrid",
-        "    name: Subplot Grid",
+        "    name: 'Subplot Grid'",
         "    plotsDir: 'Books/My/Bible/Plots'",
         "    charactersDir: 'Books/My/Bible/Plots'",
         "    levels:",
@@ -853,7 +896,7 @@ describe("plot grid Base rendering", () => {
         "      - property: file.name",
         "        direction: ASC",
         "  - type: table",
-        "    name: Subplot Grid (Table)",
+        "    name: 'Subplot Grid (Table)'",
         "    order:",
         "      - file.name",
         "      - note.plotgrid_act1",
@@ -922,10 +965,10 @@ describe("plot grid Base rendering", () => {
         "  plotgrid_row_rank: |-",
         '    if(file.inFolder("Books/My/Bible/Plots"), if(file.basename.lower() == "main", 0, 1), if(file.inFolder("Books/My/Bible/Characters"), 2, 3))',
         "  plotgrid_row_label: |-",
-        "    if(file.inFolder(\"Books/My/Bible/Plots\"), file.asLink(\"(subplot)\\n\" + file.name), if(file.inFolder(\"Books/My/Bible/Characters\"), file.asLink(\"(character)\\n\" + file.name), file.asLink()))",
+        "    if(file.inFolder(\"Books/My/Bible/Plots\"), file.asLink(\"(Subplot)\\n\" + file.name), if(file.inFolder(\"Books/My/Bible/Characters\"), file.asLink(\"(Character)\\n\" + file.name), file.asLink()))",
         "views:",
         "  - type: longform-plotgrid",
-        "    name: Subplot Grid",
+        "    name: 'Subplot Grid'",
         "    plotsDir: 'Books/My/Bible/Plots'",
         "    charactersDir: 'Books/My/Bible/Characters'",
         "    levels:",
@@ -946,7 +989,7 @@ describe("plot grid Base rendering", () => {
         "      - property: file.name",
         "        direction: ASC",
         "  - type: table",
-        "    name: Subplot Grid (Table)",
+        "    name: 'Subplot Grid (Table)'",
         "    order:",
         "      - formula.plotgrid_row_label",
         "      - note.plotgrid_act1",
@@ -1198,6 +1241,45 @@ describe("plot grid key writes", () => {
     });
   });
 
+  it("overwrites empty containers but keeps non-empty values when migrating", async () => {
+    const path = "Books/My/Bible/Plots/a.md";
+    const { app, frontmatter } = makeWorld([path]);
+    frontmatter.set(path, {
+      plotgrid_act1__chapter_1: "moved",
+      plotgrid_chapter_1: [],
+      plotgrid_act1__chapter_2: "legacy kept",
+      plotgrid_chapter_2: { nested: true },
+    });
+
+    await ensurePlotGridData(app, makeDraft({ scenes: HIERARCHY }));
+
+    const migrated = frontmatter.get(path) ?? {};
+    expect(migrated.plotgrid_chapter_1).toBe("moved");
+    expect(migrated).not.toHaveProperty("plotgrid_act1__chapter_1");
+    expect(migrated.plotgrid_chapter_2).toEqual({ nested: true });
+    expect(migrated.plotgrid_act1__chapter_2).toBe("legacy kept");
+  });
+
+  it("writes node fallback keys for nodes without a usable slug", async () => {
+    const path = "Books/My/Bible/Plots/a.md";
+    const { app, frontmatter } = makeWorld([path]);
+
+    await ensurePlotGridData(
+      app,
+      makeDraft({
+        scenes: [
+          { title: "!!!", indent: 0 },
+          { title: "???", indent: 0 },
+        ],
+      })
+    );
+
+    expect(frontmatter.get(path)).toEqual({
+      plotgrid_node: "",
+      plotgrid_node_2: "",
+    });
+  });
+
   it("does not remove keys outside the current level's columns", async () => {
     const path = "Books/My/Bible/Plots/a.md";
     const { app, frontmatter, writes } = makeWorld([path]);
@@ -1275,6 +1357,140 @@ describe("plot grid key writes", () => {
     // A settled note is not rewritten.
     await ensurePlotGridData(app, makeDraft({ scenes: HIERARCHY }));
     expect(writes).toHaveLength(1);
+  });
+});
+
+describe("plot grid derived columns", () => {
+  it("falls back to node for empty or unsupported titles and suffixes collisions", () => {
+    const columns = plotGridColumns(
+      [
+        { title: "!!!", indent: 0 },
+        { title: "???", indent: 0 },
+        { title: "   ", indent: 0 },
+        { title: "Act 1", indent: 0 },
+      ],
+      0
+    );
+
+    expect(columns.map((column) => column.key)).toEqual([
+      "plotgrid_node",
+      "plotgrid_node_2",
+      "plotgrid_node_3",
+      "plotgrid_act_1",
+    ]);
+    // Titles are kept verbatim for display even when the slug is empty.
+    expect(columns[0].title).toBe("!!!");
+  });
+
+  it("returns the deepest level's columns", () => {
+    expect(
+      plotGridDeepestColumns(HIERARCHY).map((column) => column.key)
+    ).toEqual([
+      "plotgrid_scene_1",
+      "plotgrid_scene_2",
+      "plotgrid_scene_3",
+      "plotgrid_scene_4",
+    ]);
+    expect(plotGridDeepestColumns([])).toEqual([]);
+    expect(
+      plotGridDeepestColumns([{ title: "Only", indent: 0 }]).map(
+        (column) => column.key
+      )
+    ).toEqual(["plotgrid_only"]);
+  });
+});
+
+describe("plot grid directory helpers", () => {
+  it("treats the vault root as containing everything and checks boundaries", () => {
+    expect(isInsidePlotGridDirectory("", "Anything/At/All.md")).toBe(true);
+    expect(isInsidePlotGridDirectory("/", "Anything.md")).toBe(true);
+    expect(
+      isInsidePlotGridDirectory("Bible/Plots", "Bible/Plots/A.md")
+    ).toBe(true);
+    expect(isInsidePlotGridDirectory("Bible/Plots", "Bible/Plots")).toBe(true);
+    expect(
+      isInsidePlotGridDirectory("/Bible/Plots/", "Bible/Plots/Deep/A.md")
+    ).toBe(true);
+    // A prefix is not containment unless it ends on a path separator.
+    expect(isInsidePlotGridDirectory("Bible/Plots", "Bible/Plots2/A.md")).toBe(
+      false
+    );
+    expect(isInsidePlotGridDirectory("Bible/Plots", "Bible/A.md")).toBe(false);
+  });
+
+  it("joins conflict descriptions into one message", () => {
+    expect(
+      plotGridDirectoryConflictMessage([
+        { first: "scene", second: "plots", kind: "nested" },
+        { first: "plots", second: "characters", kind: "same" },
+      ])
+    ).toBe(
+      "Scene folder and Subplot folder must not be nested inside one another. " +
+        "Subplot folder and Character folder must not be the same folder."
+    );
+    expect(plotGridDirectoryConflictMessage([])).toBe("");
+  });
+
+  it("uses the fallback for a blank configured folder", () => {
+    const { app } = makeWorld([]);
+    expect(
+      resolvePlotGridDirectory(app, makeDraft(), "", "Fallback/Plots")
+    ).toBe("Books/My/Fallback/Plots");
+    expect(
+      resolvePlotGridDirectory(app, makeDraft(), "   ", "Fallback/Plots")
+    ).toBe("Books/My/Fallback/Plots");
+    expect(
+      resolvePlotGridDirectory(app, makeDraft(), null, "Fallback/Plots")
+    ).toBe("Books/My/Fallback/Plots");
+    expect(
+      resolvePlotGridDirectory(app, makeDraft(), undefined, "Fallback/Plots")
+    ).toBe("Books/My/Fallback/Plots");
+  });
+
+  it("falls back to the vault path's parent when the project note is missing", () => {
+    const { app } = makeWorld([], "Books/My/Book.md");
+    expect(
+      resolvePlotGridDirectory(
+        app,
+        makeDraft({ vaultPath: "Other/Project/Book.md" }),
+        "Bible/Plots",
+        "Subplots"
+      )
+    ).toBe("Other/Project/Bible/Plots");
+  });
+});
+
+describe("plot grid output paths", () => {
+  async function resultFor(outputPath: string) {
+    const world = makeWorld(["Books/My/Bible/Plots/a.md"]);
+    const result = await writePlotGrid(
+      world.app,
+      makeDraft({
+        scenes: [{ title: "Act 1", indent: 0 }],
+        plotGridOutputPath: outputPath,
+      })
+    );
+    return { result, world };
+  }
+
+  it("uses the default path when the setting is empty", async () => {
+    const { result, world } = await resultFor("");
+    expect(result.path).toBe("Books/My/Build/Book_plotgrid.base");
+    expect(world.generated.has(result.path ?? "")).toBe(true);
+  });
+
+  it("resolves a relative configured path with $1 and appends the extension", async () => {
+    const { result, world } = await resultFor("Output/$1-grid");
+    expect(result.path).toBe("Books/My/Output/Book-grid.base");
+    expect(world.generated.has("Books/My/Output/Book-grid.base")).toBe(true);
+  });
+
+  it("treats a leading slash as vault-relative and keeps an existing extension", async () => {
+    const leading = await resultFor("/Shared/$1-grid.base");
+    expect(leading.result.path).toBe("Shared/Book-grid.base");
+
+    const withExtension = await resultFor("Output/Custom.base");
+    expect(withExtension.result.path).toBe("Books/My/Output/Custom.base");
   });
 });
 
@@ -1356,15 +1572,15 @@ describe("writePlotGrid", () => {
       reason: "written",
       columns: 1,
       notes: 1,
-      path: "Books/My/Base/Book_plotgrid.base",
+      path: "Books/My/Build/Book_plotgrid.base",
     });
     expect(frontmatter.get("Books/My/Bible/Plots/a.md")).toEqual({
       plotgrid_act_1: "",
     });
-    expect(generated.get("Books/My/Base/Book_plotgrid.base")).toContain(
+    expect(generated.get("Books/My/Build/Book_plotgrid.base")).toContain(
       "  - type: longform-plotgrid"
     );
-    expect(generated.get("Books/My/Base/Book_plotgrid.base")).toContain(
+    expect(generated.get("Books/My/Build/Book_plotgrid.base")).toContain(
       "  - type: table"
     );
   });

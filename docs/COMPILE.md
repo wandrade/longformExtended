@@ -1,10 +1,10 @@
 # Compile
 
-Longform's Compile tab helps you turn a project into a final document. In the tab, you build **workflows** comprising **steps**. You can also write your own **user scripts** in JavaScript to build out fully custom compilation processes; hopefully, though, the built-in steps are sufficient for most use cases. If not, and you'd like to suggest a new step that you think should be included by default, please [suggest it as a GitHub issue](https://github.com/kevboh/longform/issues).
+Longform Extended's Compile tab helps you turn a project into a final document. In the tab, you build **workflows** comprising **steps**. You can also write your own **user scripts** in JavaScript to build out fully custom compilation processes; hopefully, though, the built-in steps are sufficient for most use cases. If not, and you'd like to suggest a new step that you think should be included by default, please [suggest it as a GitHub issue](https://github.com/wandrade/longformExtended/issues).
 
 ## Steps
 
-Steps are the basic building block of compilation. In Longform, a step takes an input (either all your scenes or a combined manuscript) and returns an output (either transformed scenes or an altered manuscript).
+Steps are the basic building block of compilation. In Longform Extended, a step takes an input (either all your scenes or a combined manuscript) and returns an output (either transformed scenes or an altered manuscript).
 
 There are three kinds of steps:
 
@@ -14,13 +14,13 @@ There are three kinds of steps:
 
 Steps must always be in the above order during compilation. Any number of scene steps, then one join step, then any number of manuscript steps.
 
-Many steps can be of multiple kinds. For example, the **Remove Links** step, which removes both external and internal links, can run as both a scene and manuscript step. Longform figures out how it should be run automatically based on its position relative to other steps.
+Many steps can be of multiple kinds. For example, the **Remove Links** step, which removes both external and internal links, can run as both a scene and manuscript step. Longform Extended figures out how it should be run automatically based on its position relative to other steps.
 
-Steps may sometimes have _options_, which are text or checkbox fields that the step uses to customize its function. A number of the steps built into Longform have options.
+Steps may sometimes have _options_, which are text or checkbox fields that the step uses to customize its function. A number of the steps built into Longform Extended have options.
 
 ### Built-in Steps
 
-Longform comes with a lot of steps for you to add to compilation.
+Longform Extended comes with a lot of steps for you to add to compilation.
 
 #### Prepend Title
 
@@ -90,9 +90,9 @@ Saves the manuscript as Markdown note in your vault. Options:
 
 ### User Script Steps
 
-In addition to the built-in steps above, Longform also supports user script steps, which are arbitrary JavaScript scripts that can be loaded and used like any other step.
+In addition to the built-in steps above, Longform Extended also supports user script steps, which are arbitrary JavaScript scripts that can be loaded and used like any other step.
 
-To add a user script to Longform, first create a folder somewhere in your vault where you'd like to store your user script steps. Longform will attempt to load all `.js` files in this folder as steps.
+To add a user script to Longform Extended, first create a folder somewhere in your vault where you'd like to store your user script steps. Longform Extended will attempt to load all `.js` files in this folder as steps.
 
 Next, add your first step as a `.js` file. Every step must export an object in the following shape:
 
@@ -102,7 +102,7 @@ compile = (input, context) => {
   /**
     Function that is executed during compilation. It may be `async`.
     Errors encountered during execution should be thrown and will
-    be handled by Longform.
+    be handled by Longform Extended.
     @param input If the step is of kind Scene or Join (see context),
     this will be *an array* containing elements of type:
       {
@@ -128,7 +128,7 @@ compile = (input, context) => {
         app: App; // Obsidian app
       }
     @note For an example of using `context` to determine the shape of `input`, see
-    https://github.com/kevboh/longform/blob/main/src/compile/steps/strip-frontmatter.ts
+    https://github.com/wandrade/longformExtended/blob/main/src/compile/steps/strip-frontmatter.ts
     @returns If of kind "Scene" or "Manuscript", the same shape as `input`
     with the appropriate changes made to `contents`. If of kind "Join",
     the same shape as a "Manuscript" step input.
@@ -181,15 +181,15 @@ module.exports = {
 };
 ```
 
-Finally, to use your user script you must configure the _scripts folder_ setting in Longform plugin settings. Your user script should immediately appear below the setting.
+Finally, to use your user script you must configure the **User script step folder** setting in Longform Extended's plugin settings. Your user script should immediately appear below the setting.
 
-Once loaded, the user script will be available in the Add Step menu of Compile. Changes made to your user script will be automatically loaded after a short delay. If you use that script as a step, Longform will attempt to preserve your existing configuration (place in workflow, option values) whenever it reloads a user script. If it fails, or if your user script moves, your script folder changes, or the script is deleted, Longform will mark that step as invalid and you will have to remove or replace it before compiling is enabled.
+Once loaded, the user script will be available in the Add Step menu of Compile. Changes made to your user script will be automatically loaded after a short delay. If you use that script as a step, Longform Extended will attempt to preserve your existing configuration (place in workflow, option values) whenever it reloads a user script. If it fails, or if your user script moves, your script folder changes, or the script is deleted, Longform Extended will mark that step as invalid and you will have to remove or replace it before compiling is enabled.
 
 ## Workflows
 
-In Compile, steps are organized into workflows. Longform ships with a default workflow that demonstrates Compile and produces a simple formatted manuscript. Feel free to customize or delete the default workflow.
+In Compile, steps are organized into workflows. Longform Extended ships with a default workflow that demonstrates Compile and produces a simple formatted manuscript. Feel free to customize or delete the default workflow.
 
-You can create new workflows to suit each of your projects. Each workflow has a description box you may use to remind yourself what exactly the workflow does. A Longform project remembers its last-used workflow and will select it first when you next open the Compile tab.
+You can create new workflows to suit each of your projects. Each workflow has a description box you may use to remind yourself what exactly the workflow does. A Longform Extended project remembers its last-used workflow and will select it first when you next open the Compile tab.
 
 Workflows are vault-wide; if you change a workflow within a project, it will change for all projects that use that workflow.
 
@@ -197,4 +197,4 @@ You can drag steps within a workflow to rearrange them.
 
 ## The Future
 
-Compile remains a feature that will change over time. [Open issues](https://github.com/kevboh/longform/issues?q=is%3Aissue+is%3Aopen+label%3Acompile) are a good way to track what's on the roadmap. I plan on adding more steps and a few more features that allow you to fully customize what happens inside a given workflow. As always, if you think a step should be added or changed, or that compile should behave differently, please open an issue in GitHub.
+Compile remains a feature that will change over time. [Open issues](https://github.com/wandrade/longformExtended/issues?q=is%3Aissue+is%3Aopen+label%3Acompile) are a good way to track what's on the roadmap. If you think a step should be added or changed, or that compile should behave differently, please open an issue in GitHub.

@@ -1,6 +1,60 @@
 import { describe, expect, it } from "vitest";
 
-import { arraysToIndentedScenes } from "src/model/draft-utils";
+import {
+  arraysToIndentedScenes,
+  draftTitle,
+  formatSceneNumber,
+  indentedScenesToArrays,
+  numberScenes,
+  setDraftOnFrontmatterObject,
+} from "src/model/draft-utils";
+import {
+  DEFAULT_KANBAN_INCLUDE_PLOTS,
+  DEFAULT_PLOT_GRID_PLOTS_DIR,
+  type MultipleSceneDraft,
+  type SingleSceneDraft,
+} from "src/model/types";
+
+function makeSceneDraft(
+  overrides: Partial<MultipleSceneDraft> = {}
+): MultipleSceneDraft {
+  return {
+    format: "scenes",
+    title: "Book",
+    titleInFrontmatter: true,
+    draftTitle: null,
+    vaultPath: "Books/My/Book.md",
+    workflow: null,
+    sceneFolder: "Scenes",
+    scenes: [],
+    ignoredFiles: [],
+    unknownFiles: [],
+    sceneTemplate: null,
+    plotTemplate: null,
+    characterTemplate: null,
+    plots: [],
+    characters: [],
+    sceneDisplayName: "Scenes",
+    plotsDisplayName: "Subplots",
+    charactersDisplayName: "Characters",
+    noteGroups: [],
+    timeframeTagName: "timeframe",
+    timeFormat: "datetime",
+    kanbanColumns: "Planned Draft Reviewed",
+    kanbanShowUnassigned: false,
+    kanbanSaveWordCounts: true,
+    kanbanEnabled: true,
+    kanbanIncludePlots: DEFAULT_KANBAN_INCLUDE_PLOTS,
+    kanbanOutputPath: "Build/$1_kanban.base",
+    timelineEnabled: true,
+    timelineOutputPath: "Build/$1_timeline.md",
+    plotGridEnabled: true,
+    plotGridOutputPath: "Base/$1_plotgrid.base",
+    plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
+    plotGridCharactersDir: "Characters",
+    ...overrides,
+  };
+}
 
 describe("arraysToIndentedScenes", () => {
   it("converts nested scenes without mutating the input", () => {
@@ -45,5 +99,247 @@ describe("arraysToIndentedScenes", () => {
 
     expect(arraysToIndentedScenes(raw)).toEqual([]);
     expect(raw).toEqual([]);
+  });
+
+  it("round-trips a contiguous indented hierarchy", () => {
+    const indented = [
+      { title: "act 1", indent: 0 },
+      { title: "chapter 1", indent: 1 },
+      { title: "scene 1", indent: 2 },
+      { title: "scene 2", indent: 2 },
+      { title: "chapter 2", indent: 1 },
+      { title: "scene 3", indent: 2 },
+      { title: "act 2", indent: 0 },
+    ];
+
+    const nested = indentedScenesToArrays(indented);
+    expect(nested).toEqual([
+      "act 1",
+      [
+        "chapter 1",
+        ["scene 1", "scene 2"],
+        "chapter 2",
+        ["scene 3"],
+      ],
+      "act 2",
+    ]);
+    expect(arraysToIndentedScenes(nested)).toEqual(indented);
+  });
+});
+
+describe("indentedScenesToArrays", () => {
+  it("nests and un-nests on indent changes without mutating the input", () => {
+    const indented = [
+      { title: "a", indent: 0 },
+      { title: "b", indent: 1 },
+      { title: "c", indent: 2 },
+      { title: "d", indent: 1 },
+      { title: "e", indent: 0 },
+    ];
+    const snapshot = JSON.parse(JSON.stringify(indented));
+
+    expect(indentedScenesToArrays(indented)).toEqual([
+      "a",
+      ["b", ["c"], "d"],
+      "e",
+    ]);
+    expect(indented).toEqual(snapshot);
+  });
+
+  it("returns an empty array for an empty hierarchy", () => {
+    expect(indentedScenesToArrays([])).toEqual([]);
+  });
+});
+
+describe("scene numbering", () => {
+  it("numbers nested scenes and resets deeper counters on ascent", () => {
+    const scenes = [
+      { title: "act 1", indent: 0 },
+      { title: "chapter 1", indent: 1 },
+      { title: "scene 1", indent: 2 },
+      { title: "scene 2", indent: 2 },
+      { title: "chapter 2", indent: 1 },
+      { title: "scene 3", indent: 2 },
+      { title: "act 2", indent: 0 },
+      { title: "chapter 3", indent: 1 },
+    ];
+
+    const numbered = numberScenes(scenes);
+
+    expect(numbered.map((scene) => scene.numbering)).toEqual([
+      [1],
+      [1, 1],
+      [1, 1, 1],
+      [1, 1, 2],
+      [1, 2],
+      [1, 2, 1],
+      [2],
+      [2, 1],
+    ]);
+    expect(numbered.map((scene) => formatSceneNumber(scene.numbering))).toEqual(
+      ["1", "1.1", "1.1.1", "1.1.2", "1.2", "1.2.1", "2", "2.1"]
+    );
+    // The original scenes are untouched.
+    expect(scenes[0]).toEqual({ title: "act 1", indent: 0 });
+  });
+
+  it("fills skipped indent ranks with leading ones", () => {
+    // Indent 2 follows indent 0 without an indent-1 scene.
+    expect(
+      numberScenes([
+        { title: "top", indent: 0 },
+        { title: "deep", indent: 2 },
+        { title: "deep again", indent: 2 },
+      ]).map((scene) => formatSceneNumber(scene.numbering))
+    ).toEqual(["1", "1.1.1", "1.1.2"]);
+  });
+});
+
+describe("setDraftOnFrontmatterObject", () => {
+  it("writes the project settings without a type flag", () => {
+    const obj: Record<string, any> = {
+      longform: { plotGridLevel: 2, stale: "remove me" },
+      unrelated: "keep",
+    };
+    const draft = makeSceneDraft({
+      titleInFrontmatter: true,
+      draftTitle: "Draft One",
+      workflow: "Novel",
+      scenes: [
+        { title: "act", indent: 0 },
+        { title: "scene", indent: 1 },
+      ],
+      plots: [{ title: "Main", indent: 0 }],
+      characters: [{ title: "Hero", indent: 0 }],
+      sceneTemplate: "Templates/Scene.md",
+      plotTemplate: "Templates/Plot.md",
+      characterTemplate: "Templates/Character.md",
+      kanbanShowUnassigned: true,
+      kanbanSaveWordCounts: false,
+      kanbanEnabled: false,
+      kanbanIncludePlots: false,
+      timelineEnabled: false,
+      plotGridEnabled: false,
+      plotGridPlotsDir: "Subplots",
+      plotGridCharactersDir: "Characters",
+      ignoredFiles: ["Index.md"],
+    });
+
+    setDraftOnFrontmatterObject(obj, draft);
+
+    const longform = obj.longform;
+    expect(obj.unrelated).toBe("keep");
+    expect(longform).toEqual({
+      format: "scenes",
+      title: "Book",
+      draftTitle: "Draft One",
+      workflow: "Novel",
+      sceneFolder: "Scenes",
+      timeframeTagName: "timeframe",
+      timeFormat: "datetime",
+      kanbanColumns: "Planned Draft Reviewed",
+      kanbanOutputPath: "Build/$1_kanban.base",
+      kanbanShowUnassigned: true,
+      kanbanSaveWordCounts: false,
+      kanbanEnabled: false,
+      kanbanIncludePlots: false,
+      timelineEnabled: false,
+      timelineOutputPath: "Build/$1_timeline.md",
+      plotGridEnabled: false,
+      plotGridOutputPath: "Base/$1_plotgrid.base",
+      plotGridPlotsDir: "Subplots",
+      plotGridCharactersDir: "Characters",
+      scenes: ["act", ["scene"]],
+      plots: ["Main"],
+      characters: ["Hero"],
+      sceneTemplate: "Templates/Scene.md",
+      plotTemplate: "Templates/Plot.md",
+      characterTemplate: "Templates/Character.md",
+      ignoredFiles: ["Index.md"],
+    });
+    // The legacy per-note level key is gone, and nothing writes a `type` flag.
+    expect(longform).not.toHaveProperty("plotGridLevel");
+    expect(longform).not.toHaveProperty("stale");
+    expect(longform).not.toHaveProperty("type");
+    expect(obj).not.toHaveProperty("type");
+  });
+
+  it("omits optional and default-true settings", () => {
+    const obj: Record<string, any> = {};
+    setDraftOnFrontmatterObject(
+      obj,
+      makeSceneDraft({
+        titleInFrontmatter: false,
+        draftTitle: null,
+        workflow: null,
+        kanbanShowUnassigned: false,
+        kanbanSaveWordCounts: true,
+        kanbanEnabled: true,
+        kanbanIncludePlots: true,
+        timelineEnabled: true,
+        plotGridEnabled: true,
+        sceneTemplate: null,
+        plotTemplate: null,
+        characterTemplate: null,
+        ignoredFiles: null,
+      })
+    );
+
+    const longform = obj.longform;
+    expect(longform).not.toHaveProperty("title");
+    expect(longform).not.toHaveProperty("draftTitle");
+    expect(longform).not.toHaveProperty("workflow");
+    expect(longform).not.toHaveProperty("kanbanShowUnassigned");
+    // Default-true flags are only written when disabled.
+    expect(longform).not.toHaveProperty("kanbanSaveWordCounts");
+    expect(longform).not.toHaveProperty("kanbanEnabled");
+    expect(longform).not.toHaveProperty("kanbanIncludePlots");
+    expect(longform).not.toHaveProperty("timelineEnabled");
+    expect(longform).not.toHaveProperty("plotGridEnabled");
+    expect(longform).not.toHaveProperty("sceneTemplate");
+    expect(longform).not.toHaveProperty("plotTemplate");
+    expect(longform).not.toHaveProperty("characterTemplate");
+    expect(longform.ignoredFiles).toBeNull();
+  });
+
+  it("writes single-scene drafts without scene-only settings", () => {
+    const draft: SingleSceneDraft = {
+      format: "single",
+      title: "Story",
+      titleInFrontmatter: true,
+      draftTitle: null,
+      vaultPath: "Books/My/Story.md",
+      workflow: null,
+    };
+    const obj: Record<string, any> = {
+      longform: { plotGridLevel: 1 },
+    };
+
+    setDraftOnFrontmatterObject(obj, draft);
+
+    expect(obj.longform).toEqual({ format: "single", title: "Story" });
+    expect(obj.longform).not.toHaveProperty("plotGridLevel");
+    expect(obj.longform).not.toHaveProperty("type");
+    expect(obj.longform).not.toHaveProperty("scenes");
+  });
+
+  it("uses the Subplots folder default and includes subplots by default", () => {
+    expect(DEFAULT_PLOT_GRID_PLOTS_DIR).toBe("Subplots");
+    expect(DEFAULT_KANBAN_INCLUDE_PLOTS).toBe(true);
+
+    const obj: Record<string, any> = {};
+    setDraftOnFrontmatterObject(obj, makeSceneDraft());
+    expect(obj.longform.plotGridPlotsDir).toBe("Subplots");
+  });
+});
+
+describe("draftTitle", () => {
+  it("uses the draft title when set and the vault path otherwise", () => {
+    expect(draftTitle(makeSceneDraft({ draftTitle: "Part One" }))).toBe(
+      "Part One"
+    );
+    expect(draftTitle(makeSceneDraft({ draftTitle: null }))).toBe(
+      "Books/My/Book.md"
+    );
   });
 });

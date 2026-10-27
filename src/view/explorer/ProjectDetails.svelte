@@ -3,12 +3,22 @@
   import { Notice, normalizePath } from "obsidian";
   import { draftForPath, projectFolderPath } from "src/model/scene-navigation";
   import {
-    describePlotGridDirectoryConflict,
-    plotGridDirectoryConflictMessage,
-    plotGridDirectoryConflicts,
-    resolvePlotGridDirectories,
-  } from "src/model/plot-grid";
-  import type { MultipleSceneDraft } from "src/model/types";
+    formatNoteGroupNames,
+    noteGroupDirectoryConflictMessage,
+    noteGroupDirectoryConflicts,
+    noteGroupDisplayName,
+    noteGroupSingularName,
+    parseNoteGroupNames,
+    type NoteGroupDirectoryConflict,
+  } from "src/model/note-groups";
+  import {
+    DEFAULT_CHARACTERS_DISPLAY_NAME,
+    DEFAULT_PLOTS_DISPLAY_NAME,
+    DEFAULT_SCENE_DISPLAY_NAME,
+    defaultNoteGroupFolder,
+    type MultipleSceneDraft,
+    type NoteGroup,
+  } from "src/model/types";
   import { pluginSettings, projects } from "src/model/stores";
   import {
     drafts,
@@ -33,6 +43,7 @@
   let showMetdata = true;
   let showWordCount = true;
   let showDrafts = true;
+  let showNoteGroups = true;
   let showKanban = true;
   let showTimeline = true;
   let showPlotGrid = true;
@@ -85,43 +96,239 @@
     }
   });
 
-  /**
-   * The folder conflicts in the stored project configuration. The Project
-   * Metadata inputs show this inline, and every blur re-validates a candidate
-   * value before it is stored.
-   */
-  let directoryConflicts: ReturnType<
-    typeof plotGridDirectoryConflicts
-  > = [];
+  $: projectDraft =
+    $selectedDraft && $selectedDraft.format === "scenes"
+      ? ($selectedDraft as MultipleSceneDraft)
+      : null;
+  $: projectPath = projectDraft
+    ? projectFolderPath(projectDraft, app.vault)
+    : null;
+
+  // Display labels come from the project settings and fall back to the
+  // defaults when a project leaves them blank.
+  $: sceneSingular = projectDraft
+    ? noteGroupSingularName(projectDraft, "scenes")
+    : "Scene";
+  $: plotsSingular = projectDraft
+    ? noteGroupSingularName(projectDraft, "plots")
+    : "Subplot";
+  $: charactersSingular = projectDraft
+    ? noteGroupSingularName(projectDraft, "characters")
+    : "Character";
+  $: scenesPlural = projectDraft
+    ? noteGroupDisplayName(projectDraft, "scenes")
+    : DEFAULT_SCENE_DISPLAY_NAME;
+  $: plotsPlural = projectDraft
+    ? noteGroupDisplayName(projectDraft, "plots")
+    : DEFAULT_PLOTS_DISPLAY_NAME;
+  $: charactersPlural = projectDraft
+    ? noteGroupDisplayName(projectDraft, "characters")
+    : DEFAULT_CHARACTERS_DISPLAY_NAME;
+
+  function lowerFirst(value: string): string {
+    return value.length > 0
+      ? `${value[0].toLowerCase()}${value.slice(1)}`
+      : value;
+  }
+
+  /** Conflicts among the stored folder settings, shown inline. */
+  let directoryConflicts: NoteGroupDirectoryConflict[] = [];
   $: {
-    if ($selectedDraft && $selectedDraft.format === "scenes") {
-      directoryConflicts = plotGridDirectoryConflicts(
-        resolvePlotGridDirectories(app, $selectedDraft)
-      );
+    if (projectDraft) {
+      directoryConflicts = noteGroupDirectoryConflicts(app, projectDraft);
     } else {
       directoryConflicts = [];
     }
   }
+  $: builtInConflicts = directoryConflicts.filter(
+    (conflict) =>
+      !conflict.first.key.startsWith("custom:") &&
+      !conflict.second.key.startsWith("custom:")
+  );
+  $: customConflicts = directoryConflicts.filter(
+    (conflict) =>
+      conflict.first.key.startsWith("custom:") ||
+      conflict.second.key.startsWith("custom:")
+  );
 
-  /**
-   * Rejects a candidate directory configuration that violates the distinct,
-   * non-nested rule: the input reverts to the stored value and a Notice
-   * explains the conflict. Returns true when the change was rejected.
-   */
+  /** Reverts a conflicting folder input and reports the conflict. */
   function rejectInvalidDirectories(
     candidate: MultipleSceneDraft,
     input: HTMLInputElement,
     storedValue: string
   ): boolean {
-    const conflicts = plotGridDirectoryConflicts(
-      resolvePlotGridDirectories(app, candidate)
-    );
+    const conflicts = noteGroupDirectoryConflicts(app, candidate);
     if (conflicts.length === 0) {
       return false;
     }
     input.value = storedValue;
-    new Notice(plotGridDirectoryConflictMessage(conflicts));
+    new Notice(noteGroupDirectoryConflictMessage(conflicts));
     return true;
+  }
+
+  /**
+   * Attaches a folder autocomplete to a dynamically rendered group input.
+   * The action runs once per element; duplicate listeners are avoided because
+   * Svelte may re-run it when the project path changes.
+   */
+  const suggestedInputs = new WeakSet<HTMLInputElement>();
+  function folderSuggest(
+    node: HTMLInputElement,
+    relativeRoot: string | null
+  ): void {
+    if (!relativeRoot || suggestedInputs.has(node)) {
+      return;
+    }
+    suggestedInputs.add(node);
+    new FolderSuggest(app, node, relativeRoot);
+  }
+
+  const suggestedTemplateInputs = new WeakSet<HTMLInputElement>();
+  function templateSuggest(node: HTMLInputElement): void {
+    if (suggestedTemplateInputs.has(node)) {
+      return;
+    }
+    suggestedTemplateInputs.add(node);
+    new FileSuggest(app, node);
+  }
+
+  function displayNameChanged(
+    field:
+      | "sceneDisplayName"
+      | "plotsDisplayName"
+      | "charactersDisplayName",
+    event: Event
+  ) {
+    const value = (event.target as HTMLInputElement).value.trim();
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) => {
+        if (d.vaultPath === $selectedDraftVaultPath && d.format === "scenes") {
+          d[field] = value;
+        }
+        return d;
+      })
+    );
+  }
+
+  /**
+   * Reconciles the configured group names with the existing definitions.
+   * Existing groups keep their folder and order/indent overlay, new names get
+   * a folder defaulting to the underscored name, and removed names leave
+   * configuration only: their folders and notes are never touched.
+   */
+  function noteGroupNamesChanged(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const draft = projectDraft;
+    if (!draft) {
+      return;
+    }
+
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const rawName of parseNoteGroupNames(input.value)) {
+      const name = rawName.trim();
+      if (name.length === 0 || seen.has(name)) {
+        continue;
+      }
+      seen.add(name);
+      names.push(name);
+    }
+
+    const existingByName = new Map(
+      draft.noteGroups.map((group) => [group.name, group])
+    );
+    const noteGroups: NoteGroup[] = names.map((name) => {
+      const existing = existingByName.get(name);
+      return (
+        existing ?? {
+          name,
+          folder: defaultNoteGroupFolder(name),
+          template: null,
+          entries: [],
+        }
+      );
+    });
+
+    input.value = formatNoteGroupNames(names);
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) => {
+        if (d.vaultPath === $selectedDraftVaultPath && d.format === "scenes") {
+          d.noteGroups = noteGroups;
+        }
+        return d;
+      })
+    );
+  }
+
+  function noteGroupFolderChanged(group: NoteGroup, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const draft = projectDraft;
+    if (!draft) {
+      return;
+    }
+    const value =
+      input.value.trim().length > 0
+        ? input.value.trim()
+        : defaultNoteGroupFolder(group.name);
+    const candidate: MultipleSceneDraft = {
+      ...draft,
+      noteGroups: draft.noteGroups.map((candidateGroup) =>
+        candidateGroup.name === group.name
+          ? { ...candidateGroup, folder: value }
+          : candidateGroup
+      ),
+    };
+    if (rejectInvalidDirectories(candidate, input, group.folder)) {
+      return;
+    }
+
+    input.value = value;
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) => {
+        if (d.vaultPath === $selectedDraftVaultPath && d.format === "scenes") {
+          d.noteGroups = d.noteGroups.map((candidateGroup) =>
+            candidateGroup.name === group.name
+              ? { ...candidateGroup, folder: value }
+              : candidateGroup
+          );
+        }
+        return d;
+      })
+    );
+  }
+
+  async function noteGroupTemplateChanged(
+    group: NoteGroup,
+    event: Event
+  ): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const draft = projectDraft;
+    if (!draft) {
+      return;
+    }
+
+    const value = input.value.trim();
+    if (value.length > 0 && !(await app.vault.adapter.exists(value))) {
+      input.value = group.template ?? "";
+      return;
+    }
+
+    const template = value.length > 0 ? value : null;
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) => {
+        if (d.vaultPath === $selectedDraftVaultPath && d.format === "scenes") {
+          d.noteGroups = d.noteGroups.map((candidateGroup) =>
+            candidateGroup.name === group.name
+              ? { ...candidateGroup, template }
+              : candidateGroup
+          );
+        }
+        return d;
+      })
+    );
   }
 
   async function sceneFolderChanged(event: Event) {
@@ -163,7 +370,7 @@
   let plotTemplateInput: HTMLInputElement;
   let characterTemplateInput: HTMLInputElement;
   onMount(() => {
-    if ($selectedDraft.format === "scenes") {
+    if ($selectedDraft?.format === "scenes") {
       if (sceneTemplateInput) {
         new FileSuggest(app, sceneTemplateInput);
       }
@@ -512,7 +719,47 @@
             on:change={titleChanged}
           />
           {#if $selectedDraft.format === "scenes"}
-            <label for="longform-extended-project-scene-folder">Scene Folder</label>
+            <label for="longform-extended-project-scenes-display-name"
+              >Scenes Display Name</label
+            >
+            <input
+              id="longform-extended-project-scenes-display-name"
+              type="text"
+              value={$selectedDraft.sceneDisplayName}
+              placeholder={DEFAULT_SCENE_DISPLAY_NAME}
+              on:blur={(event) =>
+                displayNameChanged("sceneDisplayName", event)}
+            />
+            <label for="longform-extended-project-plots-display-name"
+              >Subplots Display Name</label
+            >
+            <input
+              id="longform-extended-project-plots-display-name"
+              type="text"
+              value={$selectedDraft.plotsDisplayName}
+              placeholder={DEFAULT_PLOTS_DISPLAY_NAME}
+              on:blur={(event) =>
+                displayNameChanged("plotsDisplayName", event)}
+            />
+            <label for="longform-extended-project-characters-display-name"
+              >Characters Display Name</label
+            >
+            <input
+              id="longform-extended-project-characters-display-name"
+              type="text"
+              value={$selectedDraft.charactersDisplayName}
+              placeholder={DEFAULT_CHARACTERS_DISPLAY_NAME}
+              on:blur={(event) =>
+                displayNameChanged("charactersDisplayName", event)}
+            />
+            <p class="longform-extended-project-warning">
+              Display names change labels throughout Longform Extended.
+              Folders, note paths, and frontmatter do not change. Leave a
+              field blank to use the default.
+            </p>
+            <label for="longform-extended-project-scene-folder"
+              >{sceneSingular} Folder</label
+            >
             <input
               id="longform-extended-project-scene-folder"
               type="text"
@@ -521,12 +768,12 @@
               on:blur={sceneFolderChanged}
             />
             <p class="longform-extended-project-warning">
-              Changing scene folder does not move scenes. If you’re moving
-              scenes to a new folder, move them in your vault first, then
-              change this setting.
+              Changing this folder does not move {scenesPlural.toLowerCase()}.
+              If you’re moving {scenesPlural.toLowerCase()} to a new folder,
+              move them in your vault first, then change this setting.
             </p>
             <label for="longform-extended-project-plot-grid-plots-dir"
-              >Subplot Folder</label
+              >{plotsSingular} Folder</label
             >
             <input
               id="longform-extended-project-plot-grid-plots-dir"
@@ -536,11 +783,12 @@
               on:blur={plotGridPlotsDirChanged}
             />
             <p class="longform-extended-project-warning">
-              Changing this folder does not move notes. Relative to the
-              project folder. Defaults to "Subplots".
+              Changing this folder does not move
+              {plotsPlural.toLowerCase()}. Relative to the project folder.
+              Defaults to "Subplots".
             </p>
             <label for="longform-extended-project-plot-grid-characters-dir"
-              >Character Folder</label
+              >{charactersSingular} Folder</label
             >
             <input
               id="longform-extended-project-plot-grid-characters-dir"
@@ -550,17 +798,17 @@
               on:blur={plotGridCharactersDirChanged}
             />
             <p class="longform-extended-project-warning">
-              Changing this folder does not move notes. Relative to the
-              project folder. Defaults to "Characters".
+              Changing this folder does not move
+              {charactersPlural.toLowerCase()}. Relative to the project folder.
+              Defaults to "Characters".
             </p>
-            {#if directoryConflicts.length > 0}
+            {#if builtInConflicts.length > 0}
               <p class="longform-extended-project-error">
-                {directoryConflicts
-                  .map(describePlotGridDirectoryConflict)
-                  .join(" ")}
+                {noteGroupDirectoryConflictMessage(builtInConflicts)}
               </p>
             {/if}
-            <label for="longform-extended-project-scene-template">Scene Template</label
+            <label for="longform-extended-project-scene-template"
+              >{sceneSingular} Template</label
             >
             <input
               id="longform-extended-project-scene-template"
@@ -570,12 +818,13 @@
               on:blur={sceneTemplateChanged}
             />
             <p class="longform-extended-project-warning">
-              This file will be used as a template when creating new scenes
-              via the New Scene… field. If you use a templating plugin
-              (Templater or the core plugin) it will be used to process this
-              template.
+              This file will be used as a template when creating new
+              {scenesPlural.toLowerCase()} via the New {sceneSingular}… field.
+              If you use a templating plugin (Templater or the core plugin) it
+              will be used to process this template.
             </p>
-            <label for="longform-extended-project-plot-template">Subplot Template</label
+            <label for="longform-extended-project-plot-template"
+              >{plotsSingular} Template</label
             >
             <input
               id="longform-extended-project-plot-template"
@@ -585,12 +834,13 @@
               on:blur={plotTemplateChanged}
             />
             <p class="longform-extended-project-warning">
-              This file will be used as a template when creating new subplots
-              via the New Subplot… field. If you use a templating plugin (Templater or
-              the core plugin) it will be used to process this template.
+              This file will be used as a template when creating new
+              {plotsPlural.toLowerCase()} via the New {plotsSingular}… field.
+              If you use a templating plugin (Templater or the core plugin) it
+              will be used to process this template.
             </p>
             <label for="longform-extended-project-character-template"
-              >Character Template</label
+              >{charactersSingular} Template</label
             >
             <input
               id="longform-extended-project-character-template"
@@ -600,10 +850,82 @@
               on:blur={characterTemplateChanged}
             />
             <p class="longform-extended-project-warning">
-              This file will be used as a template when creating new characters
-              via the New Character… field. If you use a templating plugin
+              This file will be used as a template when creating new
+              {charactersPlural.toLowerCase()} via the New
+              {charactersSingular}… field. If you use a templating plugin
               (Templater or the core plugin) it will be used to process this
               template.
+            </p>
+          {/if}
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    <div class="longform-extended-project-section">
+      <div
+        class="longform-extended-project-details-section-header"
+        on:click={() => {
+          showNoteGroups = !showNoteGroups;
+        }}
+      >
+        <Disclosure collapsed={!showNoteGroups} />
+        <h4>Extra note groups</h4>
+      </div>
+      {#if showNoteGroups}
+        <div>
+          <label for="longform-extended-project-note-groups"
+            >Extra note groups</label
+          >
+          <input
+            id="longform-extended-project-note-groups"
+            type="text"
+            value={formatNoteGroupNames(
+              $selectedDraft.noteGroups.map((group) => group.name)
+            )}
+            on:blur={noteGroupNamesChanged}
+          />
+          <p class="longform-extended-project-warning">
+            Group names in order, separated by spaces. Quote names with
+            spaces: Locations "Magic System" Factions. Each group gets its own
+            Notes tab and folder. Removing a group here does not delete its
+            folder or notes.
+          </p>
+          {#each $selectedDraft.noteGroups as group, index (group.name)}
+            <label
+              for={`longform-extended-project-note-group-folder-${index}`}
+              >{group.name} Folder</label
+            >
+            <input
+              id={`longform-extended-project-note-group-folder-${index}`}
+              type="text"
+              value={group.folder}
+              use:folderSuggest={projectPath}
+              on:blur={(event) => noteGroupFolderChanged(group, event)}
+            />
+            <p class="longform-extended-project-warning">
+              Relative to the project folder. Defaults to
+              "{defaultNoteGroupFolder(group.name)}".
+            </p>
+            <label
+              for={`longform-extended-project-note-group-template-${index}`}
+              >{group.name} Template</label
+            >
+            <input
+              id={`longform-extended-project-note-group-template-${index}`}
+              type="text"
+              value={group.template ?? ""}
+              use:templateSuggest
+              on:blur={(event) => noteGroupTemplateChanged(group, event)}
+            />
+            <p class="longform-extended-project-warning">
+              Optional template for new notes in this group. Processed like
+              scene templates.
+            </p>
+          {/each}
+          {#if customConflicts.length > 0}
+            <p class="longform-extended-project-error">
+              {noteGroupDirectoryConflictMessage(customConflicts)}
             </p>
           {/if}
         </div>
@@ -691,12 +1013,13 @@
               on:change={kanbanIncludePlotsChanged}
             />
             <label for="longform-extended-project-kanban-include-plots"
-              >Include subplots</label
+              >Include {lowerFirst(plotsPlural)}</label
             >
           </div>
           <p class="longform-extended-project-warning">
-            Include notes from the Subplot Folder on the kanban board, alongside
-            project scenes. Character notes are not included.
+            Include notes from the {plotsSingular} Folder on the kanban board,
+            alongside project scenes. {charactersPlural} notes are not
+            included.
           </p>
         </div>
       {/if}
@@ -783,7 +1106,7 @@
         }}
       >
         <Disclosure collapsed={!showPlotGrid} />
-        <h4>Subplot Grid</h4>
+        <h4>{plotsSingular} Grid</h4>
       </div>
       {#if showPlotGrid}
         <div>
@@ -795,11 +1118,11 @@
               on:change={plotGridEnabledChanged}
             />
             <label for="longform-extended-project-plot-grid-enabled"
-              >Enable subplot grid</label
+              >Enable {lowerFirst(plotsSingular)} grid</label
             >
           </div>
           <label for="longform-extended-project-plot-grid-output-path"
-            >Subplot Grid Output Path</label
+            >{plotsSingular} Grid Output Path</label
           >
           <input
             id="longform-extended-project-plot-grid-output-path"
@@ -810,7 +1133,7 @@
           <p class="longform-extended-project-warning">
             Relative to the project folder. Start with "/" for the vault root.
             "$1" is replaced with the project title. Defaults to
-            "Base/$1_plotgrid.base". ".base" is added if omitted.
+            "Build/$1_plotgrid.base". ".base" is added if omitted.
           </p>
         </div>
       {/if}

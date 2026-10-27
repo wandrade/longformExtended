@@ -2,7 +2,9 @@ import { TFile, type App } from "obsidian";
 
 import {
   DEFAULT_PLOT_GRID_PLOTS_DIR,
+  DEFAULT_PLOTS_DISPLAY_NAME,
   DEFAULT_TIMELINE_OUTPUT_PATH,
+  singularDisplayName,
   type IndentedScene,
   type MultipleSceneDraft,
   type TimeframeFormat,
@@ -263,15 +265,17 @@ export async function writeTimeline(
     DEFAULT_TIMELINE_OUTPUT_PATH,
     ".md"
   );
-  // When the plot grid is enabled, the timeline's table is transposed: rows
-  // are plot lines and columns are distinct time groups. The Mermaid diagram
-  // and the Problems behavior are unchanged either way.
+  // With the subplot grid on, the scene table becomes the transposed plot
+  // table; the Mermaid diagram and Problems section are unchanged.
   let plotTable: TimelinePlotTable | null = null;
   if (draft.plotGridEnabled && result.errors.length === 0) {
     plotTable = await buildPlotTimeline(app, draft, result);
   }
 
-  const contents = renderTimeline(result, plotTable);
+  const plotLabel = singularDisplayName(
+    draft.plotsDisplayName?.trim() || DEFAULT_PLOTS_DISPLAY_NAME
+  );
+  const contents = renderTimeline(result, plotTable, plotLabel);
   await writeGeneratedNote(app, path, contents);
 }
 
@@ -547,7 +551,8 @@ export function plotTimelineMentions(
     const pipe = inner.indexOf("|");
     const targetPart = pipe >= 0 ? inner.slice(0, pipe) : inner;
     const aliasPart = pipe >= 0 ? inner.slice(pipe + 1) : "";
-    const target = targetPart.split("#")[0].trim();
+    // A table-escaped link (`[[Target\|Alias]]`) leaves a trailing backslash.
+    const target = targetPart.split("#")[0].trim().replace(/\\$/, "");
     if (target.length > 0) {
       links.add(target);
       links.add(basenameOf(target));
@@ -585,9 +590,8 @@ export function plotTimelineMentions(
 }
 
 /**
- * Reads every Markdown note under the configured plot folder. The folder is
- * resolved exactly like the plot grid's, and the notes are deduplicated by
- * path. There is no vault-wide `type` scan.
+ * Reads every Markdown note under the configured plot folder, deduplicated by
+ * path.
  */
 export async function readTimelinePlotNotes(
   app: App,
@@ -641,9 +645,8 @@ function timelineLevelLabel(
 
 /**
  * Maps every timeline entry's scene to its ancestor node at `level`. A scene
- * that sits above `level` has no node there and is omitted. The ancestor stack
- * mirrors `plotGridNodesAtLevel`: because indent ranks are contiguous, the
- * stack index is the level rank, so `ancestors[level]` is the node to link.
+ * that sits above `level`, or whose ancestor chain skips that indent, has no
+ * node there and is omitted.
  */
 function timelineNodesAtLevel(
   app: App,
@@ -670,7 +673,12 @@ function timelineNodesAtLevel(
 
     const sceneLevel = indents.indexOf(scene.indent);
     if (level <= sceneLevel && wanted.has(scene.title)) {
-      const node = level === sceneLevel ? scene : ancestors[level];
+      const node =
+        level === sceneLevel
+          ? scene
+          : ancestors.find(
+              (ancestor) => ancestor.indent === indents[level]
+            );
       if (node) {
         nodes.set(scene.title, {
           title: node.title,
@@ -742,7 +750,7 @@ export async function buildPlotTimeline(
   for (const note of notes) {
     const mentions = plotTimelineMentions(note, result.entries, columns);
     rows.push({ note, mentions });
-    for (const title of Array.from(mentions)) {
+    for (const title of mentions) {
       mentioned.add(title);
     }
   }
@@ -801,9 +809,10 @@ function renderTimelinePlotLevel(
   result: TimelineResult,
   columns: TimelinePlotColumn[],
   lines: TimelinePlotLine[],
-  nodeFor: TimelinePlotNodeFor
+  nodeFor: TimelinePlotNodeFor,
+  plotLabel: string
 ): string {
-  const header = ["Subplot", ...columns.map((column) => column.header)];
+  const header = [plotLabel, ...columns.map((column) => column.header)];
 
   const rendered = [
     `| ${header.join(" | ")} |`,
@@ -847,14 +856,16 @@ function timelineLevelHeading(level: TimelinePlotLevel): string {
 /** Renders the transposed plot timeline tables, plus the unmentioned section. */
 export function renderTimelinePlotTable(
   result: TimelineResult,
-  table: TimelinePlotTable
+  table: TimelinePlotTable,
+  plotLabel: string = singularDisplayName(DEFAULT_PLOTS_DISPLAY_NAME)
 ): string {
   const levels = table.levels ?? [];
   const entryTable = renderTimelinePlotLevel(
     result,
     table.columns,
     table.lines,
-    (entry) => ({ title: entry.sceneTitle, path: entry.path })
+    (entry) => ({ title: entry.sceneTitle, path: entry.path }),
+    plotLabel
   );
 
   const sections: string[] = [];
@@ -870,7 +881,8 @@ export function renderTimelinePlotTable(
               result,
               table.columns,
               table.lines,
-              (entry) => level.nodes.get(entry.sceneTitle) ?? null
+              (entry) => level.nodes.get(entry.sceneTitle) ?? null,
+              plotLabel
             );
       // A blank line is required between the heading and the table so Obsidian
       // parses the table header and separator instead of treating them as
@@ -994,7 +1006,8 @@ function renderMermaid(result: TimelineResult): string {
 
 export function renderTimeline(
   result: TimelineResult,
-  plotTable: TimelinePlotTable | null = null
+  plotTable: TimelinePlotTable | null = null,
+  plotLabel: string = singularDisplayName(DEFAULT_PLOTS_DISPLAY_NAME)
 ): string {
   if (result.errors.length > 0) {
     const problems = ["## Problems", ""];
@@ -1008,7 +1021,7 @@ export function renderTimeline(
   if (plotTable) {
     return `# Story Timeline\n\n${renderMermaid(
       result
-    )}\n\n${renderTimelinePlotTable(result, plotTable)}\n`;
+    )}\n\n${renderTimelinePlotTable(result, plotTable, plotLabel)}\n`;
   }
 
   const primary = result.primaryUnit;

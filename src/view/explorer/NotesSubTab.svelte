@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { auxiliaryKindPluralLabel } from "src/model/auxiliary-notes";
+  import { noteGroupDisplayName } from "src/model/note-groups";
+  import { selectedDraft } from "src/model/stores";
   import { type NotesTab, selectedNotesTab } from "src/view/stores";
 
   export let tab: NotesTab;
 
   $: label =
-    tab === "Plots" ? auxiliaryKindPluralLabel("plots", true) : tab;
+    $selectedDraft && $selectedDraft.format === "scenes"
+      ? noteGroupDisplayName($selectedDraft, tab)
+      : tab;
 </script>
 
 <button
@@ -13,7 +16,7 @@
   class:selected={$selectedNotesTab === tab}
   on:click={() => selectedNotesTab.set(tab)}
 >
-  {#if tab == "Scenes"}
+  {#if tab == "scenes"}
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -34,7 +37,7 @@
       /></svg
     >
   {/if}
-  {#if tab == "Plots"}
+  {#if tab == "plots"}
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -53,7 +56,7 @@
       /><path d="M18 9a9 9 0 0 1-9 9" /></svg
     >
   {/if}
-  {#if tab == "Characters"}
+  {#if tab == "characters"}
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"

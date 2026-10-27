@@ -2,45 +2,63 @@
 # Longform Extended
 
 > [!NOTE]
-> **This is a fork.** Longform Extended is [Longform](https://github.com/kevboh/longform) with a few added visualization tools, and nothing else. It is meant to be the exact same plugin as Longform, so you should be able to use the two interchangeably without any trouble. If you already use Longform, you should not need to change a thing.
+> **This is a fork.** Longform Extended is [Longform](https://github.com/kevboh/longform) with configurable note groups and a small set of added views and writing stats, and nothing else. It is built to stay compatible with Longform's project data, so existing projects keep working. If you already use Longform, you should not need to change a thing.
 
 ## What This Is
 
-Longform Extended is a plugin for [Obsidian](https://obsidian.md) that helps you write and edit novels, screenplays, and other long projects. It keeps everything Longform does — a series of notes, or _scenes_, organized into an ordered manuscript, single-note projects for shorter works, drafts, word counts, and compile workflows — exactly as they are, and adds a small set of lightweight views on top. Your notes and frontmatter stay exactly as Longform expects them, so nothing about your existing projects changes.
+Longform Extended is a plugin for [Obsidian](https://obsidian.md) that helps you write and edit novels, screenplays, and other long projects. It keeps everything Longform does — a series of notes, or _scenes_, organized into an ordered manuscript, single-note projects for shorter works, drafts, word counts, and compile workflows — exactly as they are, and adds **note groups** plus lightweight views and stats around the project.
+
+Every multi-scene project has the built-in **Scenes**, **Subplots**, and **Characters** groups, and can add any number of custom groups, each with its own folder and **Notes** sub-tab. You can set display names for the built-in groups, and every group shares the same nested tree editing and create actions. The added views sit around the manuscript scenes and, where noted, the Subplot and Character Folders: a timeline, a kanban board, an editable subplot grid, and a status tab with a daily writing goal, alongside Longform's project, draft, and scene word counts.
+
+Your core project data stays exactly as Longform expects it, so existing projects keep working without changes. The added views never edit note prose; their writes to your notes are the frontmatter they document: kanban status and helper properties, word counts, `plotgrid_*` keys, and the project note's note-group and display-name configuration and order overlays. They also write the generated timeline, kanban, and subplot grid files.
 
 ## What This Is Not
 
-Longform Extended is not a full writing suite in the style of heavier plugins that bolt on elaborate metadata systems and story databases. There are no new required fields, no per-scene character or plot schema, and no overcomplicated configuration. It is just Longform, plus a few extra visualization tools.
+Longform Extended is not a full writing suite in the style of heavier plugins that bolt on elaborate metadata systems and story databases. There are no new required fields, no per-scene character or plot schema, and no overcomplicated configuration. A custom note group is just a name, a folder, an optional template, and an order overlay; folder membership decides which notes belong to it. It is just Longform, plus more note groups and a few views and stats around the project.
 
 ## Added Features
+
+The additions are configurable note groups, plus views and stats around the project's scenes and built-in folders.
 
 ### Implemented
 
 - **Timeline view** — see your scenes laid out along a timeline, driven by a
-  per-scene `timeframe` value and a project-wide time format, with transposed
-  plot and subplot tables when the subplot grid is enabled (see
-  [Timeline](#timeline)).
+  per-scene `timeframe` value and a project-wide time format, with one
+  transposed subplot table per populated hierarchy level when the subplot grid
+  is enabled (see [Timeline](#timeline)).
 - **Kanban board** — a status-driven board written to a configurable output
   path (see [Kanban](#kanban)).
-- **Notes tab** — **Scenes**, **Subplots**, and **Characters** sub-tabs to
-  browse, create, rename, reorder, and nest notes, with optional templates (see
-  [Subplots and Characters](#subplots-and-characters)).
+- **Note groups** — built-in **Scenes**, **Subplots**, and **Characters**
+  groups plus any number of custom groups, each with its own folder and
+  **Notes** sub-tab. Built-in display names are configurable. All groups share
+  nested tree editing and create actions (see [Extra note groups](#extra-note-groups)).
 - **Subplot Grid** — an editable table of the subplots and characters in your
   Subplot and Character Folders across the levels of your scene hierarchy (see
   [Subplot Grid](#subplot-grid)).
+- **Status tab** — a daily writing-goal bar plus actions to refresh all enabled
+  generated files and open the timeline, kanban board, or subplot grid (see
+  [Status tab](#status-tab)).
 
-### Wishlist
 
-- **Corkboard** — a board of scene cards you can drag to rearrange.
+### Migrating
+
+Existing Longform and Longform Extended projects need no migration for note
+groups or these views: folder membership and the existing `longform`
+frontmatter are enough. A project with no `noteGroups` entry simply has the
+three built-in groups. Projects migrated from Longform 1.x get the added
+features at their defaults; see
+[Migrating from version 1 to 2](./docs/MIGRATING_FROM_VERSION_1_TO_2.md).
 
 ## Timeline
 
 Longform Extended can generate a timeline for every project with scenes. The
 note contains a Mermaid timeline diagram and a table, both ordered by a
 per-scene timeframe value, so you can see the order of your story at a glance.
-When the subplot grid is enabled, the table is a transposed plot and subplot
-table instead of the scene table. It is enabled by default. See
-[TIMELINE.md](./docs/TIMELINE.md) for the full documentation.
+When the subplot grid is enabled, the scene table is replaced by one transposed
+subplot table per populated hierarchy level. The timeline and the subplot grid
+are both enabled by default. The timeline is driven by the manuscript scenes
+and, for its subplot tables, the Subplot Folder; custom note groups do not add
+rows. See [TIMELINE.md](./docs/TIMELINE.md) for the full documentation.
 
 The Timeline section of the Project tab controls it:
 
@@ -104,24 +122,25 @@ against the project folder; start with `/` to write from the vault root. The
 created. Changing the path writes a new note but does not move or delete the
 old one. See [TIMELINE.md](./docs/TIMELINE.md#output) for details.
 
-### Plot and Subplot Tables
+### Subplot Tables
 
 When the subplot grid is enabled, the timeline note's scene table is replaced
-by a transposed plot and subplot table. Its first column is headed **Subplot**.
-Its rows are **Full Story**, then **Main** if a note named `Main` exists (the
-main plot), then every other subplot note in the **Subplot Folder**,
-alphabetically; those other subplot notes are the subplots. Its columns are the
-timeline's time groups, each headed by the primary value, the units between the
-primary and secondary unit, and the cadence. Each cell lists links to the scenes
-for that row at that time.
+by one transposed subplot table per populated hierarchy level. Each table's
+first column is headed **Subplot**. Its rows are **Full Story**, then **Main**
+if a note named `Main` exists (the main plot), then every other subplot note in
+the **Subplot Folder**, alphabetically; those other subplot notes are the
+subplots. Its columns are the timeline's time groups, each headed by the
+primary value, the units between the primary and secondary unit, and the
+cadence. At the deepest (scene) level, each cell lists links to the scenes for
+that row at that time; shallower tables link ancestor nodes instead.
 
-When the hierarchy has more than one populated level, the timeline repeats this
-table for each level, deepest first and then the levels above it (for example
+Tables are ordered deepest first and then the levels above them (for example
 Level 2, then Level 1, then Level 0), under generic headings such as
 `Level 2 — Scene 1, Scene 2, …`. The deepest table links scene notes; shallower
-tables link each scene's ancestor node at that level. Level labels are generic:
-act, chapter, and scene names are only sample node titles. A single-level
-hierarchy gets one table with no level heading.
+tables link each scene's ancestor node at that level. Ancestor links come from
+the scene hierarchy, not from shallower-level subplot-grid cells. Level labels
+are generic: act, chapter, and scene names are only sample node titles. A
+single-level hierarchy gets one table with no level heading.
 
 The main plot and each subplot mention a scene through a non-empty scene-level
 subplot-grid cell, a wikilink, or the scene's exact title in that row's note.
@@ -130,7 +149,7 @@ it has no level setting of its own. Scenes that neither the main plot nor any
 subplot mentions are listed after the tables under
 **These scenes have not been mentioned in any subplot line**. Disable the
 subplot grid to get the original scene table back. See
-[TIMELINE.md](./docs/TIMELINE.md#the-plot-and-subplot-tables) for details.
+[TIMELINE.md](./docs/TIMELINE.md#the-subplot-tables) for details.
 
 ### When It Updates
 
@@ -149,9 +168,10 @@ the next rebuild.
 A Kanban board is generated for each scenes project as a native Obsidian Bases
 file (`.base`) with a Kanban view. It requires **Obsidian 1.14 or newer**; no
 community kanban plugin is needed. Each card is a listed scene, or a note from
-the Subplot Folder when **Include subplots** is enabled. The board shows exactly the configured
-columns, and dragging a card between them writes the column title back into that
-note's `status` frontmatter. The board is enabled by default. See
+the Subplot Folder when **Include subplots** is enabled. The board shows the
+configured columns plus the synthetic `Unassigned` and `Incorrectly Assigned`
+columns when they contain cards. Dragging a card writes the column title back
+into that note's `status` frontmatter. The board is enabled by default. See
 [KANBAN.md](./docs/KANBAN.md) for the full documentation.
 
 The Kanban section of the Project tab controls it:
@@ -163,7 +183,8 @@ The Kanban section of the Project tab controls it:
   column (off by default).
 - **Save word counts** writes each card scene's word count to its frontmatter.
 - **Include subplots** adds notes from the Subplot Folder to the board alongside
-  project scenes (on by default). Character Folder notes are never included.
+  project scenes (on by default). Notes in the Character Folder or in custom
+  note groups are never included.
 - **Kanban Output Path** is where the board is written.
 
 ### Kanban Columns
@@ -201,7 +222,8 @@ unknown-status, and unassigned rules as scenes.
 The board includes scenes that are listed in the project and are not
 structural containers. Unlisted notes in the scene folder are excluded even if
 they have a status. With **Include subplots** on, it also includes the notes in
-the Subplot Folder; notes in the Character Folder are never included.
+the Subplot Folder; notes in the Character Folder or in custom note groups are
+never included.
 
 A board is only generated when at least one scene, or (with **Include subplots**)
 at least one note in the Subplot Folder, has a non-empty status, even if **Show
@@ -248,6 +270,9 @@ palette to force a rebuild; the command is available when a scenes project with
 the kanban enabled is selected. The generated board is a build artifact: edits
 made inside it are overwritten on the next rebuild.
 
+The [Status tab](#status-tab)'s **Open kanban** action opens the configured
+board and is disabled when the kanban is off.
+
 ## Subplot Grid
 
 A subplot grid tracks your subplots and characters across the structure of your story.
@@ -263,28 +288,32 @@ The Subplot Grid section of the Project tab controls it:
 
 - **Enable subplot grid** turns generation on or off. Turning it off stops future
   updates but leaves an existing Base and its `plotgrid_*` keys in place.
-- **Subplot Grid Output Path** is where the Base is written.
+- **Subplot Grid Output Path** is where the Base is written. It defaults to
+  `Build/$1_plotgrid.base`, where `$1` is replaced with the project title.
 
 The **Level** selector lives in the generated Subplot Grid view, above the table.
 
-The **Scene Folder**, **Subplot Folder**, and **Character Folder** settings live in
-the **Project Metadata** section of the Project tab. They share the same folder
-autocomplete, which suggests folders relative to the project folder. All three
+The **Scene Folder**, **Subplot Folder**, and **Character Folder** settings live
+in the **Project Metadata** section of the Project tab; custom group folders
+live in the **Extra note groups** section. They share the same folder autocomplete,
+which suggests folders relative to the project folder. All note-group folders
 are project-folder-relative; a leading `/` does not mean the vault root. (That
 rule applies only to output file paths.) New projects default the Scene Folder
 to `Scenes`, the Subplot Folder to `Subplots`, and the Character Folder to
-`Characters`. Existing projects may keep a custom Subplot Folder. For example,
-`Subplots/Main.md` is the main plot. Migrated legacy projects may still have a
-project-root scene folder (`/`); choose a distinct, non-nested scene folder
-before the subplot grid can generate. The
-output path resolves against the project folder; start it with `/` to write from
-the vault root.
+`Characters`, and each custom group's folder defaults to its name with spaces replaced by underscores. Existing
+projects may keep custom folder names. For example, `Subplots/Main.md` is the
+main plot. Migrated legacy projects may still have a project-root scene folder
+(`/`); choose a distinct, non-nested scene folder before the subplot grid can
+generate. The output path resolves against the project folder; start it with
+`/` to write from the vault root. A `.base` extension is added if omitted.
 
-The three folders must be pairwise distinct and non-nested: no two may be the
-same folder, and none may be a subfolder of another. If the configuration is
-invalid, the Project tab shows an error and generation is blocked with a Notice
-until the paths are fixed. Folder membership is the only thing that makes a
-note a subplot or a character; there is no `type` frontmatter flag to add.
+Every note-group folder must be pairwise distinct and non-nested: no two may be
+the same folder, and none may be a subfolder of another. The Project tab rejects
+a folder change that would violate the rule and shows an error. For the Scene,
+Subplot, and Character Folders, an invalid existing configuration also blocks
+generation, and a manual rebuild reports a Notice until the paths are fixed.
+Folder membership is the only thing that makes a note a subplot, a character,
+or a member of a custom group; there is no `type` frontmatter flag to add.
 
 ### Levels
 
@@ -358,46 +387,92 @@ Character Folders change. Run **Rebuild subplot grid** from the command palette
 to force a rebuild; the command is available when a scenes project with the
 subplot grid enabled is selected.
 
-In the Status tab, **Refresh** regenerates the timeline, kanban board, and
-subplot grid together, and **Open subplot grid** opens the configured Base. If
-it has not been generated yet, a notice asks you to use Refresh.
+In the [Status tab](#status-tab), **Refresh** regenerates every enabled generated
+file — the timeline, kanban board, and subplot grid — and **Open subplot grid**
+opens the configured Base. The open action is disabled when the subplot grid is
+off. If the file has not been generated yet, a notice asks you to use
+**Refresh**.
 
-## Subplots and Characters
+## Status tab
 
-Multi-scene projects get a **Notes** tab, with **Scenes**, **Subplots**, and
-**Characters** sub-tabs; the pane opens on **Notes → Scenes** by default. The
-**Subplots** and **Characters** sub-tabs list the Markdown notes in the project's
-**Subplot Folder** and **Character Folder**, and let you create, rename, reorder,
-and nest those notes from the pane. Single-note projects have only the
-**Project** and **Compile** tabs; **Notes** and **Status** redirect to
-**Project**. There is no `type` flag: folder membership decides whether a note
-is a subplot or a character. See
-[PLOTS_AND_CHARACTERS.md](./docs/PLOTS_AND_CHARACTERS.md) for the full
-documentation.
+Multi-scene projects have a **Status** tab with a daily writing-goal bar and
+four actions:
+
+- **Refresh** regenerates every enabled generated file for the selected
+  project: the timeline, the kanban board, and the subplot grid. It is disabled
+  while it runs, and when no generated file is enabled.
+- **Open timeline**, **Open kanban**, and **Open subplot grid** open their
+  configured output. Each action is disabled when its feature is off. If the
+  output has not been generated yet, a notice asks you to use **Refresh**.
+
+The goal bar uses the latest writing session and the **Goal applies to**
+setting; see [Word counts and sessions](./docs/WORD_COUNTS.md#the-daily-goal-bar).
+Single-note projects have no **Status** tab; **Status** redirects to
+**Project**.
+
+## Extra note groups
+
+Multi-scene projects get a **Notes** tab with one sub-tab per note group. The
+built-in groups are **Scenes**, **Subplots**, and **Characters**, and a project
+can add any number of custom groups; the pane opens on **Notes → Scenes** by
+default. Single-note projects have only the **Project** and **Compile** tabs;
+**Notes** and **Status** redirect to **Project**.
+
+The **Scenes** sub-tab is Longform's manuscript tree. Every other sub-tab lists
+the Markdown notes in its configured folder and lets you create, rename,
+reorder, and nest those notes from the pane. There is no `type` flag: folder
+membership decides whether a note belongs to a subplot, a character, or a
+custom group. The Subplot and Character groups feed the subplot grid, and the
+Subplot Folder also feeds the timeline subplot tables and the kanban board's
+**Include subplots** option. Custom groups are browsing and editing trees only;
+they do not add rows, columns, generated files, or per-group word-count stats to
+those views.
+
+A custom group's name is also its display name. Display names for the built-in
+**Scenes**, **Subplots**, and **Characters** groups are set under **Project
+Metadata** in the Project tab. Display names change labels throughout the
+extension, including the Notes sub-tabs and generated subplot-grid labels;
+folders, note paths, and frontmatter do not change. Leaving a built-in display
+name blank restores the default. See
+[PLOTS_AND_CHARACTERS.md](./docs/PLOTS_AND_CHARACTERS.md) for the built-in
+Subplots and Characters details.
+
+Custom groups are configured in the **Extra note groups** section of the Project tab.
+List their names in order, separated by spaces, and quote a name that contains
+spaces. Each group's folder defaults to its name with spaces replaced by
+underscores and is relative to the project folder. Each group also has an
+optional Template setting. Every note-group folder must be pairwise distinct
+and non-nested.
+Removing a group from the list removes only its configuration, tab, and order
+overlay: its folder and notes are never deleted from the vault.
 
 The sub-tabs are organizational. The subplot grid and timeline read the folders
-directly, so sub-tab order and indentation do not change the grid or the timeline
-plot and subplot tables.
+directly, so sub-tab order and indentation do not change the grid or the
+timeline subplot tables.
 
 ### Creating Notes
 
-The **New Subplot** and **New Character** fields at the bottom of each sub-tab create
-a note in the configured folder. Press Enter to create and open it, or
-Shift+Enter to create it without opening. Duplicate names, and names with
-invalid filename characters, are rejected with an inline error.
+Each non-scenes sub-tab has a **New Subplot**, **New Character**, or
+**New <Group>** field at the bottom that creates a note in the configured
+folder. Press Enter to create and open it, or Shift+Enter to create it without
+opening. Duplicate names, and names with invalid filename characters, are
+rejected with an inline error.
 
-New notes use the project's **Subplot Template** or **Character Template** from
-**Project Metadata**, next to **Scene Template**. If a project template is not
-set, the global **New subplot template** or **New character template** in plugin
-settings applies. Both default to none. Templates are processed like scene
-templates: Templater if enabled, otherwise the core Templates plugin. See
+New notes in the **Subplots** and **Characters** sub-tabs use the project's
+**Subplot Template** or **Character Template** from **Project Metadata**, next
+to **Scene Template**. If a project template is not set, the global **New
+subplot template** or **New character template** in plugin settings applies.
+All of these template settings default to none. Templates are processed like
+scene templates: Templater if enabled, otherwise the core Templates plugin.
+Custom groups use the Template setting shown under their folder in the
+**Extra note groups** section; an empty value creates plain notes. See
 [Templates](./docs/PLOTS_AND_CHARACTERS.md#templates).
 
 ### Organizing Notes
 
 Drag a note to reorder it, or drag horizontally to indent it; the global
-**Indent scene** and **Unindent scene** commands also work on the active subplot
-or character note. Notes with children can be collapsed. Click a note to open
+**Indent scene** and **Unindent scene** commands also work on the active note in
+any non-scenes group. Notes with children can be collapsed. Click a note to open
 it.
 
 The right-click menu (desktop) provides inline rename, delete, open in new pane,
@@ -405,12 +480,20 @@ and add-new above or below. Inline rename commits with Enter and cancels with
 Escape or a click away; it writes the renamed note to the root of its configured
 folder. Deleted notes are moved to the trash.
 
-The folders own membership. The project note stores only an order/indent
-overlay: notes missing from it are appended alphabetically at the top level,
-deleted entries are pruned, and reordering or indenting changes the overlay
-rather than the notes. The overlay is keyed by basename, so duplicate basenames
-in nested subfolders collapse to the first path. See
+Each group's folder owns membership. The project note stores only an
+order/indent overlay: notes missing from it are appended alphabetically at the
+top level, deleted entries are pruned, and reordering or indenting changes the
+overlay rather than the notes. The overlay is keyed by basename, so duplicate
+basenames in nested subfolders collapse to the first path. Custom groups
+reconcile the same way. See
 [Membership and order](./docs/PLOTS_AND_CHARACTERS.md#membership-and-order-overlay).
+
+## Examples
+
+The repository includes four source-only sample projects in
+[`examples/`](./examples/README.md): a short story, a long story, an essay,
+and a screenplay. Each is ready to copy into a vault. The essay uses
+Arguments and References in place of plots and characters.
 
 ## Longform
 

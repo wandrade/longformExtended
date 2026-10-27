@@ -10,24 +10,35 @@ import { cloneDeep, isEqual } from "lodash";
 import { get, type Unsubscriber } from "svelte/store";
 
 import {
+  DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_CHARACTERS_DIR,
   DEFAULT_PLOT_GRID_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
+  DEFAULT_PLOTS_DISPLAY_NAME,
+  DEFAULT_SCENE_DISPLAY_NAME,
   DEFAULT_TIMEFRAME_TAG_NAME,
   DEFAULT_TIMELINE_OUTPUT_PATH,
   DEFAULT_TIME_FORMAT,
   isTimeframeFormat,
   type Draft,
   type MultipleSceneDraft,
+  type NoteGroup,
 } from "./types";
 import {
-  auxiliaryFolder,
   auxiliaryNoteFiles,
   reconcileAuxiliaryList,
   type AuxiliaryNoteKind,
 } from "./auxiliary-notes";
+import {
+  customNoteGroupKey,
+  noteGroupDescriptors,
+  noteGroupEntries,
+  noteGroupFolder,
+  parseNoteGroups,
+  setNoteGroupEntries,
+} from "./note-groups";
 import { isInsidePlotGridDirectory } from "./plot-grid";
 import {
   drafts as draftsStore,
@@ -48,6 +59,43 @@ type FileWithMetadata = {
   file: TFile;
   metadata: CachedMetadata;
 };
+
+/** A persisted display name, falling back to the built-in default. */
+export function noteGroupDisplayNameSetting(
+  value: unknown,
+  fallback: string
+): string {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : fallback;
+}
+
+/**
+ * Reconciles every custom group's order/indent overlay with the notes that
+ * actually exist in its folder. The folder owns membership; the overlay only
+ * owns order and indentation. Nothing is ever deleted from the vault.
+ */
+export function reconcileNoteGroups(
+  app: App,
+  draft: MultipleSceneDraft,
+  groups: NoteGroup[]
+): { noteGroups: NoteGroup[]; dirty: boolean } {
+  // Folder resolution for a custom group reads the group list.
+  const scanDraft: MultipleSceneDraft = { ...draft, noteGroups: groups };
+  let dirty = false;
+
+  const noteGroups = groups.map((group) => {
+    const key = customNoteGroupKey(group.name) as AuxiliaryNoteKind;
+    const result = reconcileAuxiliaryList(
+      group.entries,
+      auxiliaryNoteFiles(app, scanDraft, key).map((file) => file.name)
+    );
+    dirty = dirty || result.dirty;
+    return { ...group, entries: result.list };
+  });
+
+  return { noteGroups, dirty };
+}
 
 export function resolveIfLongformExtendedFile(
   metadataCache: MetadataCache,
@@ -440,16 +488,27 @@ export class StoreVaultSync {
     }
   }
 
+  /** True for the Markdown notes an auxiliary folder contributes. */
+  private isAuxiliaryNote(file: TFile): boolean {
+    return file instanceof TFile && file.extension.toLowerCase() === "md";
+  }
+
   /** The auxiliary tree a path belongs to for a draft, if any. */
   private auxiliaryKindForPath(
     draft: MultipleSceneDraft,
     path: string
   ): AuxiliaryNoteKind | null {
-    for (const kind of ["plots", "characters"] as const) {
+    for (const descriptor of noteGroupDescriptors(draft)) {
+      if (descriptor.key === "scenes") {
+        continue;
+      }
       if (
-        isInsidePlotGridDirectory(auxiliaryFolder(this.app, draft, kind), path)
+        isInsidePlotGridDirectory(
+          noteGroupFolder(this.app, draft, descriptor.key),
+          path
+        )
       ) {
-        return kind;
+        return descriptor.key;
       }
     }
     return null;
@@ -457,6 +516,10 @@ export class StoreVaultSync {
 
   /** Adds a note that appeared in a plot/character folder to its overlay. */
   private addAuxiliaryNote(file: TFile): boolean {
+    if (!this.isAuxiliaryNote(file)) {
+      return false;
+    }
+
     const isMember = get(draftsStore).some(
       (draft) =>
         draft.format === "scenes" &&
@@ -477,11 +540,12 @@ export class StoreVaultSync {
         if (!kind) {
           return draft;
         }
-        if (!draft[kind].some((entry) => entry.title === file.basename)) {
-          draft[kind] = [
-            ...draft[kind],
+        const entries = noteGroupEntries(draft, kind);
+        if (!entries.some((entry) => entry.title === file.basename)) {
+          setNoteGroupEntries(draft, kind, [
+            ...entries,
             { title: file.basename, indent: 0 },
-          ];
+          ]);
           changed = true;
         }
         return draft;
@@ -493,6 +557,10 @@ export class StoreVaultSync {
 
   /** Removes a deleted note from any plot/character overlay. */
   private removeAuxiliaryNote(file: TFile, drafts: Draft[]): boolean {
+    if (!this.isAuxiliaryNote(file)) {
+      return false;
+    }
+
     let member = false;
 
     for (const draft of drafts) {
@@ -514,8 +582,12 @@ export class StoreVaultSync {
         }
         const kind = this.auxiliaryKindForPath(draft, file.path);
         if (kind) {
-          draft[kind] = draft[kind].filter(
-            (entry) => entry.title !== file.basename
+          setNoteGroupEntries(
+            draft,
+            kind,
+            noteGroupEntries(draft, kind).filter(
+              (entry) => entry.title !== file.basename
+            )
           );
         }
         return draft;
@@ -534,7 +606,13 @@ export class StoreVaultSync {
     oldPath: string,
     drafts: Draft[]
   ): void {
-    const oldName = fileNameFromPath(oldPath);
+    if (!this.isAuxiliaryNote(file)) {
+      return;
+    }
+
+    const oldName =
+      oldPath.split("/").pop()?.replace(/\.md$/i, "") ??
+      fileNameFromPath(oldPath);
     const newName = file.basename;
 
     let member = false;
@@ -563,31 +641,32 @@ export class StoreVaultSync {
         }
 
         if (oldKind) {
-          const index = draft[oldKind].findIndex(
+          const oldEntries = noteGroupEntries(draft, oldKind);
+          const index = oldEntries.findIndex(
             (entry) => entry.title === oldName
           );
           if (index >= 0 && oldKind === newKind) {
-            draft[oldKind][index] = {
-              ...draft[oldKind][index],
-              title: newName,
-            };
+            oldEntries[index] = { ...oldEntries[index], title: newName };
+            setNoteGroupEntries(draft, oldKind, oldEntries);
             return draft;
           }
           if (index >= 0) {
-            draft[oldKind] = draft[oldKind].filter(
-              (entry) => entry.title !== oldName
+            setNoteGroupEntries(
+              draft,
+              oldKind,
+              oldEntries.filter((entry) => entry.title !== oldName)
             );
           }
         }
 
-        if (
-          newKind &&
-          !draft[newKind].some((entry) => entry.title === newName)
-        ) {
-          draft[newKind] = [
-            ...draft[newKind],
-            { title: newName, indent: 0 },
-          ];
+        if (newKind) {
+          const newEntries = noteGroupEntries(draft, newKind);
+          if (!newEntries.some((entry) => entry.title === newName)) {
+            setNoteGroupEntries(draft, newKind, [
+              ...newEntries,
+              { title: newName, indent: 0 },
+            ]);
+          }
         }
         return draft;
       });
@@ -669,6 +748,19 @@ export class StoreVaultSync {
       // Convert to indented scenes
       const scenes = arraysToIndentedScenes(rawScenes);
       const sceneFolder = longformEntry["sceneFolder"] ?? "/";
+      const sceneDisplayName = noteGroupDisplayNameSetting(
+        longformEntry["sceneDisplayName"],
+        DEFAULT_SCENE_DISPLAY_NAME
+      );
+      const plotsDisplayName = noteGroupDisplayNameSetting(
+        longformEntry["plotsDisplayName"],
+        DEFAULT_PLOTS_DISPLAY_NAME
+      );
+      const charactersDisplayName = noteGroupDisplayNameSetting(
+        longformEntry["charactersDisplayName"],
+        DEFAULT_CHARACTERS_DISPLAY_NAME
+      );
+      const noteGroups = parseNoteGroups(longformEntry["noteGroups"]);
       const sceneTemplate = longformEntry["sceneTemplate"] ?? null;
       const plotTemplate = longformEntry["plotTemplate"] ?? null;
       const characterTemplate = longformEntry["characterTemplate"] ?? null;
@@ -751,6 +843,7 @@ export class StoreVaultSync {
         vaultPath,
         plotGridPlotsDir,
         plotGridCharactersDir,
+        noteGroups,
       } as MultipleSceneDraft;
       const plots = reconcileAuxiliaryList(
         arraysToIndentedScenes(longformEntry["plots"] ?? []),
@@ -764,7 +857,15 @@ export class StoreVaultSync {
           (file) => file.name
         )
       );
-      dirty = dirty || plots.dirty || characters.dirty;
+      // Custom groups reconcile exactly like the built-in auxiliary trees:
+      // the folder owns membership and the overlay only stores order/indent.
+      const reconciledNoteGroups = reconcileNoteGroups(
+        this.app,
+        draftDirectories,
+        noteGroups
+      );
+      dirty =
+        dirty || plots.dirty || characters.dirty || reconciledNoteGroups.dirty;
 
       return {
         draft: {
@@ -775,6 +876,10 @@ export class StoreVaultSync {
           vaultPath,
           sceneFolder,
           scenes: knownScenes,
+          sceneDisplayName,
+          plotsDisplayName,
+          charactersDisplayName,
+          noteGroups: reconciledNoteGroups.noteGroups,
           ignoredFiles,
           unknownFiles,
           sceneTemplate,

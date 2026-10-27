@@ -1,10 +1,6 @@
 import type { IndentedScene } from "src/model/types";
 
-/**
- * Per-entry display state for an indented note tree. Shared by the Scenes tab
- * and the Plots/Characters auxiliary trees so collapse behavior stays
- * identical without either list owning manuscript-specific features.
- */
+/** Per-entry display state for an indented note tree. */
 export type IndentedTreeVisibility = {
   hidden: boolean;
   collapsible: boolean;

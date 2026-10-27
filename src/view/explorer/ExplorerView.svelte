@@ -14,6 +14,8 @@
   import StatusView from "./StatusView.svelte";
   import NotesSubTab from "./NotesSubTab.svelte";
   import { needsMigration } from "src/model/migration";
+  import { noteGroupDescriptors } from "src/model/note-groups";
+  import type { AuxiliaryNoteKind } from "src/model/auxiliary-notes";
   import { getContext } from "svelte";
   import Tab from "./Tab.svelte";
 
@@ -23,22 +25,45 @@
   }
 
   $: {
+    const hasScenesDraft = $selectedDraft?.format === "scenes";
     if (
-      $selectedDraft &&
-      $selectedDraft.format === "single" &&
+      !hasScenesDraft &&
       ($selectedTab === "Notes" || $selectedTab === "Status")
     ) {
       $selectedTab = "Project";
     }
   }
+
+  $: noteGroups =
+    $selectedDraft && $selectedDraft.format === "scenes"
+      ? noteGroupDescriptors($selectedDraft)
+      : [];
+
+  // A custom group's tab disappears when the group is removed from the
+  // project settings, and a project switch may not have the selected group.
+  // Fall back to the manuscript scenes tab in either case.
+  $: {
+    if (
+      noteGroups.length > 0 &&
+      !noteGroups.some((group) => group.key === $selectedNotesTab)
+    ) {
+      selectedNotesTab.set("scenes");
+    }
+  }
+
+  $: auxiliaryKind =
+    $selectedNotesTab === "scenes"
+      ? null
+      : ($selectedNotesTab as AuxiliaryNoteKind);
 </script>
 
 {#if $needsMigration}
   <div class="longform-extended-explorer">
     <p>
       Longform Extended has been upgraded and requires a migration to a new format.
-      Deprecated index files will be deleted, and some scene notes may move.
-      It’s recommended to back up your vault before migrating.
+      Deprecated index files are left in place with a deprecation notice, and
+      some scene notes may move. It’s recommended to back up your vault before
+      migrating.
     </p>
     <p>
       You can view the docs and an explanation of what this migration does <a
@@ -73,19 +98,16 @@
         {#if $selectedTab === "Notes"}
           <div class="tab-panel-container">
             <div class="sub-tab-list">
-              <NotesSubTab tab="Scenes" />
-              <NotesSubTab tab="Plots" />
-              <NotesSubTab tab="Characters" />
+              {#each noteGroups as group (group.key)}
+                <NotesSubTab tab={group.key} />
+              {/each}
             </div>
-            {#if $selectedNotesTab === "Scenes"}
+            {#if $selectedNotesTab === "scenes"}
               <SceneList />
               <NewSceneField />
-            {:else if $selectedNotesTab === "Plots"}
-              <AuxiliaryNoteList kind="plots" />
-              <NewAuxiliaryField kind="plots" />
-            {:else}
-              <AuxiliaryNoteList kind="characters" />
-              <NewAuxiliaryField kind="characters" />
+            {:else if auxiliaryKind}
+              <AuxiliaryNoteList kind={auxiliaryKind} />
+              <NewAuxiliaryField kind={auxiliaryKind} />
             {/if}
           </div>
         {:else if $selectedTab === "Project"}

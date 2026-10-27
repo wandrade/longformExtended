@@ -92,9 +92,8 @@ export default class LongformExtendedPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new ExplorerPane(leaf)
     );
 
-    // `registerBasesView` does not exist before Obsidian 1.10, and returns
-    // false when the Bases core plugin is disabled. Either way the plugin must
-    // load normally; the generated Base keeps its native table fallback view.
+    // Returns false when the Bases core plugin is disabled; the plugin still
+    // loads, and the generated Base keeps its native table fallback view.
     const basesViewRegistered =
       typeof this.registerBasesView === "function" &&
       this.registerBasesView(PLOT_GRID_VIEW_TYPE, {
@@ -102,8 +101,8 @@ export default class LongformExtendedPlugin extends Plugin {
         icon: "table",
         factory: (controller, containerEl) =>
           new PlotGridView(controller, containerEl, this.app),
-        // Declared so the generated view options survive serialization in the
-        // `.base` file. The generator writes the resolved vault-relative paths.
+        // Registered so the generated `.base` view options survive
+        // serialization.
         options: () => [
           {
             type: "text",
@@ -323,7 +322,7 @@ export default class LongformExtendedPlugin extends Plugin {
 
     const defaultToScenes = once(function (d: Draft) {
       if (d && d.format === "scenes") {
-        selectedNotesTab.set("Scenes");
+        selectedNotesTab.set("scenes");
         selectedTab.set("Notes");
       }
     });

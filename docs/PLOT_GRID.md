@@ -1,15 +1,15 @@
 # Subplot Grid
 
 A project with scenes can generate a subplot grid: a table that tracks your
-subplots and characters across the structure of your story. Conceptually, each
-subplot or character is a row and each hierarchy node is a column. Cells are editable, and
-an edit is written back into the corresponding subplot or character note's
+subplots and characters across the structure of your story. Cells are editable,
+and an edit is written back into the corresponding subplot or character note's
 frontmatter.
 
-The grid is a native Obsidian Bases file (`.base`), opened in this plugin's
-custom transposed view, which puts the subplot and character notes in columns and
-the hierarchy nodes in rows for easier reading. A **Level** dropdown above the
-table chooses which level's rows to display, or **All**.
+The grid is a native Obsidian Bases file (`.base`). Its custom transposed view
+puts the subplot and character notes in columns and the hierarchy nodes in rows
+for easier reading; the native fallback table shows the notes as rows. A
+**Level** dropdown above the table chooses which level's rows to display, or
+**All**.
 
 The `.base` is generated from project data. Edit cells in the grid, not in the
 Base file: regeneration overwrites the file.
@@ -24,11 +24,13 @@ Base file: regeneration overwrites the file.
   available; the generated Base still includes a native table view as a
   fallback.
 - **A multi-scene project.** Single-note projects do not get a subplot grid.
-- **Markdown notes in the configured folders.** Every Markdown note under
-  the Subplot Folder is a row (the note named `Main` is the main plot; the
+- **Markdown notes in the configured folders.** Every Markdown note under the
+  Subplot Folder is a subplot note (the note named `Main` is the main plot; the
   others are subplots), and every Markdown note under the Character Folder is a
-  character row. There is no frontmatter type flag to add: folder membership
-  is the only thing that decides membership. See [Folders](#folders).
+  character note. In the custom view these notes are columns; in the native
+  fallback table they are rows. There is no frontmatter type flag to add:
+  folder membership is the only thing that decides membership. See
+  [Folders](#folders).
 
 ## Configuration
 
@@ -37,15 +39,40 @@ The Subplot Grid section of the Project tab controls the feature:
 | Setting | Default | What it does |
 | --- | --- | --- |
 | **Enable subplot grid** | On | Turns generation on or off. |
-| **Subplot Grid Output Path** | `Base/$1_plotgrid.base` | Where the Base is written. |
+| **Subplot Grid Output Path** | `Build/$1_plotgrid.base` | Where the Base is written. |
 
 The **Level** selector is part of the generated view, not the Project tab. See
 [Levels](#levels).
 
+### Display Names
+
+The grid's labels come from the project's display names for the Subplots and
+Characters groups, configured under **Project Metadata** (defaults `Subplots`
+and `Characters`). The singular form is derived from the plural display name
+(`Threads` → `Thread`, `Stories` → `Story`).
+
+- The custom view is titled with the configured singular name plus `Grid`
+  (default **Subplot Grid**).
+- The native fallback view uses that same title plus `(Table)` (default
+  **Subplot Grid (Table)**).
+- Row-label prefixes use the configured singular names, so notes are labeled
+  `(Subplot)` and `(Character)` by default, or `(Thread)` and `(Cast)` when the
+  display names are `Threads` and `Cast`.
+- The Status tab's open action and its tooltip use the configured singular name.
+
+Display names are presentation only. They do not change the Scene, Subplot, or
+Character Folders, note paths, `plotgrid_*` keys, or data. A blank display name
+falls back to its default. See
+[PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#display-names).
+
+Extra note groups are **not** read by the subplot grid. They do not add rows or
+columns, and changing their folders does not affect this feature. See
+[Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
+
 Turning **Enable subplot grid** off stops future rebuilds and removes the
 **Rebuild subplot grid** command for that project; the Status tab's
-**Open subplot grid** action stays visible but is disabled. Turning it off does not delete an
-existing Base or the `plotgrid_*` keys already in notes.
+**Open subplot grid** action stays visible but is disabled. Turning it off does
+not delete an existing Base or the `plotgrid_*` keys already in notes.
 
 These folders are not configured in the Subplot Grid section. **Scene Folder**,
 **Subplot Folder**, and **Character Folder** are configured in **Project
@@ -59,10 +86,10 @@ autocomplete, which suggests folders relative to the project folder. All three
 are project-folder-relative; a leading `/` does not mean the vault root. (That
 rule applies only to output file paths.) New projects default the scene folder
 to `Scenes`, the Subplot Folder to `Subplots`, and the Character Folder to
-`Characters`. Existing projects may keep a custom Subplot Folder. An empty
-Subplot or Character Folder setting falls back to its default. For example,
-`Subplots/Main.md` is the main plot, and other notes under `Subplots/` are
-subplots.
+`Characters`. Existing projects may keep custom Subplot or Character Folder
+names. An empty Subplot or Character Folder setting falls back to its default.
+For example, `Subplots/Main.md` is the main plot, and other notes under
+`Subplots/` are subplots.
 
 Migrated legacy projects may still have a project-root scene folder (`/`),
 which resolves to the project folder itself.
@@ -73,28 +100,38 @@ generate.
 The three folders must be pairwise **distinct** and **non-nested**: no two
 may be the same folder, and none may be a subfolder of another. If the
 configuration breaks this rule, the Project tab shows an error and generation
-is blocked with a Notice. No Base or `plotgrid_*` keys are written until the
-paths are fixed.
+is blocked; a manual rebuild reports a Notice. No Base or `plotgrid_*` keys are
+written until the paths are fixed.
 
-Every Markdown note under the Subplot Folder is a row, and every Markdown note
-under the Character Folder is a character row. The note named `Main` is the
-main plot; the other notes in the Subplot Folder are subplots. There is no
-`type` frontmatter field to add, and a note outside those folders is never a
-row: folder membership is the only source of truth. Nested subfolders are
-included. Other file types are ignored.
+The Project tab applies the same distinct/non-nested validation to **every**
+configured group folder, including extra note groups. An edit that would make
+any two group folders equal or nested is rejected: the field reverts to its
+stored value and a notice names the conflicting groups. This validation is
+broader than grid generation. The subplot grid itself reads and validates only
+the Scene, Subplot, and Character Folders; extra groups never add rows or
+columns. See
+[PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#folders-and-membership).
+
+Every Markdown note under the Subplot Folder is a subplot note, and every
+Markdown note under the Character Folder is a character note. The note named
+`Main` is the main plot; the other notes in the Subplot Folder are subplots.
+There is no `type` frontmatter field to add, and a note outside those folders
+never appears: folder membership is the only source of truth. Nested subfolders
+are included. Other file types are ignored.
 
 The same folders feed the **Notes → Subplots** and **Notes → Characters**
 sub-tabs, but the sub-tabs keep only a project-level order and indentation
 overlay. The subplot grid does not use that overlay: it scans the folders directly
-and applies its own row order (`Main` first, then subplots, then characters).
-New subplot and character notes are created in these folders with the project
-templates. See
+and applies its own note order (`Main` first, then subplots, then characters).
+Extra note groups have their own sub-tabs and overlays, but they are not
+scanned by the subplot grid. New subplot and character notes are created in
+these folders with the project templates. See
 [PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md).
 
 ## Levels
 
 The subplot grid generates rows for every populated level of the hierarchy. The
-generated **Subplot Grid** view has a **Level** dropdown above the table; choosing
+generated grid view has a **Level** dropdown above the table; choosing
 a level filters the view to that level's rows. This selector is not a project
 setting and is not stored in the project frontmatter. Any legacy
 `plotGridLevel` value is dropped when the project is saved.
@@ -146,38 +183,43 @@ filtered by the dropdown: it shows all levels' columns.
 The act/chapter/scene hierarchy is only an example; levels are ranks. If the
 top level is chapters, for example, level 0 is that top level. Structural nodes
 need their own note files in the scene folder, as scenes do elsewhere in
-Longform; otherwise Longform drops them and the levels shift.
+Longform Extended; otherwise Longform Extended drops them and the levels shift.
 
 ### Structural Notes Must Exist
 
-Longform builds its in-memory scene hierarchy from entries in the project's
-`scenes` frontmatter that have a matching note directly in the scene
+Longform Extended builds its in-memory scene hierarchy from entries in the
+project's `scenes` frontmatter that have a matching note directly in the scene
 folder. Structural nodes are not special: if you add one to the hierarchy but
-never create its note, Longform filters it out.
+never create its note, Longform Extended filters it out.
 
 The symptom is that a level seems to collapse or shift. A project whose
 hierarchy lists structural nodes and scenes but only has scene notes will lose
 the structural nodes, making level 0 a deeper level. To fix it, create a note
 in the scene folder named exactly like each structural entry, as with any other
-Longform scene, then reload the project or run **Rebuild subplot grid**. Those
-nodes then stay in the hierarchy and become rows.
+Longform Extended scene, then reload the project or run **Rebuild subplot
+grid**. Those nodes then stay in the hierarchy and become rows.
 
 ## Data and YAML
 
-The rows are the Markdown notes under the Subplot and Character Folders. There
-is no `type` flag: folder membership decides membership. In the custom view a
-note named `Main` in the Subplot Folder is the main plot and comes first, then
+The note columns (or rows, in the native fallback table) are the Markdown notes
+under the Subplot and Character Folders. There is no `type` flag: folder
+membership decides membership. In the custom view a note named `Main` (matched
+case-insensitively) in the Subplot Folder is the main plot and comes first, then
 the other subplots, then the characters, each group alphabetical by note name.
 
-Each row note gets one frontmatter key for each hierarchy node at every
-populated level. The key is built from the node's title, not from its ancestor
-path:
+Each note gets a frontmatter key for every hierarchy node at every populated
+level; nodes that slug to the same key share it. The key is built from the
+node's title, not from its ancestor path:
 
 - The prefix is `plotgrid_`.
 - The title is lowercased, runs of non-alphanumeric characters become one `_`,
   and leading or trailing `_` characters are removed.
+- A title with no letters or digits becomes `node`, so the key is
+  `plotgrid_node`.
 - If two nodes at the same level produce the same key, `_2`, `_3`, and so on
   are appended.
+- Keys are not namespaced by level. If nodes at different levels produce the
+  same key, they share one key and therefore one cell.
 
 For a project that uses simple titles, level 1 might produce:
 
@@ -226,33 +268,36 @@ grid.
 ## The Generated Base
 
 The Base is written to the path set in **Subplot Grid Output Path**. The default is
-`Base/$1_plotgrid.base`, where `$1` is replaced with the project title. Relative
+`Build/$1_plotgrid.base`, where `$1` is replaced with the project title. Relative
 paths are resolved against the project folder; start the path with `/` to write
 from the vault root. If the path does not end in `.base`, that extension is
 added. An empty setting falls back to the default, and missing folders are
-created.
+created. An existing project with an explicit output path keeps it; only the
+default changed, so a stored path is not rewritten or moved.
 
 The generated file contains:
 
 - A filter over the subplot and character folders, OR-combined. Because the
   folders are distinct and non-nested, a note matches at most one of them,
   and folder membership alone decides whether it is a subplot or a character.
-- The custom transposed view **Subplot Grid** first. It has a **Level** dropdown
-  above the table, shows the selected level's hierarchy nodes as rows, and
-  shows the notes as columns. A note named `Main` (the main plot) comes first,
-  then the other subplots, then the characters, each group alphabetical by note
-  name.
-- A native table view **Subplot Grid (Table)** as a fallback. Its rows are notes
-  and its columns are the properties for all levels; it is not filtered by the
-  custom view's Level dropdown. The fallback uses the same order: `Main` first,
-  then subplots, then characters.
+- The custom transposed view first, titled with the configured singular name
+  plus `Grid` (default **Subplot Grid**). It has a **Level** dropdown above the
+  table, shows the selected level's hierarchy nodes as rows, and shows the notes
+  as columns. A note named `Main` (the main plot) comes first, then the other
+  subplots, then the characters, each group alphabetical by note name.
+- A native table view as a fallback, titled with the same name plus `(Table)`
+  (default **Subplot Grid (Table)**). Its rows are notes and its columns are the
+  properties for all levels; it is not filtered by the custom view's Level
+  dropdown. The fallback uses the same order: `Main` first, then subplots, then
+  characters.
 - Column display names set to the hierarchy titles, and a row-label formula.
 
 In the custom view, each note header is a link that opens the source note.
-Because the subplot and character folders are distinct, the label is
-`(subplot)` or `(character)` on its own line above the name. The native table
-uses a row-label formula that emits the same prefix; its row style may keep the
-prefix and name on one line.
+Because the subplot and character folders are distinct, the label is the
+configured singular display name in parentheses — `(Subplot)` or `(Character)`
+by default — on its own line above the name. The native table uses a row-label
+formula that emits the same prefix; its row style may keep the prefix and name
+on one line.
 
 Each cell displays only the value stored for that hierarchy node at its own
 level. A higher-level row does not show or mirror values from deeper levels.
@@ -275,7 +320,7 @@ Click a cell to edit it. The editor follows the value's type:
 - A boolean gets a checkbox.
 
 Press Enter or click away to commit; press Escape to cancel. A checkbox also
-commits immediately when toggled. The new value is written to the row note's
+commits immediately when toggled. The new value is written to the note's
 frontmatter under that column's `plotgrid_*` key, using Obsidian's frontmatter
 API.
 
@@ -292,8 +337,8 @@ Clicking a note header opens that subplot or character note.
 The subplot grid refreshes automatically:
 
 - when the plugin loads;
-- when project settings that affect it change (enabled, output path, or the
-  three folders);
+- when project settings that affect it change (enabled, output path, the three
+  folders, or the Subplots and Characters display names);
 - when the scene hierarchy changes (titles or indentation);
 - when files in the project, scene folder, or the subplot and character
   folders are created, modified, deleted, renamed, or re-indexed.
@@ -309,13 +354,14 @@ command palette. The command is only available for a multi-scene project with
 the subplot grid enabled. It reports either the number of columns and notes
 written or the reason nothing was written.
 
-The Status tab provides two related actions:
+The Status tab provides the shared actions described in
+[Status tab](../README.md#status-tab):
 
-- **Refresh** regenerates every enabled status file for the selected project:
-  the timeline, the kanban board, and the subplot grid.
+- **Refresh** regenerates every enabled generated file for the selected
+  project: the timeline, the kanban board, and the subplot grid.
 - **Open subplot grid** opens the configured Base. It is disabled when the
-  subplot grid is off. If the file has not been generated, a notice asks you to use
-  **Refresh**.
+  subplot grid is off. If the file has not been generated, a notice asks you to
+  use **Refresh**.
 
 Changing the output path writes a new Base at the new path but does not move or
 delete the old one.
@@ -327,23 +373,33 @@ delete the old one.
   that the subplot and character folders contain Markdown notes. An existing Base
   is left untouched when nothing is written; the console explains the skip.
 - **The dropdown's level 0 shows deeper nodes than expected.** The structural
-  nodes probably have no notes. Longform keeps only entries with matching notes
+  nodes probably have no notes. Longform Extended keeps only entries with matching notes
   directly in the scene folder. Create the missing structural notes, then
   rebuild.
 - **A level is missing from the dropdown.** Only populated levels appear.
   Levels with no nodes are omitted, and structural nodes without note files do
-  not survive Longform's filtering.
+  not survive Longform Extended's filtering.
 - **A note is missing from the grid.** Confirm it is a Markdown file under the
   subplot or character folder. Folder membership is the only requirement;
   there is no `type` flag to add. The folders are project-folder-relative; a
   leading `/` does not mean the vault root. Check for a misspelled folder name.
+- **An extra group's note is missing from the grid.** Extra note groups are not
+  subplot-grid inputs in this iteration. Only notes in the Subplot and Character
+  Folders become columns or rows. See
+  [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
+- **The title or a row label uses an unexpected word.** The project's Subplots
+  or Characters display name was changed in **Project Metadata**. Display names
+  change labels only, not folders or data. Clear the field to return to the
+  default. See [Display Names](#display-names).
 - **The grid will not generate after editing a folder.** The Scene Folder,
   Subplot Folder, and Character Folder must be pairwise distinct and
   non-nested. Change the paths so none equals or contains another, then
-  rebuild. Generation is blocked with a Notice while the configuration is
-  invalid. A migrated project whose Scene Folder is still the project root
+  rebuild. Generation is blocked while the configuration is invalid; a manual
+  rebuild reports a Notice. A migrated project whose Scene Folder is still the project root
   (`/`) hits this rule because the project root contains the subplot and
-  character folders.
+  character folders. The Project tab also rejects any folder edit that makes two
+  configured groups — including extra groups — equal or nested, even though
+  extra groups do not feed the grid.
 - **A note is in the wrong group.** Subplots come from the Subplot Folder and
   characters from the Character Folder. Move the note to the other folder
   rather than adding frontmatter.

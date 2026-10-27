@@ -25,6 +25,10 @@ import {
   uniqueAuxiliaryNoteName,
   type AuxiliaryNoteKind,
 } from "src/model/auxiliary-notes";
+import {
+  noteGroupEntries,
+  noteGroupSingularName,
+} from "src/model/note-groups";
 import NewDraftModal from "src/view/project-lifecycle/new-draft-modal";
 import { UndoManager } from "../undo/undo-manager";
 import { ignoreScene } from "./scene-menu-items";
@@ -136,9 +140,7 @@ export class ExplorerPane extends ItemView {
       );
     });
 
-    // Context function for opening plot/character notes on click. Kept
-    // separate from scenes so the generic tree component does not need to
-    // know about manuscript semantics.
+    // Context function for opening plot/character notes on click.
     context.set(
       "onAuxiliaryClick",
       (path: string, paneType: PaneType | boolean) => {
@@ -224,7 +226,7 @@ export class ExplorerPane extends ItemView {
       const name = file.name.endsWith(".md")
         ? file.name.slice(0, -3)
         : file.name;
-      const relativeTo = draft[kind].findIndex(
+      const relativeTo = noteGroupEntries(draft, kind).findIndex(
         (entry) => entry.title === name
       );
       if (relativeTo < 0) {
@@ -255,7 +257,11 @@ export class ExplorerPane extends ItemView {
         if (!file) {
           return;
         }
-        const noun = auxiliaryKindLabel(kind);
+        const draft = get(selectedDraft);
+        const noun =
+          draft && draft.format === "scenes"
+            ? noteGroupSingularName(draft, kind)
+            : auxiliaryKindLabel(kind);
         const menu = new Menu();
         menu.addSeparator();
         menu.addItem((item) => {

@@ -305,7 +305,7 @@ export const focusNewSceneField: CommandBuilder = (plugin) => ({
     }
 
     showLeaf(plugin);
-    selectedNotesTab.set("Scenes");
+    selectedNotesTab.set("scenes");
     selectedTab.set("Notes");
     setTimeout(() => {
       activeDocument.getElementById("new-scene").focus();

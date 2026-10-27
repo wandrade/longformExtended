@@ -73,9 +73,15 @@ export default class NewDraftModalContainer extends Modal {
             scenes: copyScenes ? draft.scenes : [],
             // Plot/character notes are not copied to the new draft folder, so
             // start their organizational overlays empty. They repopulate from
-            // the folders on the next load.
+            // the folders on the next load. Custom groups keep their names,
+            // folders, and definitions, but their notes are not copied, so
+            // their overlays start empty too.
             plots: [],
             characters: [],
+            noteGroups: draft.noteGroups.map((group) => ({
+              ...group,
+              entries: [],
+            })),
           };
           await insertDraftIntoFrontmatter(this.app, newVaultPath, newDraft);
           selectedDraftVaultPath.set(newVaultPath);

@@ -7,6 +7,7 @@
     writeKanbanBase,
     writeKanbanWordCounts,
   } from "src/model/kanban";
+  import { noteGroupSingularName } from "src/model/note-groups";
   import { writePlotGrid } from "src/model/plot-grid";
   import {
     pluginSettings,
@@ -31,15 +32,25 @@
   const REFRESH_TOOLTIP = "Force immediate generation of status files.";
   const OPEN_TIMELINE_TOOLTIP = "Open timeline";
   const OPEN_KANBAN_TOOLTIP = "Open kanban";
-  const OPEN_PLOT_GRID_TOOLTIP = "Open subplot grid";
 
   let busy = false;
   let draft: MultipleSceneDraft | null = null;
+
+  function lowerFirst(value: string): string {
+    return value.length > 0
+      ? `${value[0].toLowerCase()}${value.slice(1)}`
+      : value;
+  }
 
   $: draft =
     $selectedDraft && $selectedDraft.format === "scenes"
       ? ($selectedDraft as MultipleSceneDraft)
       : null;
+  $: plotGridSingular = draft
+    ? noteGroupSingularName(draft, "plots")
+    : "Subplot";
+  $: plotGridLabel = `${plotGridSingular} grid`;
+  $: openPlotGridTooltip = `Open ${lowerFirst(plotGridLabel)}`;
   $: timelineEnabled = !!draft && draft.timelineEnabled;
   $: kanbanEnabled = !!draft && draft.kanbanEnabled;
   $: plotGridEnabled = !!draft && draft.plotGridEnabled;
@@ -215,7 +226,7 @@
     if (!draft || !draft.plotGridEnabled) {
       return;
     }
-    void openOutput(plotGridPath(draft), "Subplot grid");
+    void openOutput(plotGridPath(draft), plotGridLabel);
   }
 </script>
 
@@ -278,9 +289,9 @@
       <button
         type="button"
         class="clickable-icon longform-extended-status-button"
-        aria-label={OPEN_PLOT_GRID_TOOLTIP}
+        aria-label={openPlotGridTooltip}
         disabled={!plotGridEnabled}
-        use:tooltip={OPEN_PLOT_GRID_TOOLTIP}
+        use:tooltip={openPlotGridTooltip}
         on:click={openPlotGrid}
       >
         <Icon iconName="layout-grid" />

@@ -10,37 +10,98 @@ import {
   isInsidePlotGridDirectory,
   resolvePlotGridDirectory,
 } from "./plot-grid";
+import {
+  customNoteGroupKey,
+  noteGroupDescriptors,
+  noteGroupDisplayName,
+  noteGroupEntries,
+  noteGroupSingularName,
+  noteGroupTemplate,
+  setNoteGroupEntries,
+  type NoteGroupKey,
+} from "./note-groups";
 import { scenePathForFolder } from "./scene-navigation";
 import { pluginSettings } from "./stores";
 import {
   DEFAULT_PLOT_GRID_CHARACTERS_DIR,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
+  defaultNoteGroupFolder,
+  singularDisplayName,
   type Draft,
   type IndentedScene,
   type MultipleSceneDraft,
+  type NoteGroup,
 } from "./types";
 
 /**
- * The two auxiliary note trees that live in the configured plot and character
- * folders. Their folder contents are the membership source of truth; the
- * project note stores only the order/indent overlay.
+ * The auxiliary note trees that live in the configured plot, character, and
+ * custom-group folders. Their folder contents are the membership source of
+ * truth; the project note stores only the order/indent overlay.
  */
-export type AuxiliaryNoteKind = "plots" | "characters";
+export type AuxiliaryNoteKind = Exclude<NoteGroupKey, "scenes">;
 
+function isCustomKind(kind: AuxiliaryNoteKind): kind is `custom:${string}` {
+  return kind.startsWith("custom:");
+}
+
+function findCustomGroup(
+  draft: MultipleSceneDraft,
+  kind: AuxiliaryNoteKind
+): NoteGroup | null {
+  if (!isCustomKind(kind)) {
+    return null;
+  }
+  return (
+    (draft.noteGroups ?? []).find(
+      (group) => customNoteGroupKey(group.name) === kind
+    ) ?? null
+  );
+}
+
+/**
+ * A display label for a group. Built-ins keep their established lowercase
+ * presentation. Custom groups use their configured display name when a draft
+ * is supplied; without one, the key's name portion is the best available.
+ */
 export function auxiliaryKindLabel(
   kind: AuxiliaryNoteKind,
-  capitalized = false
+  capitalized = false,
+  draft?: MultipleSceneDraft
 ): string {
-  const label = kind === "plots" ? "subplot" : "character";
-  return capitalized ? `${label[0].toUpperCase()}${label.slice(1)}` : label;
+  let label: string;
+  if (isCustomKind(kind)) {
+    label = draft
+      ? noteGroupSingularName(draft, kind)
+      : singularDisplayName(findCustomGroupName(kind));
+  } else {
+    label = kind === "plots" ? "subplot" : "character";
+  }
+  return capitalized && label.length > 0
+    ? `${label[0].toUpperCase()}${label.slice(1)}`
+    : label;
 }
 
 export function auxiliaryKindPluralLabel(
   kind: AuxiliaryNoteKind,
-  capitalized = false
+  capitalized = false,
+  draft?: MultipleSceneDraft
 ): string {
-  const label = kind === "plots" ? "subplots" : "characters";
-  return capitalized ? `${label[0].toUpperCase()}${label.slice(1)}` : label;
+  let label: string;
+  if (isCustomKind(kind)) {
+    label = draft
+      ? noteGroupDisplayName(draft, kind)
+      : findCustomGroupName(kind);
+  } else {
+    label = kind === "plots" ? "subplots" : "characters";
+  }
+  return capitalized && label.length > 0
+    ? `${label[0].toUpperCase()}${label.slice(1)}`
+    : label;
+}
+
+/** `custom:Foo` -> `Foo`; only a fallback when no draft is available. */
+function findCustomGroupName(kind: `custom:${string}`): string {
+  return kind.slice("custom:".length);
 }
 
 /** The resolved, vault-relative folder for an auxiliary tree. */
@@ -49,13 +110,32 @@ export function auxiliaryFolder(
   draft: MultipleSceneDraft,
   kind: AuxiliaryNoteKind
 ): string {
+  if (kind === "plots") {
+    return resolvePlotGridDirectory(
+      app,
+      draft,
+      draft.plotGridPlotsDir,
+      DEFAULT_PLOT_GRID_PLOTS_DIR
+    );
+  }
+  if (kind === "characters") {
+    return resolvePlotGridDirectory(
+      app,
+      draft,
+      draft.plotGridCharactersDir,
+      DEFAULT_PLOT_GRID_CHARACTERS_DIR
+    );
+  }
+
+  const group = findCustomGroup(draft, kind);
+  const fallback = defaultNoteGroupFolder(
+    group?.name ?? findCustomGroupName(kind)
+  );
   return resolvePlotGridDirectory(
     app,
     draft,
-    kind === "plots" ? draft.plotGridPlotsDir : draft.plotGridCharactersDir,
-    kind === "plots"
-      ? DEFAULT_PLOT_GRID_PLOTS_DIR
-      : DEFAULT_PLOT_GRID_CHARACTERS_DIR
+    group?.folder ?? "",
+    fallback
   );
 }
 
@@ -96,7 +176,7 @@ export function auxiliaryNoteFiles(
   const seen = new Set<string>();
   const result: AuxiliaryNoteFile[] = [];
   for (const file of files) {
-    const name = fileNameFromPath(file.path);
+    const name = file.basename || fileNameFromPath(file.path);
     if (!seen.has(name)) {
       seen.add(name);
       result.push({ name, path: file.path });
@@ -162,7 +242,7 @@ export function uniqueAuxiliaryNoteName(
   draft: MultipleSceneDraft,
   kind: AuxiliaryNoteKind
 ): string {
-  const names = new Set(draft[kind].map((entry) => entry.title));
+  const names = new Set(noteGroupEntries(draft, kind).map((entry) => entry.title));
   for (const file of auxiliaryNoteFiles(app, draft, kind)) {
     names.add(file.name);
   }
@@ -198,7 +278,12 @@ export function findAuxiliaryNote(
     if (draft.format !== "scenes") {
       continue;
     }
-    for (const kind of ["plots", "characters"] as const) {
+    for (const descriptor of noteGroupDescriptors(draft)) {
+      // Scene indentation is handled separately by `findScene`.
+      if (descriptor.key === "scenes") {
+        continue;
+      }
+      const kind: AuxiliaryNoteKind = descriptor.key;
       if (
         !isInsidePlotGridDirectory(
           auxiliaryFolder(app, draft, kind),
@@ -207,17 +292,19 @@ export function findAuxiliaryNote(
       ) {
         continue;
       }
-      const name = normalizedPath.split("/").pop()?.replace(/\.md$/, "");
+      const name = normalizedPath.split("/").pop()?.replace(/\.md$/i, "");
       if (!name) {
         continue;
       }
-      const index = draft[kind].findIndex((entry) => entry.title === name);
+      const index = descriptor.entries.findIndex(
+        (entry) => entry.title === name
+      );
       if (index >= 0) {
         return {
           draft,
           kind,
           index,
-          currentIndent: draft[kind][index].indent,
+          currentIndent: descriptor.entries[index].indent,
         };
       }
     }
@@ -233,8 +320,6 @@ export type AuxiliaryInsertionLocation = {
 /**
  * Creates an auxiliary note in the configured folder using the per-project
  * template (falling back to the global setting) and records its overlay entry.
- * Mirrors `insertScene`, including the optional open behavior of the New
- * Subplot / New Character fields.
  */
 export async function insertAuxiliaryNote(
   app: App,
@@ -251,10 +336,14 @@ export async function insertAuxiliaryNote(
 
   const path = scenePathForFolder(name, auxiliaryFolder(app, draft, kind));
   const settings = get(pluginSettings);
+  // Only the built-in plot and character trees have templates. A custom group
+  // creates a plain note in its configured folder.
   const template =
     kind === "plots"
       ? draft.plotTemplate ?? settings.plotTemplate
-      : draft.characterTemplate ?? settings.characterTemplate;
+      : kind === "characters"
+      ? draft.characterTemplate ?? settings.characterTemplate
+      : noteGroupTemplate(draft, kind);
 
   const note: TFile | null = await createNoteWithPotentialTemplate(
     app,
@@ -276,13 +365,14 @@ export async function insertAuxiliaryNote(
 
       // A file-created event may already have appended the note; remove it so
       // the requested position and indent win.
-      const entries = candidate[kind].filter((entry) => entry.title !== name);
+      const currentEntries = noteGroupEntries(candidate, kind);
+      const entries = currentEntries.filter((entry) => entry.title !== name);
       let index = entries.length;
       let indent = 0;
       if (location.at !== "end" && location.relativeTo !== null) {
         const relative =
-          candidate[kind][location.relativeTo] ??
-          candidate[kind][candidate[kind].length - 1];
+          currentEntries[location.relativeTo] ??
+          currentEntries[currentEntries.length - 1];
         indent = relative ? relative.indent : 0;
         index =
           location.at === "before"
@@ -291,7 +381,7 @@ export async function insertAuxiliaryNote(
         index = Math.max(0, Math.min(index, entries.length));
       }
       entries.splice(index, 0, { title: name, indent });
-      candidate[kind] = entries;
+      setNoteGroupEntries(candidate, kind, entries);
       return candidate;
     });
   });

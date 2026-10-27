@@ -1,10 +1,11 @@
 <script lang="ts">
   import { getContext } from "svelte";
   import { selectedDraft } from "src/model/stores";
+  import type { AuxiliaryNoteKind } from "src/model/auxiliary-notes";
   import {
-    auxiliaryKindLabel,
-    type AuxiliaryNoteKind,
-  } from "src/model/auxiliary-notes";
+    noteGroupEntries,
+    noteGroupSingularName,
+  } from "src/model/note-groups";
   import { invalidFilenameCharacters, isValidFilename } from "../utils";
 
   export let kind: AuxiliaryNoteKind;
@@ -13,11 +14,20 @@
   let newNameInput: HTMLElement;
   let error: string | null = null;
 
-  $: noun = auxiliaryKindLabel(kind);
-  $: nounCapitalized = auxiliaryKindLabel(kind, true);
+  function lowerFirst(value: string): string {
+    return value.length > 0
+      ? `${value[0].toLowerCase()}${value.slice(1)}`
+      : value;
+  }
+
+  $: nounCapitalized =
+    $selectedDraft && $selectedDraft.format === "scenes"
+      ? noteGroupSingularName($selectedDraft, kind)
+      : "";
+  $: noun = lowerFirst(nounCapitalized);
   $: entries =
     $selectedDraft && $selectedDraft.format === "scenes"
-      ? $selectedDraft[kind]
+      ? noteGroupEntries($selectedDraft, kind)
       : [];
 
   $: {
@@ -48,7 +58,7 @@
 
 <div class="new-auxiliary-container">
   <input
-    id={`new-${noun}`}
+    id={`new-${kind}`}
     type="text"
     placeholder={`New ${nounCapitalized}`}
     bind:value={newName}

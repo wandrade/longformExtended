@@ -1,13 +1,24 @@
 <script lang="ts">
   import { getContext } from "svelte";
   import { selectedDraft } from "src/model/stores";
+  import { noteGroupSingularName } from "src/model/note-groups";
   import { invalidFilenameCharacters, isValidFilename } from "../utils";
 
   let newSceneName: string = "";
   let newSceneInput: HTMLElement;
 
-  const sceneNames =
-    $selectedDraft.format === "scenes"
+  function lowerFirst(value: string): string {
+    return value.length > 0
+      ? `${value[0].toLowerCase()}${value.slice(1)}`
+      : value;
+  }
+
+  $: sceneNoun =
+    $selectedDraft && $selectedDraft.format === "scenes"
+      ? noteGroupSingularName($selectedDraft, "scenes")
+      : "Scene";
+  $: sceneNames =
+    $selectedDraft && $selectedDraft.format === "scenes"
       ? $selectedDraft.scenes.map((s) => s.title)
       : [];
 
@@ -16,9 +27,9 @@
     if (newSceneName.length === 0) {
       error = null;
     } else if (sceneNames.contains(newSceneName)) {
-      error = "A scene with this name already exists in this draft.";
+      error = `A ${lowerFirst(sceneNoun)} with this name already exists in this draft.`;
     } else if (!isValidFilename(newSceneName)) {
-      error = `A scene name cannot contain the characters: ${invalidFilenameCharacters()}`;
+      error = `A ${lowerFirst(sceneNoun)} name cannot contain the characters: ${invalidFilenameCharacters()}`;
     } else {
       error = null;
     }
@@ -38,7 +49,7 @@
   <input
     id="new-scene"
     type="text"
-    placeholder="New Scene"
+    placeholder={`New ${sceneNoun}`}
     bind:value={newSceneName}
     bind:this={newSceneInput}
     on:keydown={(e) => {

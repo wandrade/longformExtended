@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: ["./test/setup.ts"],
     coverage: {
       reporter: ["text", "html"],
     },

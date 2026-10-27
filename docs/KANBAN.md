@@ -9,8 +9,9 @@ multi-scene projects get a board; single-note projects do not.
 The board shows the project's listed scenes in the configured columns. With
 **Include subplots** enabled (the default), it also shows the notes in the
 configured **Subplot Folder**; notes in the **Character Folder** are never
-included. Dragging a card to another column updates that note's real `status`
-frontmatter, so the board and the notes stay in sync.
+included. Extra note groups are never included either. Dragging a card to
+another column updates that note's real `status` frontmatter, so the board and
+the notes stay in sync.
 
 ## Configuration
 
@@ -23,7 +24,7 @@ The Kanban section of the Project tab controls the feature:
 | **Kanban Output Path** | `Build/$1_kanban.base` | Where the board is written. |
 | **Show notes with no status** | Off | Adds an `Unassigned` column when notes have no status. |
 | **Save word counts** | On | Writes each card scene's word count to its frontmatter. |
-| **Include subplots** | On | Includes notes from the Subplot Folder on the board. |
+| **Include subplots** | On | Includes notes from the Subplot Folder on the board. The visible label follows the project's Subplots Display Name. |
 
 Turning **Enable kanban** off stops future rebuilds and removes the **Rebuild
 kanban** command for that project, but it does not delete an existing board.
@@ -32,10 +33,16 @@ kanban** command for that project, but it does not delete an existing board.
 candidate cards, whether or not they are listed in the project's scenes. The
 Subplot Folder defaults to `Subplots`; existing projects may keep a custom
 folder. There is no `type` flag: membership in the Subplot Folder is the only
-requirement. Notes in the **Character Folder** are never included. Notes from
-the Subplot Folder use the same column grouping, drag-to-update `status`,
-unknown-status, and unassigned behavior as scenes. Toggling **Include
-subplots** regenerates the board.
+requirement. Notes in the **Character Folder** are never included, and neither
+are notes in extra note groups. Notes from the Subplot Folder use the same
+column grouping, drag-to-update `status`, unknown-status, and unassigned
+behavior as scenes. Toggling **Include subplots** regenerates the board.
+
+The checkbox's visible label follows the project's **Subplots Display Name**, so
+a display name of `Threads` makes it read **Include threads**. This is a label
+change only: the setting, the stored `kanbanIncludePlots` key, and the Subplot
+Folder are unchanged. See
+[PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#display-names).
 
 ## Kanban Columns
 
@@ -114,9 +121,10 @@ The board shows:
 - When **Include subplots** is on, the notes in the configured Subplot Folder.
   They do not need to be listed in the project's scenes.
 
-Notes in the Character Folder are never shown. The helper property is the
-board's membership marker, so the plugin also removes it from notes in the
-scene folder that are not listed scenes. Consequently:
+Notes in the Character Folder are never shown, and notes in extra note groups
+are never shown. The helper property is the board's membership marker, so the
+plugin also removes it from notes in the scene folder that are not listed
+scenes. Consequently:
 
 - Notes in the scene folder that are not in the project's scene list never
   appear, even if they have a `status`.
@@ -166,7 +174,7 @@ wordCount: 1234
 ---
 ```
 
-The value comes from Longform's scene word counts, and it is updated when those
+The value comes from Longform Extended's scene word counts, and it is updated when those
 counts change. Scenes with no status, an unrecognized status, no entry in the
 project's scene list, or a container role do not have `wordCount` written.
 Turning **Save word counts** off stops the writes and removes the card property,
@@ -220,7 +228,7 @@ update does not loop.
 
 It also rebuilds when project settings that affect it change, such as the
 columns, the show-unassigned setting, save word counts, include subplots, or the
-output path. Word counts are also written when Longform's recorded scene word
+output path. Word counts are also written when Longform Extended's recorded scene word
 counts change.
 
 The plugin ignores its own generated files when watching for changes, including
@@ -231,6 +239,11 @@ To force a rebuild, select the project and run **Rebuild kanban** from the
 command palette. The command is only available for a multi-scene project with
 the kanban enabled. It reports `Kanban rebuilt.` even when there was nothing to
 write.
+
+The Status tab's **Open kanban** action opens the configured board and is
+disabled when the kanban is off. **Refresh** regenerates every enabled generated
+file, including the board. If the board has not been generated, a notice asks
+you to use **Refresh**. See [Status tab](../README.md#status-tab).
 
 ## Troubleshooting
 
@@ -243,7 +256,8 @@ write.
   be a structural container, have no status with **Show notes with no status**
   off, or sit outside the scene folder. A note from the Subplot Folder is
   missing when **Include subplots** is off or the note is not in that folder.
-  Notes in the Character Folder are never shown.
+  Notes in the Character Folder and notes in extra note groups are never
+  shown.
 - **A note is in an unexpected column.** Its status may differ in case (for
   example `draft` instead of `Draft`), which makes it unrecognized and puts it
   in `Incorrectly Assigned`.
@@ -264,5 +278,14 @@ write.
 - **Subplots are missing.** Enable **Include subplots**. Only notes in the
   Subplot Folder are candidates, and they still need a status (or **Show notes
   with no status**) to appear.
+- **An extra group's note is missing from the board.** Extra note groups are
+  not kanban inputs in this iteration, even with **Include subplots** on. Only
+  the Subplot Folder is included. See
+  [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
+- **The Include checkbox uses an unexpected word.** Its label follows the
+  project's **Subplots Display Name**. This changes the label only; it does not
+  change the Subplot Folder or which notes are included. Clear the display-name
+  field to return to **Include subplots**. See
+  [Display Names](./PLOTS_AND_CHARACTERS.md#display-names).
 - **The board is stale after an external change.** Run **Rebuild kanban**.
   The generated file is a snapshot of the current project data.

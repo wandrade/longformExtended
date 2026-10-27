@@ -1,7 +1,15 @@
 import { App, TFile, Vault } from "obsidian";
 import { get, type Writable } from "svelte/store";
 
-import type { Draft, IndentedScene, MultipleSceneDraft } from "./types";
+import {
+  DEFAULT_CHARACTERS_DISPLAY_NAME,
+  DEFAULT_PLOTS_DISPLAY_NAME,
+  DEFAULT_SCENE_DISPLAY_NAME,
+  defaultNoteGroupFolder,
+  type Draft,
+  type IndentedScene,
+  type MultipleSceneDraft,
+} from "./types";
 import { scenePath } from "src/model/scene-navigation";
 import { createNoteWithPotentialTemplate } from "./note-utils";
 import { pluginSettings } from "./stores";
@@ -124,15 +132,55 @@ export function setDraftOnFrontmatterObject(
       obj["longform"]["plotGridEnabled"] = false;
     }
     obj["longform"]["plotGridOutputPath"] = draft.plotGridOutputPath;
-    // The level now lives in the generated Base view, not the project note.
-    // Dropping the old key here also removes it from existing projects the
-    // next time their note is rewritten.
+    // Remove the retired project-level grid level key.
     delete obj["longform"]["plotGridLevel"];
     obj["longform"]["plotGridPlotsDir"] = draft.plotGridPlotsDir;
     obj["longform"]["plotGridCharactersDir"] = draft.plotGridCharactersDir;
     obj["longform"]["scenes"] = indentedScenesToArrays(draft.scenes);
     obj["longform"]["plots"] = indentedScenesToArrays(draft.plots);
     obj["longform"]["characters"] = indentedScenesToArrays(draft.characters);
+
+    // Display names are pure presentation, so only a non-default value is
+    // persisted. Empty values fall back to the defaults and are omitted too.
+    const sceneDisplayName =
+      draft.sceneDisplayName?.trim() || DEFAULT_SCENE_DISPLAY_NAME;
+    if (sceneDisplayName !== DEFAULT_SCENE_DISPLAY_NAME) {
+      obj["longform"]["sceneDisplayName"] = sceneDisplayName;
+    }
+    const plotsDisplayName =
+      draft.plotsDisplayName?.trim() || DEFAULT_PLOTS_DISPLAY_NAME;
+    if (plotsDisplayName !== DEFAULT_PLOTS_DISPLAY_NAME) {
+      obj["longform"]["plotsDisplayName"] = plotsDisplayName;
+    }
+    const charactersDisplayName =
+      draft.charactersDisplayName?.trim() || DEFAULT_CHARACTERS_DISPLAY_NAME;
+    if (charactersDisplayName !== DEFAULT_CHARACTERS_DISPLAY_NAME) {
+      obj["longform"]["charactersDisplayName"] = charactersDisplayName;
+    }
+
+    // Custom groups are configuration only. An empty list is omitted, and
+    // nothing here ever deletes a folder, note, or overlay.
+    const noteGroups = (draft.noteGroups ?? [])
+      .map((group) => {
+        const name =
+          typeof group.name === "string" ? group.name.trim() : "";
+        const folder =
+          typeof group.folder === "string" ? group.folder.trim() : "";
+        return { group, name, folder };
+      })
+      .filter(({ name }) => name.length > 0);
+    if (noteGroups.length > 0) {
+      obj["longform"]["noteGroups"] = noteGroups.map(({ group, name, folder }) => {
+        const template =
+          typeof group.template === "string" ? group.template.trim() : "";
+        return {
+          name,
+          folder: folder.length > 0 ? folder : defaultNoteGroupFolder(name),
+          ...(template.length > 0 ? { template } : {}),
+          entries: indentedScenesToArrays(group.entries ?? []),
+        };
+      });
+    }
     if (draft.sceneTemplate) {
       obj["longform"]["sceneTemplate"] = draft.sceneTemplate;
     }
