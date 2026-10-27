@@ -1,9 +1,9 @@
 {
   "id": "longform-extended",
   "name": "Longform Extended",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "minAppVersion": "1.14.0",
-  "description": "Write novels, screenplays, and other long projects in Obsidian, with added timeline, plot grid, and corkboard views.",
+  "description": "Extend Longform projects with configurable note groups, timelines, kanban boards, and an editable subplot grid.",
   "author": "Werner Thomassen Andrade",
   "authorUrl": "https://github.com/wandrade/longformExtended",
   "fundingUrl": "https://github.com/sponsors/wandrade",

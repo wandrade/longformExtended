@@ -1,4 +1,3 @@
-<!-- TODO: Set up your donation link (GitHub Sponsors, Ko-fi, or similar), then update `fundingUrl` in manifest.json and the Sponsorship section below. -->
 # Longform Extended
 
 > [!NOTE]
@@ -494,6 +493,12 @@ The repository includes four source-only sample projects in
 [`examples/`](./examples/README.md): a short story, a long story, an essay,
 and a screenplay. Each is ready to copy into a vault. The essay uses
 Arguments and References in place of plots and characters.
+
+## Installing Longform Extended
+
+Once Longform Extended is listed in the Community plugins directory, install it from **Settings → Community plugins** in Obsidian.
+
+To install manually, copy `main.js`, `manifest.json`, and `styles.css` into `.obsidian/plugins/longform-extended/` in your vault, then enable the plugin from **Settings → Community plugins**. `longform-extended` is this fork's plugin folder name; it is not upstream Longform's `longform/` folder.
 
 ## Longform
 

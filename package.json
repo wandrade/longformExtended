@@ -1,7 +1,7 @@
 {
   "name": "longform-extended",
-  "version": "1.0.0",
-  "description": "Write novels, screenplays, and other long projects in Obsidian, with added timeline, plot grid, and corkboard views.",
+  "version": "0.0.1",
+  "description": "Extend Longform projects with configurable note groups, timelines, kanban boards, and an editable subplot grid.",
   "main": "main.js",
   "scripts": {
     "lint": "svelte-check --tsconfig tsconfig.json --fail-on-hints && eslint . --ext .ts",
@@ -10,8 +10,8 @@
     "build": "npm run lint && rollup --config rollup.config.js --environment BUILD:production"
   },
   "keywords": [],
-  "author": "",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Werner Thomassen Andrade",
+  "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^22.0.0",
     "@rollup/plugin-node-resolve": "^13.2.1",

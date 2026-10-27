@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Serialize releases. Do not cancel a release that is already running; a
+# duplicate/queued run will fail its tag check instead of racing.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      # Full history/tags: the version gate compares against released tags.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit -- --run
+
+      - name: Build production assets
+        run: npm run build
+
+      # Blocking by design: no release while the source review has errors.
+      - name: Obsidian review preflight
+        run: npx --yes obsidian-plugin-validator@1.0.6
+
+      - name: Determine and validate version
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./manifest.json').version")"
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+          node .github/scripts/check-version.mjs --mode release
+
+      - name: Verify the tag does not already exist
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "::error::Tag ${VERSION} already exists; refusing to release."
+            exit 1
+          elif [ "$status" -ne 2 ]; then
+            # Exit 2 means "no matching refs"; anything else is a real error and
+            # must not be treated as "tag is absent".
+            echo "::error::Could not verify tag ${VERSION} (git ls-remote exit ${status})."
+            exit 1
+          fi
+
+      - name: Verify release assets exist
+        run: |
+          set -euo pipefail
+          for file in main.js manifest.json styles.css; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing release asset: ${file}"
+              exit 1
+            fi
+          done
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes \
+            main.js manifest.json styles.css
