@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TFile } from "obsidian";
 
 import {
+  applyCoreTemplateVariables,
   fileNameFromPath,
   statsForScene,
 } from "../../src/model/note-utils";
@@ -77,6 +78,48 @@ describe("fileNameFromPath", () => {
     expect(fileNameFromPath("Books/My/Scenes/Scene 1.md")).toBe("Scene 1");
     expect(fileNameFromPath("Scene 1.md")).toBe("Scene 1");
     expect(fileNameFromPath("Books/My/Notes")).toBe("Notes");
+  });
+});
+
+describe("applyCoreTemplateVariables", () => {
+  const now = {
+    format: (format = "default") => `[${format}]`,
+  };
+
+  it("replaces title, date, and time defaults everywhere", () => {
+    expect(
+      applyCoreTemplateVariables(
+        "# {{title}}\n{{title}}\n{{date}} {{time}}",
+        "Thea",
+        "YYYY-MM-DD",
+        "HH:mm",
+        now
+      )
+    ).toBe("# Thea\nThea\n[YYYY-MM-DD] [HH:mm]");
+  });
+
+  it("honors per-placeholder date and time formats", () => {
+    expect(
+      applyCoreTemplateVariables(
+        "{{date:MMMM Do}} at {{time:h:mm A}}",
+        "Thea",
+        "YYYY-MM-DD",
+        "HH:mm",
+        now
+      )
+    ).toBe("[MMMM Do] at [h:mm A]");
+  });
+
+  it("leaves unsupported variables untouched", () => {
+    expect(
+      applyCoreTemplateVariables(
+        "{{DATE}} {{title}}",
+        "Thea",
+        "YYYY-MM-DD",
+        "HH:mm",
+        now
+      )
+    ).toBe("{{DATE}} Thea");
   });
 });
 

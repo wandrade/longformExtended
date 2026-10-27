@@ -55,7 +55,11 @@ export async function createNoteWithPotentialTemplate(
         contents = await createWithTemplater(app, file, template);
       } else if (isTemplatesEnabled(app)) {
         pluginUsed = "Core Templates";
-        contents = await createWithTemplates(app, template);
+        contents = await createWithTemplates(
+          app,
+          template,
+          fileNameFromPath(path)
+        );
       }
     } catch (error) {
       console.error(`[Longform Extended] Error using plugin [${pluginUsed}]:`, error);
@@ -136,7 +140,8 @@ async function createWithTemplater(
 
 async function createWithTemplates(
   app: App,
-  templatePath: string
+  templatePath: string,
+  title: string
 ): Promise<string> {
   const corePlugin = appInternals(app).internalPlugins.getEnabledPluginById(
     "templates"
@@ -148,9 +153,10 @@ async function createWithTemplates(
     return;
   }
   // Get template body
-  let contents = await app.vault.adapter.read(templatePath);
+  const contents = await app.vault.adapter.read(templatePath);
 
-  // Replace {{date}} and {{time}}
+  // Match the core Templates plugin's variables: {{title}}, {{date}},
+  // {{time}}, and the :FORMAT variants of date/time.
   const rawDateFormat = corePlugin.options["dateFormat"];
   const rawTimeFormat = corePlugin.options["timeFormat"];
   const dateFormat =
@@ -162,10 +168,42 @@ async function createWithTemplates(
       ? rawTimeFormat
       : "HH:mm";
 
-  contents = contents.replace(`{{date}}`, window.moment().format(dateFormat));
-  contents = contents.replace(`{{time}}`, window.moment().format(timeFormat));
+  return applyCoreTemplateVariables(
+    contents,
+    title,
+    dateFormat,
+    timeFormat,
+    window.moment()
+  );
+}
 
-  return contents;
+type MomentLike = {
+  format(format?: string): string;
+};
+
+/**
+ * Applies the variables supported by Obsidian's core Templates plugin.
+ * Kept separate from the plugin lookup so the replacement rules are testable.
+ */
+export function applyCoreTemplateVariables(
+  contents: string,
+  title: string,
+  dateFormat: string,
+  timeFormat: string,
+  now: MomentLike
+): string {
+  const withTitle = contents.replace(/\{\{title\}\}/g, () => title);
+  return withTitle
+    .replace(
+      /\{\{date(?::([^}]+))?\}\}/g,
+      (_match, format: string | undefined) =>
+        now.format(format && format.length > 0 ? format : dateFormat)
+    )
+    .replace(
+      /\{\{time(?::([^}]+))?\}\}/g,
+      (_match, format: string | undefined) =>
+        now.format(format && format.length > 0 ? format : timeFormat)
+    );
 }
 
 export type SceneWordStats = {
