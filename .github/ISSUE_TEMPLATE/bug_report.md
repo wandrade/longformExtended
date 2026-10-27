@@ -2,7 +2,7 @@
 name: Bug report
 about: Create a report to help improve Longform
 title: 'Bug: Your title here'
-labels: bug
+labels: bug, enhancement
 assignees: ''
 
 ---
