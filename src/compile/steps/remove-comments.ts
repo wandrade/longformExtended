@@ -64,9 +64,10 @@ export const RemoveCommentsStep = makeBuiltinStep({
         };
       });
     } else {
+      const manuscriptInput = input as CompileManuscriptInput;
       return {
-        ...(input as CompileManuscriptInput),
-        contents: replaceComments((input as any).contents),
+        ...manuscriptInput,
+        contents: replaceComments(manuscriptInput.contents),
       };
     }
   },

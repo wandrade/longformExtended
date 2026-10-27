@@ -47,8 +47,9 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
         });
     });
     containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
-      el.innerHTML =
-        "This file will be used as a template when creating new scenes via the New Scene… field. If you use a templating plugin (Templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the Project > Project Metadata settings in the Longform Extended pane.";
+      el.setText(
+        "This file will be used as a template when creating new scenes via the new scene… field. If you use a templating plugin (templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the project > project metadata settings in the longform extended pane."
+      );
     });
 
     new Setting(containerEl)
@@ -65,8 +66,9 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
           });
       });
     containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
-      el.innerHTML =
-        "This file will be used as a template when creating new subplots via the New Subplot… field. If you use a templating plugin (Templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the Project > Project Metadata settings in the Longform Extended pane.";
+      el.setText(
+        "This file will be used as a template when creating new subplots via the new subplot… field. If you use a templating plugin (templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the project > project metadata settings in the longform extended pane."
+      );
     });
 
     new Setting(containerEl)
@@ -83,12 +85,13 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
           });
       });
     containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
-      el.innerHTML =
-        "This file will be used as a template when creating new characters via the New Character… field. If you use a templating plugin (Templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the Project > Project Metadata settings in the Longform Extended pane.";
+      el.setText(
+        "This file will be used as a template when creating new characters via the new character… field. If you use a templating plugin (templater or the core plugin) it will be used to process this template. This setting applies to all projects and can be overridden per-project in the project > project metadata settings in the longform extended pane."
+      );
     });
 
     new Setting(containerEl)
-      .setName("Show scene numbers in Scenes tab")
+      .setName("Show scene numbers in scenes tab")
       .setDesc(
         "If on, shows numbers for scenes with subscenes separated by periods, e.g. 1.1.2. Create subscenes by dragging a scene to an indent under an existing scene, or us an indent command."
       )
@@ -115,7 +118,7 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
             writeProperty: value,
           }));
           if (value) {
-            syncSceneIndices(this.app);
+            void syncSceneIndices(this.app);
           }
         });
       });
@@ -129,7 +132,7 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
       )
       .addSearch((cb) => {
         new FolderSuggest(this.app, cb.inputEl);
-        cb.setPlaceholder("my/script/steps/")
+        cb.setPlaceholder("My/script/steps/")
           .setValue(settings.userScriptFolder)
           .onChange((v) => {
             pluginSettings.update((s) => ({
@@ -168,11 +171,12 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
       }
     });
     containerEl.createEl("p", { cls: "setting-item-description" }, (el) => {
-      el.innerHTML =
-        "User Script Steps are automatically loaded from this folder. Changes to .js files in this folder are synced with Longform Extended after a slight delay. If your script does not appear here or in the Compile tab, you may have an error in your script—check the dev console for it.";
+      el.setText(
+        "User Script Steps are automatically loaded from this folder. Changes to .js files in this folder are synced with Longform Extended after a slight delay. If your script does not appear here or in the Compile tab, you may have an error in your script—check the dev console for it."
+      );
     });
 
-    new Setting(containerEl).setName("Word Counts & Sessions").setHeading();
+    new Setting(containerEl).setName("Word counts & sessions").setHeading();
     new Setting(containerEl)
       .setName("Show word counts in status bar")
       .setDesc("Click the status item to show the focused note’s project.")
@@ -188,7 +192,7 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Start new writing sessions each day")
       .setDesc(
-        "You can always manually start a new session by running the Longform Extended: Start New Writing Session command. Turning this off will cause writing sessions to carry over across multiple days until you manually start a new one."
+        "You can always manually start a new session by running the longform extended: Start new writing session command. Turning this off will cause writing sessions to carry over across multiple days until you manually start a new one."
       )
       .addToggle((cb) => {
         cb.setValue(settings.startNewSessionEachDay);
@@ -214,12 +218,12 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Goal applies to")
       .setDesc(
-        "You can set your word count goal to target all Longform Extended writing, or you can make each project or scene have its own discrete goal."
+        "You can set your word count goal to target all longform extended writing, or you can make each project or scene have its own discrete goal."
       )
       .addDropdown((cb) => {
-        cb.addOption("all", "words written across all projects");
-        cb.addOption("project", "each project individually");
-        cb.addOption("note", "each scene or single-scene project");
+        cb.addOption("all", "Words written across all projects");
+        cb.addOption("project", "Each project individually");
+        cb.addOption("note", "Each scene or single-scene project");
         cb.setValue(settings.applyGoalTo);
         cb.onChange((value: "all" | "project" | "note") => {
           pluginSettings.update((s) => ({ ...s, applyGoalTo: value }));
@@ -268,12 +272,12 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
         "Where your writing session data is stored. By default, data is stored alongside other Longform Extended settings in the plugin’s data.json file. You may instead store it in a separate .json file in the plugin folder, or in a file in your vault. You may want to do this for selective sync or git reasons."
       )
       .addDropdown((cb) => {
-        cb.addOption("data", "with Longform Extended settings");
+        cb.addOption("data", "With longform extended settings");
         cb.addOption(
           "plugin-folder",
           "as a .json file in the longform-extended/ plugin folder"
         );
-        cb.addOption("file", "as a file in your vault");
+        cb.addOption("file", "As a file in your vault");
         cb.setValue(settings.sessionStorage);
         cb.onChange((value: "data" | "plugin-folder" | "file") => {
           pluginSettings.update((s) => ({ ...s, sessionStorage: value }));
@@ -303,18 +307,19 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
         cb.setValue(settings.sessionFile ?? DEFAULT_SESSION_FILE);
         cb.onChange(updateSessionFile);
       });
-    sessionFileStorageSettings.settingEl.style.display = "none";
+    sessionFileStorageSettings.settingEl.setCssProps({ display: "none" });
 
     this.unsubscribeSettings = pluginSettings.subscribe((settings) => {
-      sessionFileStorageSettings.settingEl.style.display =
-        settings.sessionStorage === "file" ? "flex" : "none";
+      sessionFileStorageSettings.settingEl.setCssProps({
+        display: settings.sessionStorage === "file" ? "flex" : "none",
+      });
     });
 
     new Setting(containerEl).setName("Troubleshooting").setHeading();
 
     new Setting(containerEl)
       .setName("Wait for Obsidian Sync")
-      .setDesc("Prevent Longform Extended from running until Obsidian Sync completes its first sync. If you are using Sync, you may want to enable this if you experience issues with scenes disappearing or falsely being shown as new.")
+      .setDesc("Prevent longform extended from running until Obsidian Sync completes its first sync. If you are using sync, you may want to enable this if you experience issues with scenes disappearing or falsely being shown as new.")
       .addToggle((cb) => {
         cb.setValue(settings.waitForSync);
         cb.onChange((value) => {
@@ -357,20 +362,43 @@ export class LongformExtendedSettingsTab extends PluginSettingTab {
     new Setting(containerEl).setName("Credits").setHeading();
 
     containerEl.createEl("p", {}, (el) => {
-      el.innerHTML =
-        'Longform was created by <a href="https://github.com/kevboh/longform">Kevin Barrett</a>.';
+      el.appendText("Longform was created by ");
+      el.createEl("a", {
+        text: "Kevin barrett",
+        href: "https://github.com/kevboh/longform",
+      });
+      el.appendText(".");
     });
     containerEl.createEl("p", {}, (el) => {
-      el.innerHTML =
-        'Longform Extended is maintained by <a href="https://github.com/wandrade/longformExtended">Werner Thomassen Andrade</a>.';
+      el.appendText("Longform Extended is maintained by ");
+      el.createEl("a", {
+        text: "Werner thomassen andrade",
+        href: "https://github.com/wandrade/longformExtended",
+      });
+      el.appendText(".");
     });
     containerEl.createEl("p", {}, (el) => {
-      el.innerHTML =
-        'Read the source code and report issues at <a href="https://github.com/wandrade/longformExtended">https://github.com/wandrade/longformExtended</a>.';
+      el.appendText("Read the source code and report issues at ");
+      el.createEl("a", {
+        text: "HTTPS://GitHub.com/wandrade/longformextended",
+        href: "https://github.com/wandrade/longformExtended",
+      });
+      el.appendText(".");
     });
     containerEl.createEl("p", {}, (el) => {
-      el.innerHTML =
-        'Icon made by <a href="https://www.flaticon.com/authors/zlatko-najdenovski" title="Zlatko Najdenovski">Zlatko Najdenovski</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a>.';
+      el.appendText("Icon made by ");
+      el.createEl("a", {
+        text: "Zlatko najdenovski",
+        href: "https://www.flaticon.com/authors/zlatko-najdenovski",
+        attr: { title: "Zlatko najdenovski" },
+      });
+      el.appendText(" from ");
+      el.createEl("a", {
+        text: "www.flaticon.com",
+        href: "https://www.flaticon.com/",
+        attr: { title: "Flaticon" },
+      });
+      el.appendText(".");
     });
   }
 

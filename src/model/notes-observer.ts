@@ -38,8 +38,8 @@ export class ProjectNotesObserver {
   private signatures = new Map<string, string>();
   private unsubscribeDrafts: Unsubscriber | null = null;
   private unsubscribeWordCounts: Unsubscriber | null = null;
-  private wordCountSyncTimeout: ReturnType<typeof setTimeout> | null = null;
-  private rebuildTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+  private wordCountSyncTimeout: number | null = null;
+  private rebuildTimeouts = new Map<string, number>();
   private rebuilding = new Set<string>();
   private pending = new Set<string>();
   private plotGridSkips = new Map<string, string>();
@@ -67,11 +67,11 @@ export class ProjectNotesObserver {
       this.unsubscribeWordCounts();
     }
     if (this.wordCountSyncTimeout !== null) {
-      clearTimeout(this.wordCountSyncTimeout);
+      window.clearTimeout(this.wordCountSyncTimeout);
       this.wordCountSyncTimeout = null;
     }
     for (const timeout of this.rebuildTimeouts.values()) {
-      clearTimeout(timeout);
+      window.clearTimeout(timeout);
     }
     this.rebuildTimeouts.clear();
     this.plotGridSkips.clear();
@@ -270,10 +270,10 @@ export class ProjectNotesObserver {
     }
     const existing = this.rebuildTimeouts.get(draft.vaultPath);
     if (existing !== undefined) {
-      clearTimeout(existing);
+      window.clearTimeout(existing);
     }
 
-    const timeout = setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       this.rebuildTimeouts.delete(draft.vaultPath);
 
       // A rename or deletion may have happened while the event was debounced.
@@ -335,13 +335,10 @@ export class ProjectNotesObserver {
         this.plotGridSkips.delete(draft.vaultPath);
         return;
       }
-      // Report each skip condition once; otherwise every project change would
+      // Remember each skip condition once; otherwise every project change would
       // repeat the same "no notes" message.
       if (this.plotGridSkips.get(draft.vaultPath) !== result.reason) {
         this.plotGridSkips.set(draft.vaultPath, result.reason);
-        console.log(
-          `[Longform Extended] Subplot grid not written for "${draft.title}": ${result.reason}.`
-        );
       }
     });
   }
@@ -381,22 +378,22 @@ export class ProjectNotesObserver {
       return;
     }
     if (kind === "kanban") {
-      this.rebuildKanban(draft);
+      void this.rebuildKanban(draft);
     } else if (kind === "wordcounts") {
-      this.syncWordCounts(draft);
+      void this.syncWordCounts(draft);
     } else if (kind === "timeline") {
-      this.rebuildTimeline(draft);
+      void this.rebuildTimeline(draft);
     } else if (kind === "plotgrid") {
-      this.rebuildPlotGrid(draft);
+      void this.rebuildPlotGrid(draft);
     }
   }
 
   /** Debounces word count writes until edits have settled. */
   private scheduleWordCountSync(): void {
     if (this.wordCountSyncTimeout !== null) {
-      clearTimeout(this.wordCountSyncTimeout);
+      window.clearTimeout(this.wordCountSyncTimeout);
     }
-    this.wordCountSyncTimeout = setTimeout(() => {
+    this.wordCountSyncTimeout = window.setTimeout(() => {
       this.wordCountSyncTimeout = null;
       for (const draft of get(draftsStore)) {
         if (
@@ -404,7 +401,7 @@ export class ProjectNotesObserver {
           draft.kanbanEnabled &&
           draft.kanbanSaveWordCounts
         ) {
-          this.syncWordCounts(draft);
+          void this.syncWordCounts(draft);
         }
       }
     }, 1000);
@@ -413,9 +410,9 @@ export class ProjectNotesObserver {
   private rebuildAll(): void {
     for (const draft of get(draftsStore)) {
       if (draft.format === "scenes") {
-        this.rebuildTimeline(draft);
-        this.rebuildKanban(draft);
-        this.rebuildPlotGrid(draft);
+        void this.rebuildTimeline(draft);
+        void this.rebuildKanban(draft);
+        void this.rebuildPlotGrid(draft);
       }
     }
   }
@@ -472,7 +469,7 @@ export class ProjectNotesObserver {
       this.rebuildTimeouts.entries()
     )) {
       if (!validPaths.has(path)) {
-        clearTimeout(timeout);
+        window.clearTimeout(timeout);
         this.rebuildTimeouts.delete(path);
       }
     }

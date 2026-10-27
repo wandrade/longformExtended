@@ -9,6 +9,8 @@ import type { Draft, SerializedWorkflow } from "src/model/types";
 import {
   CompileStepKind,
   type CompileContext,
+  type CompileInput,
+  type CompileSceneInput,
   type Workflow,
   PLACEHOLDER_MISSING_STEP,
 } from "./steps/abstract-compile-step";
@@ -187,7 +189,7 @@ export async function compile(
   kinds: CompileStepKind[],
   statusCallback: (status: CompileStatus) => void
 ): Promise<void> {
-  let currentInput: any;
+  let currentInput: CompileInput;
 
   if (draft.format === "single") {
     const path = draft.vaultPath;
@@ -205,7 +207,7 @@ export async function compile(
   } else {
     const folderPath = sceneFolderPath(draft, app.vault);
 
-    currentInput = [];
+    const sceneInputs: CompileSceneInput[] = [];
 
     // Build initial inputs
     for (const scene of numberScenes(draft.scenes)) {
@@ -213,7 +215,7 @@ export async function compile(
       const contents = await app.vault.adapter.read(path);
       const metadata = app.metadataCache.getCache(path);
 
-      currentInput.push({
+      sceneInputs.push({
         path,
         name: scene.title,
         contents,
@@ -222,6 +224,7 @@ export async function compile(
         numbering: scene.numbering,
       });
     }
+    currentInput = sceneInputs;
   }
 
   for (let index = 0; index < workflow.steps.length; index++) {
@@ -247,11 +250,6 @@ export async function compile(
       },
     };
 
-    console.log(
-      `[Longform Extended] Running compile step ${step.description.name} with context:`,
-      context
-    );
-
     statusCallback({
       kind: "CompileStatusStep",
       stepIndex: index,
@@ -263,13 +261,14 @@ export async function compile(
     try {
       // handle the case where we're going scene -> manuscript -> scene
       if (draft.format === "single" && kind === CompileStepKind.Manuscript) {
+        const sceneInputs = currentInput as CompileSceneInput[];
         const result = await step.compile(
           {
-            contents: currentInput[0].contents,
+            contents: sceneInputs[0].contents,
           },
           context
         );
-        currentInput[0] = result;
+        sceneInputs[0] = result as unknown as CompileSceneInput;
       } else {
         currentInput = await step.compile(currentInput, context);
       }
@@ -282,11 +281,6 @@ export async function compile(
       return;
     }
   }
-
-  console.log(
-    `[Longform Extended] Compile workflow "${workflow.name}" finished with final result:`,
-    currentInput
-  );
 
   statusCallback({
     kind: "CompileStatusSuccess",

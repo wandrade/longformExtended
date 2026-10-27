@@ -16,7 +16,7 @@ export function serializeWorkflow(workflow: Workflow): SerializedWorkflow {
   const serialized: SerializedStep[] = workflow.steps.map((step) => ({
     id: step.description.canonicalID,
     optionValues: step.optionValues,
-  })) as SerializedStep[];
+  }));
   return {
     name: workflow.name,
     description: workflow.description,

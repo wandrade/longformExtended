@@ -387,6 +387,6 @@ export async function insertAuxiliaryNote(
   });
 
   if (open) {
-    app.workspace.openLinkText(path, "/", false);
+    void app.workspace.openLinkText(path, "/", false);
   }
 }

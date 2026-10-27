@@ -75,7 +75,7 @@ export const projects = derived([drafts], ([$drafts]) => {
   };
 
   const sortedDrafts = sortBy($drafts, getTitle);
-  return groupBy(sortedDrafts, getTitle) as Record<string, Draft[]>;
+  return groupBy(sortedDrafts, getTitle);
 });
 
 /**

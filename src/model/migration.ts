@@ -27,6 +27,13 @@ const INDEX_MIGRATION_NOTICE =
 
 export const needsMigration = writable<boolean>(false);
 
+/** The draft shape written by the legacy Projects 1.0/2.0 index format. */
+type LegacyDraft = {
+  name: string;
+  folder: string;
+  scenes: string[];
+};
+
 /**
  * The version values compared below are data-format versions inherited from
  * upstream Longform FORKED_VERSION. They are independent of Longform
@@ -39,9 +46,6 @@ export function determineMigrationStatus(settings: LongformExtendedPluginSetting
 
 export async function migrate(settings: LongformExtendedPluginSettings, app: App) {
   if (settings.version >= LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION) {
-    console.log(
-      `[Longform Extended] Attempted to migrate settings with version ${settings.version} > current (${LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION}); ignoring.`
-    );
     return;
   }
 
@@ -57,7 +61,6 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
 
       const projectPaths = Object.keys(settings.projects);
       for (const projectPath of projectPaths) {
-        console.log(`[Longform Extended] Migrating ${projectPath} to Projects 2.0…`);
         const project = settings.projects[projectPath];
         const normalizedProjectPath = normalizePath(projectPath);
 
@@ -68,8 +71,9 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
         if (!metadata || !metadata.frontmatter) {
           continue;
         }
-        const workflow = metadata.frontmatter["workflow"] ?? null;
-        const drafts = metadata.frontmatter["drafts"] ?? [];
+        const frontmatter = metadata.frontmatter as Record<string, unknown>;
+        const workflow = (frontmatter["workflow"] ?? null) as string | null;
+        const drafts = (frontmatter["drafts"] ?? []) as LegacyDraft[];
         const title = last(projectPath.split("/"));
 
         const moveScenes = async (from: string, to: string) => {
@@ -86,7 +90,7 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
         try {
           await app.vault.adapter.append(indexPath, INDEX_MIGRATION_NOTICE);
         } catch (error) {
-          console.log(
+          console.warn(
             `[Longform Extended] Error appending deprecation notice to old index file`,
             error
           );
@@ -103,7 +107,7 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
             vaultPath,
             workflow,
             sceneFolder: "/",
-            scenes: oldDraft["scenes"].map((s: string) => ({
+            scenes: oldDraft.scenes.map((s) => ({
               title: s,
               indent: 0,
             })),
@@ -141,7 +145,6 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
             ),
             normalizedProjectPath
           );
-          console.log(`[Longform Extended] Wrote only draft to ${vaultPath}`);
         } else {
           for (const oldDraft of drafts) {
             const vaultPathParent = normalizePath(
@@ -150,7 +153,7 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
             try {
               await app.vault.createFolder(vaultPathParent);
             } catch (error) {
-              console.log(
+              console.warn(
                 `[Longform Extended] Error creating folder during migration`,
                 error
               );
@@ -166,7 +169,7 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
               vaultPath,
               workflow,
               sceneFolder: "/",
-              scenes: oldDraft["scenes"].map((s: string) => ({
+              scenes: oldDraft.scenes.map((s) => ({
                 title: s,
                 indent: 0,
               })),
@@ -204,7 +207,6 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
               ),
               vaultPathParent
             );
-            console.log(`[Longform Extended] Wrote ${oldDraft.name} to ${vaultPath}`);
           }
         }
       }

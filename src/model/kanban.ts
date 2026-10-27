@@ -69,12 +69,30 @@ export function parseKanbanColumns(raw: string): string[] {
   return columns;
 }
 
+/** Coerces a frontmatter value to the same text a template literal would. */
+function frontmatterValueToString(raw: unknown): string {
+  if (typeof raw === "string") {
+    return raw;
+  }
+  if (
+    typeof raw === "number" ||
+    typeof raw === "boolean" ||
+    typeof raw === "bigint"
+  ) {
+    return String(raw);
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((item) => frontmatterValueToString(item)).join(",");
+  }
+  return "[object Object]";
+}
+
 /** A frontmatter status as a trimmed string, or null when it is empty. */
 function statusValue(raw: unknown): string | null {
   if (raw === undefined || raw === null) {
     return null;
   }
-  const value = `${raw}`.trim();
+  const value = frontmatterValueToString(raw).trim();
   return value === "" ? null : value;
 }
 
@@ -83,7 +101,7 @@ function helperValue(raw: unknown): string {
   if (raw === undefined || raw === null) {
     return "";
   }
-  return `${raw}`.trim();
+  return frontmatterValueToString(raw).trim();
 }
 
 /**
@@ -232,9 +250,12 @@ async function clearStaleHelpers(
       continue;
     }
 
-    await app.fileManager.processFrontMatter(file, (frontmatter) => {
-      delete frontmatter[KANBAN_HELPER_TAG];
-    });
+    await app.fileManager.processFrontMatter(
+      file,
+      (frontmatter: Record<string, unknown>) => {
+        delete frontmatter[KANBAN_HELPER_TAG];
+      }
+    );
     recordWrite(file.path, null, helper, null, null);
     sceneStates.delete(file.path);
   }
@@ -278,20 +299,23 @@ async function processKanbanNote(
   if (observed.status !== status || observed.helper !== (helper ?? "")) {
     const beforeStatus = observed.status;
     const beforeHelper = observed.helper;
-    await app.fileManager.processFrontMatter(file, (frontmatter) => {
-      if (beforeStatus !== status) {
-        if (status === null) {
-          delete frontmatter[KANBAN_STATUS_TAG];
+    await app.fileManager.processFrontMatter(
+      file,
+      (frontmatter: Record<string, unknown>) => {
+        if (beforeStatus !== status) {
+          if (status === null) {
+            delete frontmatter[KANBAN_STATUS_TAG];
+          } else {
+            frontmatter[KANBAN_STATUS_TAG] = status;
+          }
+        }
+        if (helper === null) {
+          delete frontmatter[KANBAN_HELPER_TAG];
         } else {
-          frontmatter[KANBAN_STATUS_TAG] = status;
+          frontmatter[KANBAN_HELPER_TAG] = helper;
         }
       }
-      if (helper === null) {
-        delete frontmatter[KANBAN_HELPER_TAG];
-      } else {
-        frontmatter[KANBAN_HELPER_TAG] = helper;
-      }
-    });
+    );
     recordWrite(path, beforeStatus, beforeHelper, status, helper);
   }
   sceneStates.set(path, { status, helper: helper ?? "" });
@@ -450,7 +474,7 @@ export async function writeKanbanWordCounts(
   if (!storedCounts || typeof storedCounts !== "object") {
     return;
   }
-  const counts = storedCounts as Record<string, number>;
+  const counts = storedCounts;
   // Plot notes have no draft word counts; never write `wordCount` to them.
   const plotFolder = auxiliaryFolder(app, draft, "plots");
 
@@ -476,15 +500,19 @@ export async function writeKanbanWordCounts(
         continue;
       }
 
-      const current =
-        app.metadataCache.getFileCache(file)?.frontmatter?.["wordCount"];
+      const current = app.metadataCache.getFileCache(file)?.frontmatter?.[
+        "wordCount"
+      ] as unknown;
       if (current === count) {
         continue;
       }
 
-      await app.fileManager.processFrontMatter(file, (frontmatter) => {
-        frontmatter["wordCount"] = count;
-      });
+      await app.fileManager.processFrontMatter(
+        file,
+        (frontmatter: Record<string, unknown>) => {
+          frontmatter["wordCount"] = count;
+        }
+      );
     }
   }
 }

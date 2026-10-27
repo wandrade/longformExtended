@@ -156,8 +156,14 @@ export async function buildTimeline(
       continue;
     }
 
-    const raw = app.metadataCache.getFileCache(file)?.frontmatter?.[tagName];
-    if (raw === undefined || raw === null || `${raw}`.trim() === "") {
+    const raw = app.metadataCache.getFileCache(file)?.frontmatter?.[
+      tagName
+    ] as unknown;
+    if (
+      raw === undefined ||
+      raw === null ||
+      frontmatterValueToString(raw).trim() === ""
+    ) {
       missing.push(scene.title);
       continue;
     }
@@ -396,8 +402,26 @@ function containsExactTitle(text: string, title: string): boolean {
   return false;
 }
 
+/** Coerces a frontmatter value to the same text a template literal would. */
+function frontmatterValueToString(raw: unknown): string {
+  if (typeof raw === "string") {
+    return raw;
+  }
+  if (
+    typeof raw === "number" ||
+    typeof raw === "boolean" ||
+    typeof raw === "bigint"
+  ) {
+    return String(raw);
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((item) => frontmatterValueToString(item)).join(",");
+  }
+  return "[object Object]";
+}
+
 function hasOwn(record: Record<string, unknown>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key);
+  return Object.prototype.hasOwnProperty.call(record, key) as boolean;
 }
 
 /** True for an empty scalar, an empty array, or an object with no keys. */
@@ -412,7 +436,7 @@ function isEmptyCell(value: unknown): boolean {
     return value.length === 0 || value.every(isEmptyCell);
   }
   if (typeof value === "object") {
-    return Object.keys(value as Record<string, unknown>).length === 0;
+    return Object.keys(value).length === 0;
   }
   return false;
 }

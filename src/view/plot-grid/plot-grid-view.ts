@@ -437,7 +437,7 @@ export class PlotGridView extends BasesView {
           try {
             await this.app.fileManager.processFrontMatter(
               file,
-              (frontmatter) => {
+              (frontmatter: Record<string, unknown>) => {
                 frontmatter[rawKey] = next;
               }
             );

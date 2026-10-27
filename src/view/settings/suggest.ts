@@ -9,6 +9,17 @@ const wrapAround = (value: number, size: number): number => {
   return ((value % size) + size) % size;
 };
 
+type AppWithDom = App & {
+  dom: { appContainerEl: HTMLElement };
+};
+
+type AppWithKeymap = App & {
+  keymap: {
+    pushScope(scope: Scope): void;
+    popScope(scope: Scope): void;
+  };
+};
+
 class Suggest<T> {
   private owner: ISuggestOwner<T>;
   private values: T[];
@@ -20,16 +31,12 @@ class Suggest<T> {
     this.owner = owner;
     this.containerEl = containerEl;
 
-    containerEl.on(
-      "click",
-      ".suggestion-item",
-      this.onSuggestionClick.bind(this)
-    );
-    containerEl.on(
-      "mousemove",
-      ".suggestion-item",
-      this.onSuggestionMouseover.bind(this)
-    );
+    containerEl.on("click", ".suggestion-item", (event, el) => {
+      this.onSuggestionClick(event, el as HTMLDivElement);
+    });
+    containerEl.on("mousemove", ".suggestion-item", (event, el) => {
+      this.onSuggestionMouseover(event, el as HTMLDivElement);
+    });
 
     scope.register([], "ArrowUp", (event) => {
       if (!event.isComposing) {
@@ -122,11 +129,19 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
     const suggestion = this.suggestEl.createDiv("suggestion");
     this.suggest = new Suggest(this, suggestion, this.scope);
 
-    this.scope.register([], "Escape", this.close.bind(this));
+    this.scope.register([], "Escape", () => {
+      this.close();
+    });
 
-    this.inputEl.addEventListener("input", this.onInputChanged.bind(this));
-    this.inputEl.addEventListener("focus", this.onInputChanged.bind(this));
-    this.inputEl.addEventListener("blur", this.close.bind(this));
+    this.inputEl.addEventListener("input", () => {
+      this.onInputChanged();
+    });
+    this.inputEl.addEventListener("focus", () => {
+      this.onInputChanged();
+    });
+    this.inputEl.addEventListener("blur", () => {
+      this.close();
+    });
     this.suggestEl.on(
       "mousedown",
       ".suggestion-container",
@@ -147,16 +162,16 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
 
     if (suggestions.length > 0) {
       this.suggest.setSuggestions(suggestions);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.open((<any>this.app).dom.appContainerEl, this.inputEl);
+      const appWithDom = this.app as unknown as AppWithDom;
+      this.open(appWithDom.dom.appContainerEl, this.inputEl);
     } else {
       this.close();
     }
   }
 
   open(container: HTMLElement, inputEl: HTMLElement): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (<any>this.app).keymap.pushScope(this.scope);
+    const appWithKeymap = this.app as unknown as AppWithKeymap;
+    appWithKeymap.keymap.pushScope(this.scope);
 
     container.appendChild(this.suggestEl);
     this.popper = createPopper(inputEl, this.suggestEl, {
@@ -175,7 +190,7 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
               return;
             }
             state.styles.popper.width = targetWidth;
-            instance.update();
+            void instance.update();
           },
           phase: "beforeWrite",
           requires: ["computeStyles"],
@@ -185,8 +200,8 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
   }
 
   close(): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (<any>this.app).keymap.popScope(this.scope);
+    const appWithKeymap = this.app as unknown as AppWithKeymap;
+    appWithKeymap.keymap.popScope(this.scope);
 
     this.suggest.setSuggestions([]);
     if (this.popper) this.popper.destroy();

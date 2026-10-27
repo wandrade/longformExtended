@@ -11,7 +11,7 @@ export default class AddStepModalContainer extends Modal {
   onOpen(): void {
     const { contentEl } = this;
 
-    contentEl.createEl("h1", { text: "Add Compile Step to Workflow" });
+    contentEl.createEl("h1", { text: "Add compile step to workflow" });
     const entrypoint = contentEl.createDiv("longform-extended-add-step-root");
 
     const context = appContext(this);

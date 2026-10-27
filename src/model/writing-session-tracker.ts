@@ -72,7 +72,10 @@ export class WritingSessionTracker {
   private unsubscribeActiveWordCount: Unsubscriber;
   private unsubscribeSettings: Unsubscriber;
   private unsubscribeSessions: Unsubscriber;
-  private debouncedCountDraft: Debouncer<unknown[], void>;
+  private debouncedCountDraft: Debouncer<
+    [TAbstractFile, string | null],
+    void
+  >;
   private statusBarItem: HTMLSpanElement;
   private hideStatusBarSetting = false;
   private cachedLatestSession: WordCountSession | null = null;
@@ -97,12 +100,14 @@ export class WritingSessionTracker {
 
     sessionsStore.set(deserializedSessions);
 
-    this.unsubscribeDrafts = draftsStore.subscribe(
-      this.countWordsInDrafts.bind(this)
-    );
+    this.unsubscribeDrafts = draftsStore.subscribe((drafts) => {
+      void this.countWordsInDrafts(drafts);
+    });
 
     this.debouncedCountDraft = debounce(
-      this.countDraftContaining.bind(this),
+      (file: TAbstractFile, oldPath: string | null) => {
+        void this.countDraftContaining(file, oldPath);
+      },
       1000
     );
 
@@ -224,7 +229,7 @@ export class WritingSessionTracker {
   }
 
   async fileModified(file: TAbstractFile) {
-    this.countDraftContaining(file, null);
+    void this.countDraftContaining(file, null);
   }
 
   async debouncedCountDraftContaining(

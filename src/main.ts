@@ -5,6 +5,7 @@ import {
   addIcon,
   Notice,
   TAbstractFile,
+  TFile,
   TFolder,
   normalizePath,
 } from "obsidian";
@@ -84,7 +85,6 @@ export default class LongformExtendedPlugin extends Plugin {
   private notesObserver: ProjectNotesObserver;
 
   async onload(): Promise<void> {
-    console.log(`[Longform Extended] Starting Longform Extended ${this.manifest.version}…`);
     addIcon(ICON_NAME, ICON_SVG);
 
     this.registerView(
@@ -131,7 +131,7 @@ export default class LongformExtendedPlugin extends Plugin {
         }
         menu.addItem((item) => {
           item
-            .setTitle("Create Longform Extended Project")
+            .setTitle("Create longform extended project")
             .setIcon(ICON_NAME)
             .onClick(() => {
               new NewProjectModal(this.app, file).open();
@@ -141,13 +141,13 @@ export default class LongformExtendedPlugin extends Plugin {
     );
 
     // Settings
-    this.unsubscribeSettings = pluginSettings.subscribe(async (value) => {
+    this.unsubscribeSettings = pluginSettings.subscribe((value) => {
       let shouldSave = false;
 
       const changeInKeys = (
-        obj1: Record<string, any>,
-        obj2: Record<string, any>,
-        keys: string[]
+        obj1: LongformExtendedPluginSettings,
+        obj2: LongformExtendedPluginSettings,
+        keys: (keyof LongformExtendedPluginSettings)[]
       ): boolean => {
         return !!keys.find((k) => obj1[k] !== obj2[k]);
       };
@@ -166,7 +166,7 @@ export default class LongformExtendedPlugin extends Plugin {
       this.cachedSettings = value;
 
       if (shouldSave) {
-        await this.saveSettings();
+        void this.saveSettings();
       }
     });
 
@@ -176,7 +176,9 @@ export default class LongformExtendedPlugin extends Plugin {
     this.storeVaultSync = new StoreVaultSync(this.app);
     this.notesObserver = new ProjectNotesObserver(this.app);
 
-    this.app.workspace.onLayoutReady(this.postLayoutInit.bind(this));
+    this.app.workspace.onLayoutReady(() => {
+      void this.postLayoutInit();
+    });
 
     // Track active file
     activeFile.set(this.app.workspace.getActiveFile());
@@ -187,11 +189,14 @@ export default class LongformExtendedPlugin extends Plugin {
         }
         // NOTE: This may break, as it's undocumented.
         // Need some way to determine the empty state.
-        else if (
-          (leaf.view as any).emptyTitleEl &&
-          (leaf.view as any).emptyStateEl
-        ) {
-          activeFile.set(null);
+        else {
+          const view = leaf.view as typeof leaf.view & {
+            emptyTitleEl?: HTMLElement;
+            emptyStateEl?: HTMLElement;
+          };
+          if (view.emptyTitleEl && view.emptyStateEl) {
+            activeFile.set(null);
+          }
         }
       })
     );
@@ -228,14 +233,20 @@ export default class LongformExtendedPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const loadedSettings =
+      (await this.loadData()) as Partial<LongformExtendedPluginSettings> | null;
+    const settings: LongformExtendedPluginSettings = Object.assign(
+      {},
+      DEFAULT_SETTINGS,
+      loadedSettings
+    );
 
     // deserialize iso8601 strings as dates
 
     const _pluginSettings: LongformExtendedPluginSettings = pick(
       settings,
       TRACKED_SETTINGS_PATHS
-    ) as LongformExtendedPluginSettings;
+    );
     pluginSettings.set(_pluginSettings);
     selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
     determineMigrationStatus(_pluginSettings);
@@ -252,15 +263,12 @@ export default class LongformExtendedPlugin extends Plugin {
     let _workflows = settings["workflows"];
 
     if (!_workflows) {
-      console.log("[Longform Extended] No workflows found; adding default workflow.");
       _workflows = DEFAULT_WORKFLOWS;
     }
 
     const deserializedWorkflows: Record<string, Workflow> = {};
     Object.entries(_workflows).forEach(([key, value]) => {
-      deserializedWorkflows[key as string] = deserializeWorkflow(
-        value as SerializedWorkflow
-      );
+      deserializedWorkflows[key] = deserializeWorkflow(value);
     });
     workflows.set(deserializedWorkflows);
 
@@ -277,7 +285,7 @@ export default class LongformExtendedPlugin extends Plugin {
           .getLeavesOfType(VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER)
           .first();
         if (leaf) {
-          this.app.workspace.revealLeaf(leaf);
+          void this.app.workspace.revealLeaf(leaf);
         }
 
         selectedTab.set("Project");
@@ -300,7 +308,7 @@ export default class LongformExtendedPlugin extends Plugin {
     const _workflows = get(workflows);
     const serializedWorkflows: Record<string, SerializedWorkflow> = {};
     Object.entries(_workflows).forEach(([key, value]) => {
-      serializedWorkflows[key as string] = serializeWorkflow(value);
+      serializedWorkflows[key] = serializeWorkflow(value);
     });
 
     await this.saveData({
@@ -327,7 +335,7 @@ export default class LongformExtendedPlugin extends Plugin {
       }
     });
 
-    this.unsubscribeSelectedDraft = selectedDraft.subscribe(async (d) => {
+    this.unsubscribeSelectedDraft = selectedDraft.subscribe((d) => {
       if (!get(initialized) || !d) {
         return;
       }
@@ -340,12 +348,12 @@ export default class LongformExtendedPlugin extends Plugin {
         selectedDraftVaultPath: d.vaultPath,
       }));
       this.cachedSettings = get(pluginSettings);
-      await this.saveSettings();
+      void this.saveSettings();
     });
 
     // Workflows
     const saveWorkflows = debounce(() => {
-      this.saveSettings();
+      void this.saveSettings();
     }, 3000);
     this.unsubscribeWorkflows = workflows.subscribe(() => {
       if (!get(initialized)) {
@@ -405,7 +413,7 @@ export default class LongformExtendedPlugin extends Plugin {
         return;
       }
 
-      saveSessions(s);
+      void saveSessions(s);
     });
 
     this.unsubscribeGoalNotification = derived(
@@ -451,7 +459,7 @@ export default class LongformExtendedPlugin extends Plugin {
     ) {
       return;
     }
-    this.app.workspace.getLeftLeaf(false).setViewState({
+    void this.app.workspace.getLeftLeaf(false).setViewState({
       type: VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER,
     });
   }
@@ -459,51 +467,42 @@ export default class LongformExtendedPlugin extends Plugin {
   private watchProjects(): void {
     // USER SCRIPTS
     this.registerEvent(
-      this.app.vault.on(
-        "modify",
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)
-      )
+      this.app.vault.on("modify", (file) => {
+        this.userScriptObserver.fileEventCallback(file);
+      })
     );
 
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(
-          file
-        );
+        this.userScriptObserver.fileEventCallback(file);
       })
     );
 
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(
-          file
-        );
+        this.userScriptObserver.fileEventCallback(file);
       })
     );
 
     this.registerEvent(
-      this.app.vault.on("rename", (file, _oldPath) => {
-        this.userScriptObserver.fileEventCallback.bind(this.userScriptObserver)(
-          file
-        );
+      this.app.vault.on("rename", (file) => {
+        this.userScriptObserver.fileEventCallback(file);
       })
     );
 
     // STORE-VAULT SYNC
-    this.storeVaultSync.discoverDrafts();
+    void this.storeVaultSync.discoverDrafts();
 
     this.registerEvent(
-      this.app.metadataCache.on(
-        "changed",
-        this.storeVaultSync.fileMetadataChanged.bind(this.storeVaultSync)
+      this.app.metadataCache.on("changed", (file, data, cache) =>
+        this.storeVaultSync.fileMetadataChanged(file, data, cache)
       )
     );
 
     // GENERATED NOTES
     this.registerEvent(
-      this.app.metadataCache.on(
-        "changed",
-        this.notesObserver.fileMetadataChanged.bind(this.notesObserver)
+      this.app.metadataCache.on("changed", (file, data, cache) =>
+        this.notesObserver.fileMetadataChanged(file, data, cache)
       )
     );
 
@@ -511,83 +510,75 @@ export default class LongformExtendedPlugin extends Plugin {
     // scene/project creation, deletion, or rename). The observer debounces and
     // maps each path to its owning scenes project(s).
     this.registerEvent(
-      this.app.vault.on(
-        "modify",
-        this.notesObserver.fileModified.bind(this.notesObserver)
+      this.app.vault.on("modify", (file) =>
+        this.notesObserver.fileModified(file)
       )
     );
 
     this.registerEvent(
-      this.app.vault.on(
-        "create",
-        this.notesObserver.fileCreated.bind(this.notesObserver)
+      this.app.vault.on("create", (file) =>
+        this.notesObserver.fileCreated(file)
       )
     );
 
     this.registerEvent(
-      this.app.vault.on(
-        "delete",
-        this.notesObserver.fileDeleted.bind(this.notesObserver)
+      this.app.vault.on("delete", (file) =>
+        this.notesObserver.fileDeleted(file)
       )
     );
 
     this.registerEvent(
-      this.app.vault.on(
-        "rename",
-        this.notesObserver.fileRenamed.bind(this.notesObserver)
-      )
-    );
-
-    this.registerEvent(
-      this.app.vault.on(
-        "create",
-        this.storeVaultSync.fileCreated.bind(this.storeVaultSync)
-      )
-    );
-
-    this.registerEvent(
-      this.app.vault.on(
-        "delete",
-        this.storeVaultSync.fileDeleted.bind(this.storeVaultSync)
-      )
-    );
-
-    this.registerEvent(
-      this.app.vault.on(
-        "rename",
-        this.storeVaultSync.fileRenamed.bind(this.storeVaultSync)
-      )
-    );
-
-    // WORD COUNTS
-    this.registerEvent(
-      this.app.vault.on(
-        "modify",
-        this.writingSessionTracker.fileModified.bind(this.writingSessionTracker)
+      this.app.vault.on("rename", (file, oldPath) =>
+        this.notesObserver.fileRenamed(file, oldPath)
       )
     );
 
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(
-          this.writingSessionTracker
-        )(file);
+        if (file instanceof TFile) {
+          void this.storeVaultSync.fileCreated(file);
+        }
       })
     );
 
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(
-          this.writingSessionTracker
-        )(file);
+        if (file instanceof TFile) {
+          void this.storeVaultSync.fileDeleted(file);
+        }
       })
     );
 
     this.registerEvent(
-      this.app.vault.on("rename", (file, _oldPath) => {
-        this.writingSessionTracker.debouncedCountDraftContaining.bind(
-          this.writingSessionTracker
-        )(file);
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (file instanceof TFile) {
+          void this.storeVaultSync.fileRenamed(file, oldPath);
+        }
+      })
+    );
+
+    // WORD COUNTS
+    this.registerEvent(
+      this.app.vault.on("modify", (file) =>
+        this.writingSessionTracker.fileModified(file)
+      )
+    );
+
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        void this.writingSessionTracker.debouncedCountDraftContaining(file);
+      })
+    );
+
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        void this.writingSessionTracker.debouncedCountDraftContaining(file);
+      })
+    );
+
+    this.registerEvent(
+      this.app.vault.on("rename", (file) => {
+        void this.writingSessionTracker.debouncedCountDraftContaining(file);
       })
     );
   }
@@ -603,8 +594,7 @@ export default class LongformExtendedPlugin extends Plugin {
         }
       }
 
-      // @ts-ignore
-      const leafId = leaf.id;
+      const leafId = (leaf as WorkspaceLeaf & { id: string }).id;
       if (leafId) {
         leaf.view.containerEl.dataset.leafId = leafId;
       }

@@ -3,6 +3,7 @@ import {
   indentedScenesToArrays,
   numberScenes,
   formatSceneNumber,
+  type NestedStringArray,
   type NumberedScene,
 } from "src/model/draft-utils";
 import type { IndentedScene } from "src/model/types";
@@ -40,7 +41,9 @@ export class LongformExtendedAPI {
    * @param indentedScenes Array of { title: string; indent: number } scene objects, where `title` is the scene’s name and `indent` is the 0-indexed indentation level.
    * @returns A potentially-nested array of strings. Each element in the returned array is of type `string | string[] | string[][]...` ad infinitum; TypeScript struggles to represent this sort of type, unfortunately.
    */
-  public indentedScenesToNestedArrays(indentedScenes: IndentedScene[]): any[] {
+  public indentedScenesToNestedArrays(
+    indentedScenes: IndentedScene[]
+  ): NestedStringArray {
     return indentedScenesToArrays(indentedScenes);
   }
 
@@ -74,7 +77,7 @@ export class LongformExtendedAPI {
    * @param yamlArray An array of potentially-nested strings. Each element in the returned array is of type `string | string[] | string[][]...` ad infinitum; TypeScript struggles to represent this sort of type, unfortunately.
    * @returns Array of { title: string; indent: number } scene objects, where `title` is the scene’s name and `indent` is the 0-indexed indentation level.
    */
-  public nestedArraysToIndentedScenes(yamlArray: any[]): IndentedScene[] {
+  public nestedArraysToIndentedScenes(yamlArray: unknown): IndentedScene[] {
     return arraysToIndentedScenes(yamlArray);
   }
 

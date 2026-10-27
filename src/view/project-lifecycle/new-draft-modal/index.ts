@@ -18,7 +18,7 @@ export default class NewDraftModalContainer extends Modal {
     const title = get(selectedDraft).title;
 
     contentEl.createEl("h1", { text: `New Draft of ${title}` }, (el) => {
-      el.style.margin = "0 0 var(--size-4-4) 0";
+      el.setCssProps({ margin: "0 0 var(--size-4-4) 0" });
     });
     const entrypoint = contentEl.createDiv("longform-extended-add-create-draft-root");
 
@@ -42,7 +42,7 @@ export default class NewDraftModalContainer extends Modal {
           };
           await insertDraftIntoFrontmatter(this.app, newVaultPath, newDraft);
           selectedDraftVaultPath.set(newVaultPath);
-          this.app.workspace.openLinkText(newVaultPath, "/", false);
+          void this.app.workspace.openLinkText(newVaultPath, "/", false);
         } else {
           // ensure parent folder exists, if not create it
           const parentPath = newVaultPath.split("/").slice(0, -1).join("/");

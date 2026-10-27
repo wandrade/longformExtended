@@ -49,8 +49,6 @@ export const WriteToNoteStep = makeBuiltinStep({
       await writeToFile(context.app, filePath, input.contents);
 
       if (openAfter) {
-        console.log("[Longform Extended] Attempting to open:", filePath);
-
         context.app.workspace.openLinkText(filePath, "/", true).catch((err) => {
           console.error("[Longform Extended] Could not open", filePath, err);
         });
@@ -68,8 +66,6 @@ async function writeToFile(
 ): Promise<void> {
   await ensureContainingFolderExists(app, filePath);
 
-  console.log("[Longform Extended] Writing to:", filePath);
-
   await app.vault.adapter.write(filePath, contents);
 }
 
@@ -82,7 +78,7 @@ async function ensureContainingFolderExists(
 
   try {
     await app.vault.createFolder(containingFolderPath);
-  } catch (e) {
+  } catch {
     // do nothing, folder already existed
   }
 }

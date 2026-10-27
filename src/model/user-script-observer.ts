@@ -1,16 +1,35 @@
 import debounce from "lodash/debounce";
 import type { Vault, TAbstractFile } from "obsidian";
-import type { CompileStep, Workflow } from "src/compile";
+import type { CompileStep, CompileStepOption, Workflow } from "src/compile";
 import {
   CompileStepKind,
   CompileStepOptionType,
   makeBuiltinStep,
 } from "src/compile";
 import { pluginSettings, userScriptSteps, workflows } from "src/model/stores";
+import type { LongformExtendedPluginSettings } from "src/model/types";
 import type { Unsubscriber } from "svelte/store";
 import { get } from "svelte/store";
 
 const DEBOUNCE_SCRIPT_LOAD_DELAY_MS = 10_000;
+
+type RequireFn = (module: string) => unknown;
+
+type UserScriptOption = Partial<CompileStepOption> & {
+  type: string | number;
+};
+
+type UserScriptStep = {
+  id?: string;
+  optionValues?: Record<string, unknown>;
+  description: {
+    name: string;
+    description: string;
+    availableKinds: string[];
+    options?: UserScriptOption[];
+  };
+  compile: CompileStep["compile"];
+};
 
 /**
  * Watches the user's script folder and loads the scripts it finds there.
@@ -20,16 +39,13 @@ export class UserScriptObserver {
   userScriptFolder: string | null;
   private unsubscribeScriptFolder: Unsubscriber;
   private initializedSteps = false;
-  private onScriptModify: any;
+  private onScriptModify: () => void;
 
   constructor(vault: Vault, userScriptFolder: string | null) {
     this.vault = vault;
     this.userScriptFolder = userScriptFolder;
     this.onScriptModify = debounce(() => {
-      console.log(
-        `[Longform Extended] File in user script folder modified, reloading scripts…`
-      );
-      this.loadUserSteps();
+      void this.loadUserSteps();
     }, DEBOUNCE_SCRIPT_LOAD_DELAY_MS);
   }
 
@@ -41,31 +57,36 @@ export class UserScriptObserver {
     if (this.unsubscribeScriptFolder) {
       this.unsubscribeScriptFolder();
     }
-    this.unsubscribeScriptFolder = pluginSettings.subscribe(async (s) => {
-      if (
-        this.initializedSteps &&
-        s.userScriptFolder === this.userScriptFolder
-      ) {
-        return;
-      }
-
-      if (s.userScriptFolder == null) {
-        return;
-      }
-
-      const valid = await this.vault.adapter.exists(s.userScriptFolder);
-      if (!valid) {
-        return;
-      }
-
-      this.userScriptFolder = s.userScriptFolder;
-      if (this.userScriptFolder) {
-        await this.loadUserSteps();
-      } else {
-        userScriptSteps.set(null);
-        console.log("[Longform Extended] Cleared user script steps.");
-      }
+    this.unsubscribeScriptFolder = pluginSettings.subscribe((s) => {
+      void this.handleSettingsChange(s);
     });
+  }
+
+  private async handleSettingsChange(
+    s: LongformExtendedPluginSettings
+  ): Promise<void> {
+    if (
+      this.initializedSteps &&
+      s.userScriptFolder === this.userScriptFolder
+    ) {
+      return;
+    }
+
+    if (s.userScriptFolder == null) {
+      return;
+    }
+
+    const valid = await this.vault.adapter.exists(s.userScriptFolder);
+    if (!valid) {
+      return;
+    }
+
+    this.userScriptFolder = s.userScriptFolder;
+    if (this.userScriptFolder) {
+      await this.loadUserSteps();
+    } else {
+      userScriptSteps.set(null);
+    }
   }
 
   async loadUserSteps(): Promise<CompileStep[]> {
@@ -95,7 +116,6 @@ export class UserScriptObserver {
       }
     }
 
-    console.log(`[Longform Extended] Loaded ${userSteps.length} user script steps.`);
     userScriptSteps.set(userSteps);
 
     this.initializedSteps = true;
@@ -146,22 +166,28 @@ export class UserScriptObserver {
   private async loadScript(path: string): Promise<CompileStep> {
     const js = await this.vault.adapter.read(path);
 
-    // eslint-disable-next-line prefer-const
-    let _require = (s: string) => {
-      return window.require && window.require(s);
+    const windowWithRequire = window as Window & { require?: RequireFn };
+    const _require = (s: string): unknown => {
+      return windowWithRequire.require?.(s);
     };
-    // eslint-disable-next-line prefer-const
-    let exports: any = {};
-    // eslint-disable-next-line prefer-const
-    let module = {
+    const exports: Record<string, unknown> = {};
+    const module: { exports: unknown } = {
       exports,
     };
 
+    // User scripts are arbitrary JavaScript by design; executing them is the
+    // only way to support this feature.
     const evaluateScript = window.eval(
       "(function anonymous(require, module, exports){" + js + "\n})"
-    );
+    ) as (
+      require: RequireFn,
+      module: { exports: unknown },
+      exports: Record<string, unknown>
+    ) => void;
     evaluateScript(_require, module, exports);
-    const loadedStep: any = exports["default"] || module.exports;
+    const loadedStep = (exports["default"] || module.exports) as
+      | UserScriptStep
+      | undefined;
 
     if (!loadedStep) {
       console.error(
@@ -172,6 +198,13 @@ export class UserScriptObserver {
       );
     }
 
+    const options = (loadedStep.description.options ?? []).map((o) => ({
+      ...o,
+      type: CompileStepOptionType[
+        o.type as unknown as keyof typeof CompileStepOptionType
+      ],
+    })) as CompileStepOption[];
+
     const step = makeBuiltinStep(
       {
         ...loadedStep,
@@ -179,16 +212,9 @@ export class UserScriptObserver {
         description: {
           ...loadedStep.description,
           availableKinds: loadedStep.description.availableKinds.map(
-            (v: string) => CompileStepKind[v as keyof typeof CompileStepKind]
+            (v) => CompileStepKind[v as keyof typeof CompileStepKind]
           ),
-          options: loadedStep.description.options
-            ? loadedStep.description.options.map((o: any) => ({
-                ...o,
-                type: CompileStepOptionType[
-                  o.type as keyof typeof CompileStepOptionType
-                ],
-              }))
-            : [],
+          options,
         },
       },
       true

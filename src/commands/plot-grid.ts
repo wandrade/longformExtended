@@ -27,7 +27,7 @@ function resultNotice(result: PlotGridResult): string {
 }
 
 export const rebuildPlotGrid: CommandBuilder = (plugin) => ({
-  id: "longform-extended-rebuild-plot-grid",
+  id: "rebuild-plot-grid",
   name: "Rebuild subplot grid",
   checkCallback(checking: boolean) {
     const draft = get(selectedDraft);

@@ -34,8 +34,8 @@ export default class NewProjectModalContainer extends Modal {
   onOpen(): void {
     const { contentEl } = this;
 
-    contentEl.createEl("h1", { text: "Create Project" }, (el) => {
-      el.style.margin = "0 0 var(--size-4-4) 0";
+    contentEl.createEl("h1", { text: "Create project" }, (el) => {
+      el.setCssProps({ margin: "0 0 var(--size-4-4) 0" });
     });
     const entrypoint = contentEl.createDiv("longform-extended-add-create-project-root");
 
@@ -46,7 +46,7 @@ export default class NewProjectModalContainer extends Modal {
       async (format: "scenes" | "single", title: string, path: string) => {
         const exists = await this.app.vault.adapter.exists(path);
         if (exists) {
-          console.log(
+          console.warn(
             `[Longform Extended] Cannot create project at ${path}, already exists.`
           );
           return;
@@ -117,7 +117,7 @@ export default class NewProjectModalContainer extends Modal {
           selectedTab.set("Project");
         }
         if (format === "single") {
-          this.app.workspace.openLinkText(path, "/", false);
+          void this.app.workspace.openLinkText(path, "/", false);
         }
         this.close();
       }

@@ -60,6 +60,25 @@ type FileWithMetadata = {
   metadata: CachedMetadata;
 };
 
+type SyncPluginState = {
+  enabled?: boolean;
+  instance?: {
+    syncing?: boolean;
+    syncStatus?: unknown;
+  };
+};
+
+type AppWithInternalPlugins = {
+  internalPlugins?: {
+    plugins?: Record<string, SyncPluginState>;
+  };
+};
+
+function syncPluginState(app: App): SyncPluginState | undefined {
+  return (app as unknown as AppWithInternalPlugins).internalPlugins?.plugins
+    ?.sync;
+}
+
 /** A persisted display name, falling back to the built-in default. */
 export function noteGroupDisplayNameSetting(
   value: unknown,
@@ -141,8 +160,7 @@ export class StoreVaultSync {
 
   private isSyncEnabled(): boolean {
     try {
-      // @ts-ignore - accessing private API
-      const syncPlugin = this.app.internalPlugins?.plugins?.sync;
+      const syncPlugin = syncPluginState(this.app);
       return syncPlugin?.enabled === true;
     } catch {
       return false;
@@ -158,8 +176,7 @@ export class StoreVaultSync {
     }
 
     try {
-      // @ts-ignore - accessing private API
-      const sync = this.app.internalPlugins.plugins.sync.instance;
+      const sync = syncPluginState(this.app)?.instance;
 
       // Set waitingForSync to disable watchers and enable loading spinner
       waitingForSync.set(true);
@@ -176,29 +193,24 @@ export class StoreVaultSync {
           return;
         }
 
-        console.log("[Longform Extended] Waiting for active sync to complete...");
-
         // Poll sync status every second
-        const interval = setInterval(() => {
+        const interval = window.setInterval(() => {
           if (!sync.syncing) {
-            clearInterval(interval);
-            clearTimeout(timeout);  // Clear the timeout when sync completes
-            console.log("[Longform Extended] Sync complete.");
+            window.clearInterval(interval);
+            window.clearTimeout(timeout); // Clear the timeout when sync completes
             waitingForSync.set(false);
             resolve();
           }
-          console.log("[Longform Extended] Sync status:", sync.syncStatus);
         }, 1000);
 
         // Add a timeout just in case sync never completes
-        const timeout = setTimeout(() => {
-          clearInterval(interval);
-          console.log("[Longform Extended] Sync wait timed out");
+        const timeout = window.setTimeout(() => {
+          window.clearInterval(interval);
           waitingForSync.set(false);
           resolve();
         }, this.settlingTime);
       });
-    } catch (error) {
+    } catch {
       waitingForSync.set(false);
       return this.fallbackWait();
     }
@@ -211,7 +223,7 @@ export class StoreVaultSync {
     }
 
     return new Promise(resolve =>
-      setTimeout(resolve, settings.fallbackWaitTime * 1000)
+      window.setTimeout(resolve, settings.fallbackWaitTime * 1000)
     );
   }
 
@@ -221,14 +233,12 @@ export class StoreVaultSync {
       await this.discoverDrafts();
 
       this.isInitializing = false;
-    } catch (error) {
+    } catch {
       this.isInitializing = false;
     }
   }
 
   async discoverDrafts() {
-    const start = new Date().getTime();
-
     const files = this.vault.getMarkdownFiles();
     const resolvedFiles = files.map((f) =>
       resolveIfLongformExtendedFile(this.metadataCache, f)
@@ -257,14 +267,9 @@ export class StoreVaultSync {
     );
     draftsStore.set(draftsToWrite);
 
-    const message = `[Longform Extended] Loaded and watching projects. Found ${draftFiles.length
-      } drafts in ${(new Date().getTime() - start) / 1000.0}s.`;
-
-    console.log(message);
-
-    this.unsubscribeDraftsStore = draftsStore.subscribe(
-      this.draftsStoreChanged.bind(this)
-    );
+    this.unsubscribeDraftsStore = draftsStore.subscribe((drafts) => {
+      void this.draftsStoreChanged(drafts);
+    });
   }
 
   async fileMetadataChanged(file: TFile, _data: string, cache: CachedMetadata) {
@@ -698,23 +703,25 @@ export class StoreVaultSync {
     if (!fileWithMetadata.metadata.frontmatter) {
       return null;
     }
-    const longformEntry = fileWithMetadata.metadata.frontmatter["longform"];
+    const longformEntry = fileWithMetadata.metadata.frontmatter[
+      "longform"
+    ] as Record<string, unknown> | null | undefined;
     if (!longformEntry) {
       return null;
     }
     const format = longformEntry["format"];
     const vaultPath = fileWithMetadata.file.path;
-    let title = longformEntry["title"];
+    let title = longformEntry["title"] as string | undefined;
     let titleInFrontmatter = true;
     if (!title) {
       titleInFrontmatter = false;
       title = fileNameFromPath(vaultPath);
     }
-    const workflow = longformEntry["workflow"] ?? null;
-    const draftTitle = longformEntry["draftTitle"] ?? null;
+    const workflow = (longformEntry["workflow"] ?? null) as string | null;
+    const draftTitle = (longformEntry["draftTitle"] ?? null) as string | null;
 
     if (format === "scenes") {
-      let rawScenes: any = longformEntry["scenes"] ?? [];
+      let rawScenes = (longformEntry["scenes"] ?? []) as unknown[];
 
       if (rawScenes.length === 0) {
         // fallback for issue where the metadata cache seems to fail to recognize yaml arrays.
@@ -725,12 +732,12 @@ export class StoreVaultSync {
         // 2023-01-03: Confirmed this issue is still present; using new processFrontMatter function
         // seems to read correctly, though!
 
-        let fm = null;
+        let fm: Record<string, unknown> | null = null;
         try {
           await this.app.fileManager.processFrontMatter(
             fileWithMetadata.file,
-            (_fm) => {
-              fm = _fm;
+            (frontmatter: Record<string, unknown>) => {
+              fm = frontmatter;
             }
           );
         } catch (error) {
@@ -741,13 +748,14 @@ export class StoreVaultSync {
         }
 
         if (fm) {
-          rawScenes = fm["longform"]["scenes"];
+          const longform = fm["longform"] as Record<string, unknown>;
+          rawScenes = longform["scenes"] as unknown[];
         }
       }
 
       // Convert to indented scenes
       const scenes = arraysToIndentedScenes(rawScenes);
-      const sceneFolder = longformEntry["sceneFolder"] ?? "/";
+      const sceneFolder = (longformEntry["sceneFolder"] ?? "/") as string;
       const sceneDisplayName = noteGroupDisplayNameSetting(
         longformEntry["sceneDisplayName"],
         DEFAULT_SCENE_DISPLAY_NAME
@@ -761,17 +769,22 @@ export class StoreVaultSync {
         DEFAULT_CHARACTERS_DISPLAY_NAME
       );
       const noteGroups = parseNoteGroups(longformEntry["noteGroups"]);
-      const sceneTemplate = longformEntry["sceneTemplate"] ?? null;
-      const plotTemplate = longformEntry["plotTemplate"] ?? null;
-      const characterTemplate = longformEntry["characterTemplate"] ?? null;
-      const timeframeTagName =
-        longformEntry["timeframeTagName"] ?? DEFAULT_TIMEFRAME_TAG_NAME;
-      const timeFormat = isTimeframeFormat(longformEntry["timeFormat"])
-        ? longformEntry["timeFormat"]
+      const sceneTemplate = (longformEntry["sceneTemplate"] ??
+        null) as string | null;
+      const plotTemplate = (longformEntry["plotTemplate"] ??
+        null) as string | null;
+      const characterTemplate = (longformEntry["characterTemplate"] ??
+        null) as string | null;
+      const timeframeTagName = (longformEntry["timeframeTagName"] ??
+        DEFAULT_TIMEFRAME_TAG_NAME) as string;
+      const rawTimeFormat = longformEntry["timeFormat"];
+      const timeFormat = isTimeframeFormat(rawTimeFormat)
+        ? rawTimeFormat
         : DEFAULT_TIME_FORMAT;
+      const rawKanbanColumns = longformEntry["kanbanColumns"];
       const kanbanColumns =
-        typeof longformEntry["kanbanColumns"] === "string"
-          ? longformEntry["kanbanColumns"]
+        typeof rawKanbanColumns === "string"
+          ? rawKanbanColumns
           : DEFAULT_KANBAN_COLUMNS;
       const kanbanShowUnassigned =
         longformEntry["kanbanShowUnassigned"] === true;
@@ -781,28 +794,34 @@ export class StoreVaultSync {
       const kanbanIncludePlots =
         longformEntry["kanbanIncludePlots"] !== false;
       const timelineEnabled = longformEntry["timelineEnabled"] !== false;
+      const rawKanbanOutputPath = longformEntry["kanbanOutputPath"];
       const kanbanOutputPath =
-        typeof longformEntry["kanbanOutputPath"] === "string"
-          ? longformEntry["kanbanOutputPath"]
+        typeof rawKanbanOutputPath === "string"
+          ? rawKanbanOutputPath
           : DEFAULT_KANBAN_OUTPUT_PATH;
+      const rawTimelineOutputPath = longformEntry["timelineOutputPath"];
       const timelineOutputPath =
-        typeof longformEntry["timelineOutputPath"] === "string"
-          ? longformEntry["timelineOutputPath"]
+        typeof rawTimelineOutputPath === "string"
+          ? rawTimelineOutputPath
           : DEFAULT_TIMELINE_OUTPUT_PATH;
       const plotGridEnabled = longformEntry["plotGridEnabled"] !== false;
+      const rawPlotGridOutputPath = longformEntry["plotGridOutputPath"];
       const plotGridOutputPath =
-        typeof longformEntry["plotGridOutputPath"] === "string"
-          ? longformEntry["plotGridOutputPath"]
+        typeof rawPlotGridOutputPath === "string"
+          ? rawPlotGridOutputPath
           : DEFAULT_PLOT_GRID_OUTPUT_PATH;
+      const rawPlotGridPlotsDir = longformEntry["plotGridPlotsDir"];
       const plotGridPlotsDir =
-        typeof longformEntry["plotGridPlotsDir"] === "string"
-          ? longformEntry["plotGridPlotsDir"]
+        typeof rawPlotGridPlotsDir === "string"
+          ? rawPlotGridPlotsDir
           : DEFAULT_PLOT_GRID_PLOTS_DIR;
+      const rawPlotGridCharactersDir =
+        longformEntry["plotGridCharactersDir"];
       const plotGridCharactersDir =
-        typeof longformEntry["plotGridCharactersDir"] === "string"
-          ? longformEntry["plotGridCharactersDir"]
+        typeof rawPlotGridCharactersDir === "string"
+          ? rawPlotGridCharactersDir
           : DEFAULT_PLOT_GRID_CHARACTERS_DIR;
-      const ignoredFiles: string[] = longformEntry["ignoredFiles"] ?? [];
+      const ignoredFiles = (longformEntry["ignoredFiles"] ?? []) as string[];
       const normalizedSceneFolder = normalizePath(
         `${fileWithMetadata.file.parent.path}/${sceneFolder}`
       );
@@ -815,8 +834,9 @@ export class StoreVaultSync {
           .filter((f) => f !== fileWithMetadata.file.path && f.endsWith(".md"))
           .map((f) => this.vault.getAbstractFileByPath(f)?.name.slice(0, -3))
           .filter(
-            (maybeName) => maybeName !== null && maybeName !== undefined
-          ) as string[];
+            (maybeName): maybeName is string =>
+              maybeName !== null && maybeName !== undefined
+          );
       }
 
       // Filter removed scenes
@@ -918,7 +938,7 @@ export class StoreVaultSync {
         dirty: false,
       };
     } else {
-      console.log(
+      console.warn(
         `[Longform Extended] Error loading draft at ${fileWithMetadata.file.path}: invalid longform.format. Ignoring.`
       );
       return null;
@@ -931,9 +951,12 @@ export class StoreVaultSync {
       return;
     }
 
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
-      setDraftOnFrontmatterObject(fm, draft);
-    });
+    await this.app.fileManager.processFrontMatter(
+      file,
+      (fm: Record<string, unknown>) => {
+        setDraftOnFrontmatterObject(fm, draft);
+      }
+    );
 
     // for multi-scene projects, optionally set a property on each scene that holds its order within the project
     if (get(pluginSettings).writeProperty) {
@@ -972,7 +995,7 @@ export function syncSceneIndices(app: App): void | Promise<void[]> {
   const writes: Promise<void>[] = [];
   get(draftsStore).forEach((draft) => {
     if (draft.format !== "scenes") return;
-    numberScenes(draft.scenes).map((numberedScene, index) => {
+    void numberScenes(draft.scenes).map((numberedScene, index) => {
       const sceneFilePath = scenePath(numberedScene.title, draft, app.vault);
 
       const sceneFile = app.vault.getAbstractFileByPath(sceneFilePath);
@@ -993,10 +1016,13 @@ function writeSceneNumbers(
   index: number,
   numbering: number[]
 ) {
-  return app.fileManager.processFrontMatter(file, (fm) => {
-    fm["longform-order"] = index;
-    fm["longform-number"] = formatSceneNumber(numbering);
-  });
+  return app.fileManager.processFrontMatter(
+    file,
+    (fm: Record<string, unknown>) => {
+      fm["longform-order"] = index;
+      fm["longform-number"] = formatSceneNumber(numbering);
+    }
+  );
 }
 
 const ESCAPED_CHARACTERS = new Set("/&$^+.()=!|[]{},".split(""));
