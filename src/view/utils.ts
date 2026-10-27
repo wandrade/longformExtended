@@ -22,12 +22,12 @@ export function isValidFilename(name: string): boolean {
     .some((c) => name.contains(c));
 }
 
-export function appContext(view: View | Modal): Map<string, any> {
-  const context = new Map<string, any>();
+export function appContext(view: View | Modal): Map<string, unknown> {
+  const context = new Map<string, unknown>();
   context.set("app", view.app);
   return context;
 }
 
 export function useApp(): App {
-  return getContext("app") as App;
+  return getContext("app");
 }

@@ -17,9 +17,10 @@ import {
 import { JumpModal } from "./helpers";
 import { draftTitle } from "src/model/draft-utils";
 import type { Draft } from "src/model/types";
+import type { Workflow } from "src/compile";
 
 export const compileCurrent: CommandBuilder = (plugin) => ({
-  id: "longform-extended-compile-current",
+  id: "compile-current",
   name: "Compile current project with current workflow",
   checkCallback: (checking: boolean) => {
     const draft = get(selectedDraft);
@@ -46,7 +47,7 @@ export const compileCurrent: CommandBuilder = (plugin) => ({
       }
     }
 
-    compile(
+    void compile(
       plugin.app,
       draft,
       workflow,
@@ -57,7 +58,7 @@ export const compileCurrent: CommandBuilder = (plugin) => ({
 });
 
 export const compileSelection: CommandBuilder = (plugin) => ({
-  id: "longform-extended-compile-selection",
+  id: "compile-selection",
   name: "Compile project…",
   checkCallback: (checking: boolean) => {
     const allProjects = get(projects);
@@ -92,7 +93,7 @@ export const compileSelection: CommandBuilder = (plugin) => ({
         if (!project) {
           return;
         }
-        const opts = new Map();
+        const opts = new Map<string, Draft>();
         project.forEach((d) => {
           opts.set(draftTitle(d), d);
         });
@@ -118,7 +119,7 @@ export const compileSelection: CommandBuilder = (plugin) => ({
             // Choose workflow
 
             const allWorkflows = get(workflows);
-            const opts = new Map();
+            const opts = new Map<string, Workflow>();
             Object.keys(allWorkflows).forEach((k) => {
               opts.set(k, allWorkflows[k]);
             });
@@ -157,7 +158,7 @@ export const compileSelection: CommandBuilder = (plugin) => ({
                   }
                 }
 
-                compile(
+                void compile(
                   plugin.app,
                   draft,
                   workflow,

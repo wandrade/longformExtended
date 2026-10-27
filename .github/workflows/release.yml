@@ -1,9 +1,15 @@
 name: Release
 
+# Release only after a PR that carries the `release` label is merged into main.
+# `pull_request` (not `pull_request_target`) keeps the token scoped to this
+# workflow, and the job is skipped for unmerged, unlabeled, `no-release`, and
+# contradictory (both labels) pull requests.
 on:
-  push:
+  pull_request:
     branches: [main]
+    types: [closed]
 
+# Least privilege: creating the tag and GitHub release needs write access.
 permissions:
   contents: write
 
@@ -16,17 +22,39 @@ concurrency:
 jobs:
   release:
     name: Release
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release') &&
+      !contains(github.event.pull_request.labels.*.name, 'no-release')
     runs-on: ubuntu-latest
     steps:
-      # Full history/tags: the version gate compares against released tags.
+      # Check out the actual merge commit, with full history/tags so the
+      # version gate can compare against released tags.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
       - run: npm ci
+
+      - name: Verify merge commit
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MERGE_SHA}" ]; then
+            echo "::error::The merged pull request has no merge commit SHA."
+            exit 1
+          fi
+          checked_out="$(git rev-parse HEAD)"
+          if [ "${checked_out}" != "${MERGE_SHA}" ]; then
+            echo "::error::Checked out ${checked_out}, expected merge commit ${MERGE_SHA}."
+            exit 1
+          fi
+          echo "Release target: ${MERGE_SHA}"
 
       - name: Run unit tests
         run: npm run test:unit -- --run
@@ -44,6 +72,8 @@ jobs:
           set -euo pipefail
           version="$(node -p "require('./manifest.json').version")"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
+          # Strict mode: the release must be strictly greater than the latest
+          # release tag (or the first release when no tag exists).
           node .github/scripts/check-version.mjs --mode release
 
       - name: Verify the tag does not already exist
@@ -79,10 +109,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.value }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           set -euo pipefail
+          if [ -z "${MERGE_SHA}" ]; then
+            echo "::error::Cannot tag an empty merge commit SHA."
+            exit 1
+          fi
           gh release create "$VERSION" \
-            --target "$GITHUB_SHA" \
+            --target "$MERGE_SHA" \
             --title "$VERSION" \
             --generate-notes \
             main.js manifest.json styles.css

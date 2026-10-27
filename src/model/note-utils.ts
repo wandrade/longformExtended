@@ -3,6 +3,30 @@ import type { App, TFile } from "obsidian";
 
 import type { Draft, DraftWordCounts } from "./types";
 
+type ObsidianAppInternals = {
+  plugins: { getPlugin: (id: string) => unknown };
+  internalPlugins: { getEnabledPluginById: (id: string) => unknown };
+};
+
+type TemplaterPlugin = {
+  templater: {
+    create_running_config: (
+      template: unknown,
+      file: TFile,
+      line: number
+    ) => unknown;
+    read_and_parse_template: (config: unknown) => Promise<string>;
+  };
+};
+
+type TemplatesPlugin = {
+  options: Record<string, unknown>;
+};
+
+function appInternals(app: App): ObsidianAppInternals {
+  return app as unknown as ObsidianAppInternals;
+}
+
 export function fileNameFromPath(path: string): string {
   return last(path.split("/")).split(".md")[0];
 }
@@ -79,11 +103,11 @@ export async function createNote(
 }
 
 function isTemplaterEnabled(app: App): boolean {
-  return !!(app as any).plugins.getPlugin("templater-obsidian");
+  return !!appInternals(app).plugins.getPlugin("templater-obsidian");
 }
 
 function isTemplatesEnabled(app: App): boolean {
-  return !!(app as any).internalPlugins.getEnabledPluginById("templates");
+  return !!appInternals(app).internalPlugins.getEnabledPluginById("templates");
 }
 
 async function createWithTemplater(
@@ -91,7 +115,9 @@ async function createWithTemplater(
   file: TFile,
   templatePath: string
 ): Promise<string> {
-  const templaterPlugin = (app as any).plugins.getPlugin("templater-obsidian");
+  const templaterPlugin = appInternals(app).plugins.getPlugin(
+    "templater-obsidian"
+  ) as TemplaterPlugin | null;
   if (!templaterPlugin) {
     console.error(
       "[Longform Extended] Attempted to use Templater plugin while disabled."
@@ -112,9 +138,9 @@ async function createWithTemplates(
   app: App,
   templatePath: string
 ): Promise<string> {
-  const corePlugin = (app as any).internalPlugins.getEnabledPluginById(
+  const corePlugin = appInternals(app).internalPlugins.getEnabledPluginById(
     "templates"
-  );
+  ) as TemplatesPlugin | null;
   if (!corePlugin) {
     console.error(
       "[Longform Extended] Attempted to use core template plugin while disabled."
@@ -125,8 +151,16 @@ async function createWithTemplates(
   let contents = await app.vault.adapter.read(templatePath);
 
   // Replace {{date}} and {{time}}
-  const dateFormat = corePlugin.options["dateFormat"] || "YYYY-MM-DD";
-  const timeFormat = corePlugin.options["timeFormat"] || "HH:mm";
+  const rawDateFormat = corePlugin.options["dateFormat"];
+  const rawTimeFormat = corePlugin.options["timeFormat"];
+  const dateFormat =
+    typeof rawDateFormat === "string" && rawDateFormat
+      ? rawDateFormat
+      : "YYYY-MM-DD";
+  const timeFormat =
+    typeof rawTimeFormat === "string" && rawTimeFormat
+      ? rawTimeFormat
+      : "HH:mm";
 
   contents = contents.replace(`{{date}}`, window.moment().format(dateFormat));
   contents = contents.replace(`{{time}}`, window.moment().format(timeFormat));

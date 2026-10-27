@@ -35,13 +35,13 @@ export async function createScene(
   if (note === null) return;
 
   if (get(pluginSettings).writeProperty) {
-    await app.fileManager.processFrontMatter(note, (fm) => {
+    await app.fileManager.processFrontMatter(note, (fm: Record<string, unknown>) => {
       fm["longform-order"] = index;
     });
   }
 
   if (open) {
-    app.workspace.openLinkText(path, "/", false);
+    void app.workspace.openLinkText(path, "/", false);
   }
 }
 
@@ -90,72 +90,75 @@ export async function insertScene(
   );
 }
 
+export type NestedStringArray = (string | NestedStringArray)[];
+
 export function setDraftOnFrontmatterObject(
-  obj: Record<string, any>,
+  obj: Record<string, unknown>,
   draft: Draft
 ) {
-  obj["longform"] = {};
-  obj["longform"]["format"] = draft.format;
+  const longform: Record<string, unknown> = {};
+  obj["longform"] = longform;
+  longform["format"] = draft.format;
   if (draft.titleInFrontmatter) {
-    obj["longform"]["title"] = draft.title;
+    longform["title"] = draft.title;
   }
   if (draft.draftTitle) {
-    obj["longform"]["draftTitle"] = draft.draftTitle;
+    longform["draftTitle"] = draft.draftTitle;
   }
   if (draft.workflow) {
-    obj["longform"]["workflow"] = draft.workflow;
+    longform["workflow"] = draft.workflow;
   }
 
   if (draft.format === "scenes") {
-    obj["longform"]["sceneFolder"] = draft.sceneFolder;
-    obj["longform"]["timeframeTagName"] = draft.timeframeTagName;
-    obj["longform"]["timeFormat"] = draft.timeFormat;
-    obj["longform"]["kanbanColumns"] = draft.kanbanColumns;
-    obj["longform"]["kanbanOutputPath"] = draft.kanbanOutputPath;
+    longform["sceneFolder"] = draft.sceneFolder;
+    longform["timeframeTagName"] = draft.timeframeTagName;
+    longform["timeFormat"] = draft.timeFormat;
+    longform["kanbanColumns"] = draft.kanbanColumns;
+    longform["kanbanOutputPath"] = draft.kanbanOutputPath;
     if (draft.kanbanShowUnassigned) {
-      obj["longform"]["kanbanShowUnassigned"] = true;
+      longform["kanbanShowUnassigned"] = true;
     }
     if (!draft.kanbanSaveWordCounts) {
-      obj["longform"]["kanbanSaveWordCounts"] = false;
+      longform["kanbanSaveWordCounts"] = false;
     }
     if (!draft.kanbanEnabled) {
-      obj["longform"]["kanbanEnabled"] = false;
+      longform["kanbanEnabled"] = false;
     }
     if (!draft.kanbanIncludePlots) {
-      obj["longform"]["kanbanIncludePlots"] = false;
+      longform["kanbanIncludePlots"] = false;
     }
     if (!draft.timelineEnabled) {
-      obj["longform"]["timelineEnabled"] = false;
+      longform["timelineEnabled"] = false;
     }
-    obj["longform"]["timelineOutputPath"] = draft.timelineOutputPath;
+    longform["timelineOutputPath"] = draft.timelineOutputPath;
     if (!draft.plotGridEnabled) {
-      obj["longform"]["plotGridEnabled"] = false;
+      longform["plotGridEnabled"] = false;
     }
-    obj["longform"]["plotGridOutputPath"] = draft.plotGridOutputPath;
+    longform["plotGridOutputPath"] = draft.plotGridOutputPath;
     // Remove the retired project-level grid level key.
-    delete obj["longform"]["plotGridLevel"];
-    obj["longform"]["plotGridPlotsDir"] = draft.plotGridPlotsDir;
-    obj["longform"]["plotGridCharactersDir"] = draft.plotGridCharactersDir;
-    obj["longform"]["scenes"] = indentedScenesToArrays(draft.scenes);
-    obj["longform"]["plots"] = indentedScenesToArrays(draft.plots);
-    obj["longform"]["characters"] = indentedScenesToArrays(draft.characters);
+    delete longform["plotGridLevel"];
+    longform["plotGridPlotsDir"] = draft.plotGridPlotsDir;
+    longform["plotGridCharactersDir"] = draft.plotGridCharactersDir;
+    longform["scenes"] = indentedScenesToArrays(draft.scenes);
+    longform["plots"] = indentedScenesToArrays(draft.plots);
+    longform["characters"] = indentedScenesToArrays(draft.characters);
 
     // Display names are pure presentation, so only a non-default value is
     // persisted. Empty values fall back to the defaults and are omitted too.
     const sceneDisplayName =
       draft.sceneDisplayName?.trim() || DEFAULT_SCENE_DISPLAY_NAME;
     if (sceneDisplayName !== DEFAULT_SCENE_DISPLAY_NAME) {
-      obj["longform"]["sceneDisplayName"] = sceneDisplayName;
+      longform["sceneDisplayName"] = sceneDisplayName;
     }
     const plotsDisplayName =
       draft.plotsDisplayName?.trim() || DEFAULT_PLOTS_DISPLAY_NAME;
     if (plotsDisplayName !== DEFAULT_PLOTS_DISPLAY_NAME) {
-      obj["longform"]["plotsDisplayName"] = plotsDisplayName;
+      longform["plotsDisplayName"] = plotsDisplayName;
     }
     const charactersDisplayName =
       draft.charactersDisplayName?.trim() || DEFAULT_CHARACTERS_DISPLAY_NAME;
     if (charactersDisplayName !== DEFAULT_CHARACTERS_DISPLAY_NAME) {
-      obj["longform"]["charactersDisplayName"] = charactersDisplayName;
+      longform["charactersDisplayName"] = charactersDisplayName;
     }
 
     // Custom groups are configuration only. An empty list is omitted, and
@@ -170,7 +173,7 @@ export function setDraftOnFrontmatterObject(
       })
       .filter(({ name }) => name.length > 0);
     if (noteGroups.length > 0) {
-      obj["longform"]["noteGroups"] = noteGroups.map(({ group, name, folder }) => {
+      longform["noteGroups"] = noteGroups.map(({ group, name, folder }) => {
         const template =
           typeof group.template === "string" ? group.template.trim() : "";
         return {
@@ -182,26 +185,28 @@ export function setDraftOnFrontmatterObject(
       });
     }
     if (draft.sceneTemplate) {
-      obj["longform"]["sceneTemplate"] = draft.sceneTemplate;
+      longform["sceneTemplate"] = draft.sceneTemplate;
     }
     if (draft.plotTemplate) {
-      obj["longform"]["plotTemplate"] = draft.plotTemplate;
+      longform["plotTemplate"] = draft.plotTemplate;
     }
     if (draft.characterTemplate) {
-      obj["longform"]["characterTemplate"] = draft.characterTemplate;
+      longform["characterTemplate"] = draft.characterTemplate;
     }
-    obj["longform"]["ignoredFiles"] = draft.ignoredFiles;
+    longform["ignoredFiles"] = draft.ignoredFiles;
   }
 }
 
-export function indentedScenesToArrays(indented: IndentedScene[]) {
-  const result: any = [];
+export function indentedScenesToArrays(
+  indented: IndentedScene[]
+): NestedStringArray {
+  const result: NestedStringArray = [];
   // track our current indentation level
   let currentIndent = 0;
   // array for the current indentation level
-  let currentNesting = result;
+  let currentNesting: NestedStringArray = result;
   // memoized arrays so that later, lesser indents can use earlier-created array
-  const nestingAt: Record<number, any> = {};
+  const nestingAt: Record<number, NestedStringArray> = {};
   nestingAt[0] = currentNesting;
 
   indented.forEach(({ title, indent }) => {
@@ -210,7 +215,7 @@ export function indentedScenesToArrays(indented: IndentedScene[]) {
       // so build up a nest and memoize it
       while (currentIndent < indent) {
         currentIndent = currentIndent + 1;
-        const newNesting: any = [];
+        const newNesting: NestedStringArray = [];
         currentNesting.push(newNesting);
         nestingAt[currentIndent] = newNesting;
         currentNesting = newNesting;
@@ -236,13 +241,13 @@ export function indentedScenesToArrays(indented: IndentedScene[]) {
  * scene list.
  */
 export function arraysToIndentedScenes(
-  arr: any,
+  arr: unknown,
   result: IndentedScene[] = [],
   currentIndent = -1
 ): IndentedScene[] {
   if (arr instanceof Array) {
     let scenes = result;
-    for (const item of arr) {
+    for (const item of arr as unknown[]) {
       const inner = arraysToIndentedScenes(item, [], currentIndent + 1);
       scenes = scenes.concat(inner);
     }
@@ -250,7 +255,7 @@ export function arraysToIndentedScenes(
   } else {
     return [
       {
-        title: arr,
+        title: arr as string,
         indent: currentIndent,
       },
     ];
@@ -309,7 +314,7 @@ export async function insertDraftIntoFrontmatter(
   }
   try {
     await app.fileManager.processFrontMatter(file, (fm) => {
-      setDraftOnFrontmatterObject(fm, draft);
+      setDraftOnFrontmatterObject(fm as Record<string, unknown>, draft);
     });
   } catch (error) {
     console.error(

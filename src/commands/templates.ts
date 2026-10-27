@@ -35,14 +35,8 @@ const callbackForFormat = (
 
   // check if this is already a draft or scene, if so, do nothing
   const draft = draftForPath(file.path, get(drafts));
-  if (checking && draft) {
-    return false;
-  } else if (draft) {
-    console.log(
-      `[Longform Extended] Attempted to insert frontmatter into existing draft at ${file.path}; ignoring.`
-    );
-  } else if (checking) {
-    return true;
+  if (checking) {
+    return !draft;
   }
 
   const title = fileNameFromPath(file.path);
@@ -98,13 +92,13 @@ const callbackForFormat = (
     }
   })();
 
-  insertDraftIntoFrontmatter(view.app, file.path, newDraft).then(() => {
+  void insertDraftIntoFrontmatter(view.app, file.path, newDraft).then(() => {
     selectedDraftVaultPath.set(file.path);
   });
 };
 
 export const insertMultiSceneTemplate: CommandBuilder = (_plugin) => ({
-  id: "longform-extended-insert-multi-scene",
+  id: "insert-multi-scene",
   name: "Insert multi-scene frontmatter",
   editorCheckCallback(checking, editor, view) {
     const result = callbackForFormat("scenes", checking, editor, view);
@@ -113,7 +107,7 @@ export const insertMultiSceneTemplate: CommandBuilder = (_plugin) => ({
 });
 
 export const insertSingleSceneTemplate: CommandBuilder = (_plugin) => ({
-  id: "longform-extended-insert-single-scene",
+  id: "insert-single-scene",
   name: "Insert single-scene frontmatter",
   editorCheckCallback(checking, editor, view) {
     return callbackForFormat("single", checking, editor, view);

@@ -10,7 +10,7 @@ import {
 } from "../model/kanban";
 
 export const rebuildKanban: CommandBuilder = (plugin) => ({
-  id: "longform-extended-rebuild-kanban",
+  id: "rebuild-kanban",
   name: "Rebuild kanban",
   checkCallback(checking: boolean) {
     const draft = get(selectedDraft);

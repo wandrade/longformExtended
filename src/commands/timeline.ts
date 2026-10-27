@@ -6,7 +6,7 @@ import { selectedDraft } from "../model/stores";
 import { buildTimeline, writeTimeline } from "../model/timeline";
 
 export const rebuildTimeline: CommandBuilder = (plugin) => ({
-  id: "longform-extended-rebuild-timeline",
+  id: "rebuild-timeline",
   name: "Rebuild timeline",
   checkCallback(checking: boolean) {
     const draft = get(selectedDraft);

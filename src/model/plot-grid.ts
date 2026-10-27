@@ -754,10 +754,10 @@ function hasFrontmatterKey(
   frontmatter: Record<string, unknown> | undefined,
   key: string
 ): boolean {
-  return (
-    frontmatter != null &&
-    Object.prototype.hasOwnProperty.call(frontmatter, key)
-  );
+  if (frontmatter == null) {
+    return false;
+  }
+  return Object.prototype.hasOwnProperty.call(frontmatter, key) as boolean;
 }
 
 /** True when a plot-grid cell has no meaningful value yet. */
@@ -772,7 +772,7 @@ function isEmptyPlotGridValue(value: unknown): boolean {
     return value.length === 0 || value.every(isEmptyPlotGridValue);
   }
   if (typeof value === "object") {
-    return Object.keys(value as Record<string, unknown>).length === 0;
+    return Object.keys(value).length === 0;
   }
   return false;
 }
@@ -814,30 +814,33 @@ async function ensurePlotGridDataFor(
       continue;
     }
 
-    await app.fileManager.processFrontMatter(file, (next) => {
-      for (const { key, legacyKey } of migrations) {
-        if (!hasFrontmatterKey(next, legacyKey)) {
-          continue;
+    await app.fileManager.processFrontMatter(
+      file,
+      (next: Record<string, unknown>) => {
+        for (const { key, legacyKey } of migrations) {
+          if (!hasFrontmatterKey(next, legacyKey)) {
+            continue;
+          }
+          if (
+            hasFrontmatterKey(next, key) &&
+            !isEmptyPlotGridValue(next[key])
+          ) {
+            continue;
+          }
+          next[key] = next[legacyKey];
+          // The legacy key is the old form of this same level's cell. Other
+          // levels keep their own keys; this only removes the migrated duplicate.
+          if (hasFrontmatterKey(next, legacyKey)) {
+            delete next[legacyKey];
+          }
         }
-        if (
-          hasFrontmatterKey(next, key) &&
-          !isEmptyPlotGridValue(next[key])
-        ) {
-          continue;
-        }
-        next[key] = next[legacyKey];
-        // The legacy key is the old form of this same level's cell. Other
-        // levels keep their own keys; this only removes the migrated duplicate.
-        if (hasFrontmatterKey(next, legacyKey)) {
-          delete next[legacyKey];
+        for (const column of missing) {
+          if (!hasFrontmatterKey(next, column.key)) {
+            next[column.key] = "";
+          }
         }
       }
-      for (const column of missing) {
-        if (!hasFrontmatterKey(next, column.key)) {
-          next[column.key] = "";
-        }
-      }
-    });
+    );
     notesWritten += 1;
   }
 

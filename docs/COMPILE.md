@@ -1,6 +1,6 @@
 # Compile
 
-Longform Extended's Compile tab helps you turn a project into a final document. In the tab, you build **workflows** comprising **steps**. You can also write your own **user scripts** in JavaScript to build out fully custom compilation processes; hopefully, though, the built-in steps are sufficient for most use cases. If not, and you'd like to suggest a new step that you think should be included by default, please [suggest it as a GitHub issue](https://github.com/wandrade/longformExtended/issues).
+Longform Extended's Compile tab helps you turn a project into a final document. In the tab, you build **workflows** comprising **steps**. Hopefully the built-in steps are sufficient for most use cases. If not, and you'd like to suggest a new step that you think should be included by default, please [suggest it as a GitHub issue](https://github.com/wandrade/longformExtended/issues).
 
 ## Steps
 
@@ -88,102 +88,9 @@ Saves the manuscript as Markdown note in your vault. Options:
 | Output Path              | Text    | manuscript.md | Path relative to your project at which to save your compiled manuscript. $1, if present, will be replaced with your project’s title. |
 | Open Compiled Manuscript | Boolean | true          | If checked, open the compiled manuscript in a new pane.                                                                              |
 
-### User Script Steps
+### User-script steps removed
 
-In addition to the built-in steps above, Longform Extended also supports user script steps, which are arbitrary JavaScript scripts that can be loaded and used like any other step.
-
-To add a user script to Longform Extended, first create a folder somewhere in your vault where you'd like to store your user script steps. Longform Extended will attempt to load all `.js` files in this folder as steps.
-
-Next, add your first step as a `.js` file. Every step must export an object in the following shape:
-
-```js
-
-compile = (input, context) => {
-  /**
-    Function that is executed during compilation. It may be `async`.
-    Errors encountered during execution should be thrown and will
-    be handled by Longform Extended.
-    @param input If the step is of kind Scene or Join (see context),
-    this will be *an array* containing elements of type:
-      {
-        path: string; // path to scene
-        name: string; // file name of scene
-        contents: string; // text contents of scene
-        metadata: CachedMetadata; // Obsidian metadata of scene
-        indentationLevel?: number; // The indent level (starting at zero) of the scene
-      }
-    where each element corresponds to a scene (and thus the step has access to all scenes at once in `input`).
-    If the step is of kind Manuscript (see context), this will be of type:
-      {
-        // text contents of manuscript
-        contents: string;
-      }
-    @param context The execution context of the step, including the step
-    kind and option values:
-      {
-        kind: string; // "Scene" | "Join" | "Manuscript"
-        optionValues: { [id: string]: unknown } // Map of option IDs to values
-        projectPath: string; // path in vault to compiling project
-        draft: Draft; // The Draft type describing your project
-        app: App; // Obsidian app
-      }
-    @note For an example of using `context` to determine the shape of `input`, see
-    https://github.com/wandrade/longformExtended/blob/main/src/compile/steps/strip-frontmatter.ts
-    @returns If of kind "Scene" or "Manuscript", the same shape as `input`
-    with the appropriate changes made to `contents`. If of kind "Join",
-    the same shape as a "Manuscript" step input.
-  */
-  return;
-}
-
-module.exports = {
-  // object that describes the step and its configuration
-  description: {
-    // the name of your step
-    name: "My Step",
-
-    // short description of what it does
-    description: "Does something cool",
-
-    // array. valid options are "Scene", "Manuscript", "Join". "Join" must be the only member if present.
-    availableKinds: ["Scene", "Manuscript"],
-
-    // array of step options, or an empty array if step has no options
-    options: [
-      {
-        // string ID you can use to get the option's value during compile
-        id: "my-text-option",
-
-        // name of this option for display
-        name: "Customizes something in my step",
-
-        // description of what the option does
-        description: "Longer description of what exactly this option does",
-
-        // enum, either "Text" or "Boolean"
-        type: "Text",
-
-        // the option's default value. string if "Text", boolean if "Boolean"
-        default: "Hello world!",
-      },
-
-      // a boolean option follows as another example
-      {
-        id: "my-boolean-option",
-        name: "Do Thing?",
-        description: "If checked, do some extra thing.",
-        type: "Boolean",
-        default: true,
-      },
-    ],
-  },
-  compile: compile,
-};
-```
-
-Finally, to use your user script you must configure the **User script step folder** setting in Longform Extended's plugin settings. Your user script should immediately appear below the setting.
-
-Once loaded, the user script will be available in the Add Step menu of Compile. Changes made to your user script will be automatically loaded after a short delay. If you use that script as a step, Longform Extended will attempt to preserve your existing configuration (place in workflow, option values) whenever it reloads a user script. If it fails, or if your user script moves, your script folder changes, or the script is deleted, Longform Extended will mark that step as invalid and you will have to remove or replace it before compiling is enabled.
+Longform Extended 1.0.0 removed user-script compile steps. The feature executed arbitrary user-provided `.js` files from the vault and was removed for security and linter compliance. The same `window.eval` loader shipped in Longform 2.1.0 (2025-03-19). ESLint's `no-eval` rule has existed since ESLint v0.0.2; what changed is Obsidian's review enforcement. Obsidian's automated community review launched in May 2026, granting existing releases a temporary exception while scanning new and updated releases and delisting versions that fail. The current preflight toolchain (`obsidian-plugin-validator` 1.0.6 / `eslint-plugin-obsidianmd` 0.4.2, running ESLint 10.13.0) treats `no-eval` as a non-disableable error. Longform's latest release predates that automated review and has not been subjected to it, so the feature was not newly allowed by ESLint.
 
 ## Workflows
 

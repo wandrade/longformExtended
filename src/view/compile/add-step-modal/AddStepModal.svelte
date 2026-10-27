@@ -3,7 +3,6 @@
     selectedDraft,
     workflows,
     currentWorkflow,
-    userScriptSteps,
   } from "src/model/stores";
   import { getContext } from "svelte";
 
@@ -56,25 +55,6 @@
       </div>
     {/each}
   </div>
-  {#if $userScriptSteps}
-    <h2>User Script Steps</h2>
-    <div class="longform-extended-steps-grid">
-      {#each $userScriptSteps as step}
-        <div class="longform-extended-compile-step" on:click={() => onStepClick(step)}>
-          <h3>{step.description.name}</h3>
-          <div class="longform-extended-step-pill-container">
-            {#each step.description.availableKinds as kind}
-              <span
-                class="longform-extended-step-kind-pill"
-                title={explainStepKind(kind)}>{formatStepKind(kind)}</span
-              >
-            {/each}
-            <p>{step.description.description}</p>
-          </div>
-        </div>
-      {/each}
-    </div>
-  {/if}
 </div>
 
 <style>

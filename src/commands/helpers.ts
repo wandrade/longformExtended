@@ -37,7 +37,7 @@ export class JumpModal<T> extends FuzzySuggestModal<string> {
         "suggestion-item is-selected"
       );
       if (result.length > 0) {
-        const selected = result[0].innerHTML;
+        const selected = result[0].textContent ?? "";
         this.onChooseItem(selected, evt);
       }
       this.close();

@@ -50,7 +50,7 @@ export class ExplorerPane extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Longform Extended";
+    return "Longform extended";
   }
 
   getIcon(): string {
@@ -123,7 +123,7 @@ export class ExplorerPane extends ItemView {
     context.set(
       "onSceneClick",
       (path: string, paneType: PaneType | boolean) => {
-        this.app.workspace.openLinkText(path, "/", paneType);
+        void this.app.workspace.openLinkText(path, "/", paneType);
       }
     );
 
@@ -144,7 +144,7 @@ export class ExplorerPane extends ItemView {
     context.set(
       "onAuxiliaryClick",
       (path: string, paneType: PaneType | boolean) => {
-        this.app.workspace.openLinkText(path, "/", paneType);
+        void this.app.workspace.openLinkText(path, "/", paneType);
       }
     );
 
@@ -199,7 +199,7 @@ export class ExplorerPane extends ItemView {
         .indexOf(file.name.split(".md")[0]);
 
       if (relativeTo >= 0) {
-        insertScene(
+        void insertScene(
           this.app,
           drafts,
           draft,
@@ -232,7 +232,7 @@ export class ExplorerPane extends ItemView {
       if (relativeTo < 0) {
         return;
       }
-      insertAuxiliaryNote(
+      void insertAuxiliaryNote(
         this.app,
         drafts,
         draft,
@@ -273,7 +273,7 @@ export class ExplorerPane extends ItemView {
           item.setTitle("Delete");
           item.setIcon("trash");
           item.onClick(async () => {
-            await this.app.vault.trash(file, true);
+            await this.app.fileManager.trashFile(file);
           });
         });
         menu.addItem((item) => {
@@ -316,7 +316,7 @@ export class ExplorerPane extends ItemView {
           item.setIcon("trash");
           item.onClick(async () => {
             if (file) {
-              await this.app.vault.trash(file, true);
+              await this.app.fileManager.trashFile(file);
             }
           });
         });
@@ -336,7 +336,7 @@ export class ExplorerPane extends ItemView {
           item.onClick(() => addRelativeScene("after", file));
         });
         menu.addItem((item) => {
-          item.setTitle("Ignore note in Longform Extended");
+          item.setTitle("Ignore note in longform extended");
           item.setIcon("minus-circle");
           item.onClick(() =>
             ignoreScene(
@@ -360,7 +360,7 @@ export class ExplorerPane extends ItemView {
       menu.showAtPosition({ x, y });
     });
     context.set("renameFolder", (oldPath: string, newPath: string) => {
-      this.app.vault.adapter.rename(oldPath, newPath);
+      void this.app.vault.adapter.rename(oldPath, newPath);
     });
 
     context.set(
@@ -371,7 +371,7 @@ export class ExplorerPane extends ItemView {
         kinds: CompileStepKind[],
         statusCallback: (status: CompileStatus) => void
       ) => {
-        compile(this.app, draft, workflow, kinds, statusCallback);
+        void compile(this.app, draft, workflow, kinds, statusCallback);
       }
     );
 
@@ -407,7 +407,7 @@ export class ExplorerPane extends ItemView {
     );
 
     context.set("migrate", () => {
-      migrate(get(pluginSettings), this.app);
+      void migrate(get(pluginSettings), this.app);
     });
 
     context.set("showNewDraftModal", () => {

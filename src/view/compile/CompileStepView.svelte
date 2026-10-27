@@ -35,8 +35,7 @@
     <div class="longform-extended-compile-step-error-container">
       <p class="longform-extended-compile-step-error">
         This workflow contains a step that could not be loaded. Please delete
-        the step to be able to run this workflow. If you’re on mobile, this may
-        be a user script step that did not load.
+        the step to be able to run this workflow.
       </p>
     </div>
   {:else}
