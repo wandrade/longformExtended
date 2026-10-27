@@ -16,11 +16,18 @@
  *      This deliberately does not compare against main's manifest, so an
  *      initial 0.0.1 is not rejected because an old unreleased main says 1.0.0.
  *
- * The checkout must not be shallow: tags are the source of truth for released
- * versions, and a shallow clone would silently hide them.
+ * `--allow-no-bump` is for `no-release` pull requests: checks 1-3 (the internal
+ * manifest/versions/package consistency rules) still run, but the strict
+ * greater-than-the-latest-tag comparison (rules 4-5) is skipped. It is rejected
+ * with `--mode release` so the release workflow can never weaken its own gate.
+ *
+ * The checkout must not be shallow when the tag comparison runs: tags are the
+ * source of truth for released versions, and a shallow clone would silently
+ * hide them.
  *
  * Usage:
  *   node .github/scripts/check-version.mjs --mode pr
+ *   node .github/scripts/check-version.mjs --mode pr --allow-no-bump
  *   node .github/scripts/check-version.mjs --mode release
  *
  * Exit status: 0 when every check passes, 1 otherwise.
@@ -80,7 +87,7 @@ function compareSemver(a, b) {
 }
 
 function usage() {
-  console.log(`Usage: node .github/scripts/check-version.mjs [--mode pr|release]
+  console.log(`Usage: node .github/scripts/check-version.mjs [--mode pr|release] [--allow-no-bump]
 
 Validates manifest.json, versions.json and package.json, and (when release
 tags exist) requires the manifest version to be strictly greater than the
@@ -88,11 +95,15 @@ highest SemVer tag.
 
 Options:
   --mode pr|release  Label the run and validate the mode name (default: pr)
+  --allow-no-bump    Skip the strict greater-than-tag requirement while still
+                     validating internal consistency (no-release PRs). Rejected
+                     with --mode release.
   -h, --help         Show this help`);
 }
 
 function parseArgs(argv) {
   let mode = "pr";
+  let allowNoBump = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "-h" || arg === "--help") {
@@ -103,6 +114,8 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith("--mode=")) {
       mode = arg.slice("--mode=".length);
+    } else if (arg === "--allow-no-bump") {
+      allowNoBump = true;
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -111,7 +124,10 @@ function parseArgs(argv) {
   if (!["pr", "release"].includes(mode)) {
     throw new Error(`Invalid --mode "${mode}"; expected "pr" or "release".`);
   }
-  return { mode };
+  if (allowNoBump && mode === "release") {
+    throw new Error("--allow-no-bump cannot be used with --mode release.");
+  }
+  return { mode, allowNoBump };
 }
 
 function annotate(message) {
@@ -192,7 +208,7 @@ function main() {
     fail(error.message);
   }
 
-  const { mode } = options;
+  const { mode, allowNoBump } = options;
   const manifest = readJson("manifest.json");
   const versions = readJson("versions.json");
   const packageJson = readJson("package.json");
@@ -247,8 +263,12 @@ function main() {
     );
   }
 
-  const latest = findLatestReleaseTag();
-  if (parsedVersion !== null && latest.parsed !== null) {
+  // A no-release PR does not publish anything, so it does not need to raise
+  // the version. It still must keep the three version files consistent.
+  const latest = allowNoBump
+    ? { tag: null, parsed: null }
+    : findLatestReleaseTag();
+  if (!allowNoBump && parsedVersion !== null && latest.parsed !== null) {
     if (compareSemver(parsedVersion, latest.parsed) <= 0) {
       const alreadyReleased =
         compareSemver(parsedVersion, latest.parsed) === 0;
@@ -262,13 +282,17 @@ function main() {
     }
   }
 
-  console.log(`Version check (${mode})`);
+  console.log(
+    `Version check (${mode}${allowNoBump ? ", no bump required" : ""})`,
+  );
   console.log(`  manifest.json version:   ${String(version)}`);
   console.log(`  manifest.json minApp:    ${String(manifest.minAppVersion)}`);
   console.log(`  versions.json mapping:   ${String(versions?.[version])}`);
   console.log(`  package.json version:    ${String(packageJson.version)}`);
   console.log(
-    `  latest release tag:      ${latest.tag ?? "none (first/unreleased version)"}`,
+    allowNoBump
+      ? "  latest release tag:      not checked (--allow-no-bump)"
+      : `  latest release tag:      ${latest.tag ?? "none (first/unreleased version)"}`,
   );
 
   if (errors.length > 0) {
@@ -281,7 +305,12 @@ function main() {
     process.exit(1);
   }
 
-  if (latest.tag === null) {
+  if (allowNoBump) {
+    console.log(
+      "  No-bump mode: manifest/versions/package consistency only; " +
+        "no release tag comparison was performed.",
+    );
+  } else if (latest.tag === null) {
     console.log(
       "  No release tags found; validated as the first/unreleased version " +
         "(no comparison against main's manifest).",

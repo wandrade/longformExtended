@@ -3,7 +3,10 @@ name: CI
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    # `labeled`/`unlabeled` re-run the gate when the release label changes, so
+    # a stale green check cannot survive an edit to the release decision.
+    types:
+      [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
 # Least privilege: CI only reads the repository.
 permissions:
@@ -15,6 +18,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-label:
+    name: Release label
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Exactly one of `release` / `no-release` is required. The label names are
+      # passed as JSON so labels containing spaces stay unambiguous.
+      - name: Require exactly one of release / no-release
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node .github/scripts/check-release-label.mjs
+
   unit-tests:
     name: Unit tests
     if: github.event.pull_request.draft == false
@@ -71,5 +90,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Check version against the latest release tag
+      # Reuse the label gate so neither/both labels fail this job as well. A
+      # failed step stops the job, so no version check can silently pass.
+      - name: Determine release label
+        id: label
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node .github/scripts/check-release-label.mjs --github-output
+      # release: manifest version must be strictly greater than the latest tag.
+      - name: Check strict version bump
+        if: steps.label.outputs.mode == 'release'
         run: node .github/scripts/check-version.mjs --mode pr
+      # no-release: no bump required, but the version files must agree.
+      - name: Check version consistency without a bump
+        if: steps.label.outputs.mode == 'no-release'
+        run: node .github/scripts/check-version.mjs --mode pr --allow-no-bump
