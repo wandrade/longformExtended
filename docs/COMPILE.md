@@ -1,6 +1,6 @@
 # Compile
 
-Longform Extended's Compile tab helps you turn a project into a final document. In the tab, you build **workflows** comprising **steps**. Hopefully the built-in steps are sufficient for most use cases. If not, and you'd like to suggest a new step that you think should be included by default, please [suggest it as a GitHub issue](https://github.com/wandrade/longformExtended/issues).
+Longform Extended's Compile tab helps you turn a project into a final document. In the tab, you build **workflows** comprising **steps**. If a step should be included by default, please [suggest it as a GitHub issue](https://github.com/wandrade/longformExtended/issues).
 
 ## Steps
 
@@ -8,15 +8,17 @@ Steps are the basic building block of compilation. In Longform Extended, a step 
 
 There are three kinds of steps:
 
-1. **Scene** steps, which act on every scene individually. A scene step will take a list of scenes as input and return that list as output. For example, the **Prepend Title** step, given a list of scenes, will insert a header with that scene's title at the top of each scene. It will then pass all the scenes to the next step.
+1. **Scene** steps, which act on every scene individually. For example, the **Prepend Title** step inserts a header with each scene's title at the top of that scene and passes all the scenes to the next step.
 2. **Join** steps, which take a list of scenes and return a single manuscript. Join steps are essential to creating a single document.
 3. **Manuscript** steps, which act on a single manuscript document and return that document.
 
-Steps must always be in the above order during compilation. Any number of scene steps, then one join step, then any number of manuscript steps.
+Step order depends on project type. Multi-scene workflows run scene steps, then
+at most one Join, then manuscript steps (a Join is optional). Single-scene
+workflows allow Scene and Manuscript steps in any order and reject Join.
 
 Many steps can be of multiple kinds. For example, the **Remove Links** step, which removes both external and internal links, can run as both a scene and manuscript step. Longform Extended figures out how it should be run automatically based on its position relative to other steps.
 
-Steps may sometimes have _options_, which are text or checkbox fields that the step uses to customize its function. A number of the steps built into Longform Extended have options.
+Steps may sometimes have _options_, which are text, multiline text, or checkbox fields that the step uses to customize its function.
 
 ### Built-in Steps
 
@@ -77,20 +79,34 @@ Joins scenes into a manuscript by concatenating them together with some optional
 | --------- | ---- | ------- | -------------------------------------- |
 | Separator | Text | \n\n    | Text to put between the joined scenes. |
 
-#### Write to Note
+#### Add Frontmatter
+
+_Manuscript_
+
+Prepends YAML frontmatter to the compiled manuscript. Options:
+
+| Name        | Type           | Default | Description                 |
+| ----------- | -------------- | ------- | --------------------------- |
+| Frontmatter | Multiline text | (empty) | The frontmatter to prepend. |
+
+#### Save as Note
 
 _Manuscript_
 
 Saves the manuscript as Markdown note in your vault. Options:
 
-| Name                     | Type    | Default       | Description                                                                                                                          |
-| ------------------------ | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Output Path              | Text    | manuscript.md | Path relative to your project at which to save your compiled manuscript. $1, if present, will be replaced with your project’s title. |
-| Open Compiled Manuscript | Boolean | true          | If checked, open the compiled manuscript in a new pane.                                                                              |
+| Name                     | Type    | Default       | Description                       |
+| ------------------------ | ------- | ------------- | --------------------------------- |
+| Output path              | Text    | manuscript.md | Path for the compiled manuscript. |
+| Open Compiled Manuscript | Boolean | true          | If checked, open the compiled manuscript in a new pane. |
+
+Output paths may start with `/` for the vault root; otherwise they are relative
+to the project. `./` and `../` are supported, and `.md` is added if you omit it.
+`$1` is replaced with the project title.
 
 ### User-script steps removed
 
-Longform Extended 1.0.0 removed user-script compile steps. The feature executed arbitrary user-provided `.js` files from the vault and was removed for security and linter compliance. The same `window.eval` loader shipped in Longform 2.1.0 (2025-03-19). ESLint's `no-eval` rule has existed since ESLint v0.0.2; what changed is Obsidian's review enforcement. Obsidian's automated community review launched in May 2026, granting existing releases a temporary exception while scanning new and updated releases and delisting versions that fail. The current preflight toolchain (`obsidian-plugin-validator` 1.0.6 / `eslint-plugin-obsidianmd` 0.4.2, running ESLint 10.13.0) treats `no-eval` as a non-disableable error. Longform's latest release predates that automated review and has not been subjected to it, so the feature was not newly allowed by ESLint.
+Longform Extended 1.0.0 removed user-script compile steps. The feature executed arbitrary user-provided `.js` files from the vault and was removed for security and linter compliance. Built-in compile steps and workflows are unchanged. A saved workflow that references a removed step must be updated to use a built-in step.
 
 ## Workflows
 
@@ -104,4 +120,4 @@ You can drag steps within a workflow to rearrange them.
 
 ## The Future
 
-Compile remains a feature that will change over time. [Open issues](https://github.com/wandrade/longformExtended/issues?q=is%3Aissue+is%3Aopen+label%3Acompile) are a good way to track what's on the roadmap. If you think a step should be added or changed, or that compile should behave differently, please open an issue in GitHub.
+Compile remains a feature that will change over time. [Open issues](https://github.com/wandrade/longformExtended/issues?q=is%3Aissue+is%3Aopen+label%3Acompile) are a good way to track what's on the roadmap.

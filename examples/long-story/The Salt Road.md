@@ -2,7 +2,6 @@
 longform:
   format: scenes
   title: The Salt Road
-  workflow: The Salt Road Manuscript
   sceneFolder: Scenes
   timeframeTagName: timeframe
   timeFormat: datetime

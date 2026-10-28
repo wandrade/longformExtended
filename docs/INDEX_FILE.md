@@ -1,6 +1,6 @@
 # The Index File
 
-The Index File is a note with a `longform` frontmatter entry. You can think of it as the “root” of a project: it tells Longform Extended what kind of project it is, where the scenes are, and other metadata needed to make everything work.
+The Index File is a note with a `longform` frontmatter entry. You can think of it as the “root” of a project: it tells Longform Extended what kind of project it is, where the scenes are, and other metadata.
 
 ## The `longform` Entry
 
@@ -54,8 +54,8 @@ projects need no migration.
 `sceneDisplayName`, `plotsDisplayName`, and `charactersDisplayName` change
 labels only. They do not change folder settings, note paths, frontmatter keys,
 or data. A display name is omitted from the saved `longform` entry when it is
-blank or equal to its default. Existing projects therefore need no migration:
-missing keys read as `Scenes`, `Subplots`, and `Characters`.
+blank or equal to its default. Missing keys read as `Scenes`, `Subplots`, and
+`Characters`.
 
 `noteGroups` is also omitted when the list is empty, which is the default. Each
 entry has this shape:
@@ -76,9 +76,10 @@ longform:
   default folder is derived from the name with spaces replaced by underscores
   (`Magic System` → `Magic_System`). A folder value present in the file is used
   as stored; it is not rewritten.
-- `template` is an optional path to a template note used when creating notes in
-  this group. When it is missing or empty, new notes are created empty and the
-  key is omitted when the project is saved. This is independent of the built-in
+- `template` is an optional vault-relative path to an existing template note used
+  when creating notes in this group. When it is missing or empty, new notes are
+  created empty and the key is omitted when the project is saved. This is
+  independent of the built-in
   `plotTemplate` and `characterTemplate` settings.
 - `entries` is the order/indent overlay for the sub-tab. It does not decide
   membership: every Markdown note under `folder`, including nested subfolders,
@@ -88,20 +89,26 @@ longform:
   entries are ignored. Configured order is preserved.
 
 Removing a group from `noteGroups` is a configuration change only. It never
-deletes the group's folder or notes, and it does not affect other groups. The
+deletes the group's folder or notes. The
 order/indent overlays for the built-in Scenes, Subplots, and Characters groups
 remain in the separate `scenes`, `plots`, and `characters` arrays.
 
-All configured group folders — Scene, Subplot, Character, and every extra
-group — must be pairwise distinct and non-nested. The Project tab validates this
-and reverts invalid folder edits; see
-[PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#folders-and-membership).
-The subplot grid additionally requires its own Scene, Subplot, and Character
+All configured group folders must be pairwise distinct and non-nested; see
+[Folders and membership](./PLOTS_AND_CHARACTERS.md#folders-and-membership).
+The subplot grid additionally requires its Scene, Subplot, and Character
 Folders to satisfy the rule before it generates; see
-[PLOT_GRID.md](./PLOT_GRID.md#folders). An older
-`plotGridLevel` value is no longer used: the level is chosen in the generated
-view, and the legacy key is removed when the project is saved.
+[PLOT_GRID.md](./PLOT_GRID.md#folders). An older `plotGridLevel` value is no
+longer used: the level is chosen in the generated view, and the legacy key is
+removed when the project is saved.
+
+## Scene Frontmatter
+
+With **Write scene index to frontmatter** enabled (plugin settings →
+Composition, off by default), every scene note gets `longform-order` and
+`longform-number`; `longform-order` is also written when a scene is created.
+Both keys are plugin-managed. **Show scene numbers in scenes tab** changes the
+tree display only and writes no frontmatter.
 
 ## Other Frontmatter
 
-You’re free to put any other frontmatter you’d like in the index file as long as that frontmatter is outside the `longform` entry. Longform Extended will leave it alone. You might want to do this to integrate with other Obsidian plugins.
+You’re free to put any other frontmatter you’d like in the index file as long as that frontmatter is outside the `longform` entry. Longform Extended will leave it alone.

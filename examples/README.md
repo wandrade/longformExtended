@@ -6,9 +6,13 @@ note at the folder root (for example, `short-story/The Last Bus.md`). The folder
 contain no generated output, so the only setup needed is enabling Longform
 Extended and the Bases core plugin.
 
+No project note pins a compile workflow. When you open Compile, the plugin
+selects the first available workflow — on a fresh install, the shipped
+`Default Workflow` — and remembers that choice for the project.
+
 ## The projects
 
-| Folder | Project | Scene/section notes | Grid rows | Total Markdown files |
+| Folder | Project | Scene/section notes | Grid notes (columns) | Total Markdown files |
 | --- | --- | --- | --- | --- |
 | `short-story/` | The Last Bus | 5 notes: 2 acts and 3 scenes | 2 plots and 2 characters | 10 |
 | `long-story/` | The Salt Road | 7 notes: 3 parts and 4 scenes | 2 plots and 3 characters | 13 |
@@ -30,10 +34,12 @@ All four projects use `format: scenes`, `timeFormat: datetime`, and
 `timeFormat: number`. Scene and row notes carry both `status` and the
 plugin-managed `longformKanbanStatus`; structural group notes have no status.
 
-The essay repurposes the subplot-grid folders. Its scene folder is `Sections`,
-its `plotGridPlotsDir` is `Arguments`, and its `plotGridCharactersDir` is
-`References`; its display names are also `Sections`, `Arguments`, and
-`References`, so the Notes tabs and reports use those words. The project
+The essay demonstrates the display-name settings without renaming the grid
+folders. Its scene folder is `Sections`, while `plotGridPlotsDir` is `Subplots`
+and `plotGridCharactersDir` is `Characters`. The `sceneDisplayName`,
+`plotsDisplayName`, and `charactersDisplayName` settings relabel those groups as
+`Sections`, `Arguments`, and `References`, so the Notes tabs and reports use
+those words even though the notes live in the conventional folders. The project
 frontmatter still uses the standard `plots` and `characters` entries to list the
 arguments and references. Its grid cells hold claims, evidence, and source-use
 notes instead of story beats.

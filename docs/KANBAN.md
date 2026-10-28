@@ -2,16 +2,18 @@
 
 A project with scenes can generate a kanban board at a configured output path.
 The board is a native Obsidian Bases file (`.base`), opened in the built-in
-Kanban view. It requires **Obsidian 1.14 or newer** (the version that
-introduced the Bases Kanban view); no community kanban plugin is needed. Only
-multi-scene projects get a board; single-note projects do not.
+Kanban view. It requires **Obsidian 1.14 or newer**; enable Obsidian's **Bases**
+core plugin. No community kanban plugin is needed. Only multi-scene projects get
+a board; single-scene projects do not.
 
 The board shows the project's listed scenes in the configured columns. With
 **Include subplots** enabled (the default), it also shows the notes in the
 configured **Subplot Folder**; notes in the **Character Folder** are never
-included. Extra note groups are never included either. Dragging a card to
+included. Dragging a card to
 another column updates that note's real `status` frontmatter, so the board and
 the notes stay in sync.
+
+![A generated kanban board](./res/kanban-example.png)
 
 ## Configuration
 
@@ -33,10 +35,7 @@ kanban** command for that project, but it does not delete an existing board.
 candidate cards, whether or not they are listed in the project's scenes. The
 Subplot Folder defaults to `Subplots`; existing projects may keep a custom
 folder. There is no `type` flag: membership in the Subplot Folder is the only
-requirement. Notes in the **Character Folder** are never included, and neither
-are notes in extra note groups. Notes from the Subplot Folder use the same
-column grouping, drag-to-update `status`, unknown-status, and unassigned
-behavior as scenes. Toggling **Include subplots** regenerates the board.
+requirement.
 
 The checkbox's visible label follows the project's **Subplots Display Name**, so
 a display name of `Threads` makes it read **Include threads**. This is a label
@@ -57,8 +56,7 @@ Planned Draft Reviewed
 
 The order you write them in is the order of the columns on the board. The
 default is `Planned Draft Reviewed`. Clearing the field falls back to that
-default. Matching is exact and case-sensitive: a note with `status: draft`
-does not match a `Draft` column and is treated as an unrecognized status.
+default.
 
 Column titles are also the values written to `status` when cards are dragged.
 
@@ -128,8 +126,6 @@ scenes. Consequently:
 
 - Notes in the scene folder that are not in the project's scene list never
   appear, even if they have a `status`.
-- Structural containers never appear.
-- Notes from the Subplot Folder appear only when **Include subplots** is on.
 - A scene or note from the Subplot Folder that has no status appears only when
   **Show notes with no status** is enabled.
 
@@ -199,16 +195,8 @@ The board is written to the path set in the Kanban section of the Project tab
 replaced with the project title, so a project named *My Book* produces
 `Build/My Book_kanban.base`.
 
-Relative paths are resolved against the project folder; start the path with `/`
-to resolve it from the vault root instead. If the path does not end in `.base`,
-that extension is added. An empty setting falls back to the default, and any
-missing folders are created. The board is a build artifact: it is regenerated
-from project data, so edits made inside the `.base` file are overwritten on the
-next rebuild.
-
-If you change the output path, the existing board is not moved or deleted. A
-new board is written at the new path; remove the old one yourself if you no
-longer want it.
+See [Generated files](./GENERATED_FILES.md) for how output paths, extensions,
+and build artifacts work.
 
 No board is written when no card note has a status. With **Include subplots**
 off, that means no non-container scene with a status; with it on, a note from
@@ -223,8 +211,7 @@ project scenes. When **Include subplots** is on, changes to notes in the Subplot
 Folder also refresh the board. A drag updates the helper property, which
 triggers a rebuild;
 the rebuild writes the new `status` and then regenerates the board. These
-writes are idempotent, and the plugin ignores its own generated files, so the
-update does not loop.
+writes are idempotent.
 
 It also rebuilds when project settings that affect it change, such as the
 columns, the show-unassigned setting, save word counts, include subplots, or the
@@ -241,51 +228,24 @@ the kanban enabled. It reports `Kanban rebuilt.` even when there was nothing to
 write.
 
 The Status tab's **Open kanban** action opens the configured board and is
-disabled when the kanban is off. **Refresh** regenerates every enabled generated
-file, including the board. If the board has not been generated, a notice asks
-you to use **Refresh**. See [Status tab](../README.md#status-tab).
+disabled when the kanban is off. The refresh action regenerates every enabled
+generated file, including the board. If the board has not been generated, a
+notice asks you to use the refresh action. See [Status tab](./STATUS_TAB.md).
 
 ## Troubleshooting
 
 - **No board was created.** Check that the kanban is enabled, that the project
-  is a scenes project, and that at least one scene, or (with **Include
-  subplots**) at least one note from the Subplot Folder, has a non-empty
-  `status`. A project whose card notes are all unassigned produces no board even
-  with **Show notes with no status** enabled.
-- **A note is missing from the board.** A scene may be unlisted in the project,
-  be a structural container, have no status with **Show notes with no status**
-  off, or sit outside the scene folder. A note from the Subplot Folder is
-  missing when **Include subplots** is off or the note is not in that folder.
-  Notes in the Character Folder and notes in extra note groups are never
-  shown.
-- **A note is in an unexpected column.** Its status may differ in case (for
-  example `draft` instead of `Draft`), which makes it unrecognized and puts it
-  in `Incorrectly Assigned`.
+  is a scenes project, and that at least one card note has a non-empty
+  `status`. A project whose card notes are all unassigned produces no board.
+- **A note is missing from the board.** Check whether it is unlisted, its note
+  file is missing, it is a structural container, has no status, sits outside the
+  scene or Subplot Folder, or is in the Character Folder or an extra note group.
+- **A note is in an unexpected column.** Status matching is case-sensitive;
+  an unrecognized value goes to `Incorrectly Assigned`.
 - **A card will not stay in `Incorrectly Assigned`.** That column is a holding
-  area for invalid statuses, not an assignable status, so cards dropped there
-  snap back. Drag the card into a configured column to assign it.
-- **Dragging does not save the new status.** The board must group by the
-  writable `note.longformKanbanStatus` property. If you edit the generated Base
-  to group by a formula or another property, drops cannot be written back. Run
-  **Rebuild kanban** to restore the generated view.
-- **The helper property seems stale or manual edits are lost.**
-  `longformKanbanStatus` is plugin-managed. Edit `status` instead, then rebuild;
-  the helper follows the real status.
-- **A word count is missing.** **Save word counts** may be off, the scene may
-  have no status or an unrecognized status, or the scene may not be listed in
-  the project. Rebuild after fixing the status. Cards from the Subplot Folder
-  intentionally show no word count: those notes never get `wordCount` written.
-- **Subplots are missing.** Enable **Include subplots**. Only notes in the
-  Subplot Folder are candidates, and they still need a status (or **Show notes
-  with no status**) to appear.
-- **An extra group's note is missing from the board.** Extra note groups are
-  not kanban inputs in this iteration, even with **Include subplots** on. Only
-  the Subplot Folder is included. See
-  [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
-- **The Include checkbox uses an unexpected word.** Its label follows the
-  project's **Subplots Display Name**. This changes the label only; it does not
-  change the Subplot Folder or which notes are included. Clear the display-name
-  field to return to **Include subplots**. See
-  [Display Names](./PLOTS_AND_CHARACTERS.md#display-names).
+  area, not an assignable status. Drag the card into a configured column.
+- **Dragging does not save the new status.** Restore the generated Base with
+  **Rebuild kanban**; it must group by `note.longformKanbanStatus`.
+- **A word count is missing.** Check **Save word counts**, the card's status,
+  and that the scene is listed. Subplot cards intentionally have no word count.
 - **The board is stale after an external change.** Run **Rebuild kanban**.
-  The generated file is a snapshot of the current project data.

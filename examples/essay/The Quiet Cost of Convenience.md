@@ -2,7 +2,6 @@
 longform:
   format: scenes
   title: The Quiet Cost of Convenience
-  workflow: The Quiet Cost of Convenience Manuscript
   sceneFolder: Sections
   sceneDisplayName: Sections
   plotsDisplayName: Arguments
@@ -13,8 +12,8 @@ longform:
   kanbanOutputPath: Build/$1_kanban.base
   timelineOutputPath: Build/$1_timeline.md
   plotGridOutputPath: Build/$1_plotgrid.base
-  plotGridPlotsDir: Arguments
-  plotGridCharactersDir: References
+  plotGridPlotsDir: Subplots
+  plotGridCharactersDir: Characters
   scenes:
     - Part One The Promise
     - - The Convenience

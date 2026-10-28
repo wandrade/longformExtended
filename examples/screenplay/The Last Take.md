@@ -2,7 +2,6 @@
 longform:
   format: scenes
   title: The Last Take
-  workflow: The Last Take Manuscript
   sceneFolder: Scenes
   timeframeTagName: timeframe
   timeFormat: datetime

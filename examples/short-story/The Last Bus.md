@@ -2,7 +2,6 @@
 longform:
   format: scenes
   title: The Last Bus
-  workflow: The Last Bus Manuscript
   sceneFolder: Scenes
   timeframeTagName: timeframe
   timeFormat: datetime
