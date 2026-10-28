@@ -3,7 +3,7 @@
 The Timeline is a note that lays your scenes out along a time axis, so you can
 see the order of your story at a glance. Each scene is placed at the point
 described by a timeframe value in its frontmatter. Only multi-scene projects
-get a timeline; single-note projects do not.
+get a timeline; single-scene projects do not.
 
 The generated note contains two views of the same data:
 
@@ -25,7 +25,7 @@ The Timeline section of the Project tab controls the feature:
 | --- | --- | --- |
 | **Enable timeline** | On | Turns generation on or off. |
 | **Timeframe Tag Name** | `timeframe` | The frontmatter property read from each scene. |
-| **Time Format** | Date time (dd/mm/yyyy hh:mm:ss) | How timeframe values are written. |
+| **Time Format** | Date time (dd/mm/yyyy hh:mm:ss) | The expected format of each scene's timeframe value. |
 | **Timeline Output Path** | `Build/$1_timeline.md` | Where the note is written. |
 
 Turning **Enable timeline** off stops future rebuilds and removes the
@@ -44,8 +44,7 @@ When the subplot table is used, its first column is headed with the project's
 **Subplots Display Name** in singular form (default **Subplot**). For example, a
 display name of `Threads` produces a **Thread** column. The display name is
 presentation only: it does not change the Subplot Folder, note paths,
-`plotgrid_*` keys, or which notes become rows. Extra note groups are not
-timeline rows. See
+`plotgrid_*` keys, or which notes become rows. See
 [PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#display-names).
 
 ## The Timeframe Property
@@ -94,7 +93,7 @@ tabs. Leading zeros are accepted and normalized in the output.
 ## Partial Values
 
 You do not have to fill in every unit. You can drop units from right to left,
-from the smallest up, and the parser accepts the longest form it can match.
+and the parser accepts the longest form it can match.
 
 For a **Date time** project (minimum three units):
 
@@ -110,11 +109,10 @@ The other formats have the same rule with their own minimum:
   epoch and the full date are required.
 - **Chronological order** — a single number; nothing can be dropped.
 
-You cannot drop units from left to right, so you cannot drop the epoch or the
-date and keep the time. Every scene must use the same number of units. If they
-differ, the most common count becomes the project's reference count and the
-other scenes are reported as inconsistent. When counts tie, the count of the
-first scene in project order wins.
+You cannot drop the epoch or the date and keep the time. Every scene must use
+the same number of units. If they differ, the most common count becomes the
+project's reference count and the other scenes are reported as inconsistent.
+When counts tie, the count of the first scene in project order wins.
 
 A defined zero is a value, not an omission: `04/03/2026 00:30` keeps the zero
 hour.
@@ -125,11 +123,9 @@ Scenes are sorted chronologically by the parsed values, largest unit first. A
 scene set in an earlier period (a flashback) therefore sorts to the top. Scenes
 with identical values keep their project order.
 
-The table below the diagram depends on the subplot grid. When the subplot grid
-is enabled, it is one transposed subplot table per populated hierarchy level,
-described in [The Subplot Tables](#the-subplot-tables). When the subplot grid
-is disabled, it is the scene table described in
-[The Scene Table](#the-scene-table).
+The table below the diagram depends on the subplot grid; see
+[The Scene Table](#the-scene-table) and
+[The Subplot Tables](#the-subplot-tables).
 
 The diagram's grouping is derived from how the values move through the story:
 
@@ -170,18 +166,16 @@ subplots are rows, and time groups are columns. The Mermaid diagram and the
 Rows, in order:
 
 1. **Full Story** — every scene on the timeline.
-2. **Main** — the main plot, if a note named `Main` exists in the Subplot
-   Folder.
+2. **Main** — the main plot, if a note named `Main` (matched case-insensitively)
+   exists in the Subplot Folder.
 3. Every other note in the **Subplot Folder**, in alphabetical order; these are
    the subplots.
 
-The table's subplot rows come from Markdown notes in the Subplot Folder. The
-note named `Main` (matched case-insensitively) is the main plot, and the other
-notes are subplots. There is no `type` flag to add, and the timeline uses the
-same resolved Subplot Folder as the subplot grid. The order and indentation in
+The table's subplot rows come from Markdown notes in the Subplot Folder. There
+is no `type` flag to add, and the timeline uses the same resolved Subplot Folder
+as the subplot grid. The order and indentation in
 **Notes → Subplots** are organizational only; they do not change the table's
-rows, their order, or a subplot's mentions. Extra note groups do not add
-timeline rows. See
+rows, their order, or a subplot's mentions. See
 [PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md).
 
 Each distinct time group becomes a column, in chronological order. Its header
@@ -202,8 +196,6 @@ Shallower tables link ancestor nodes instead; see
 When the hierarchy has more than one populated level, the timeline writes one
 table per level, deepest first. Each table has a generic heading of the form
 `Level N — <sample node titles>`, for example `Level 2 — Scene 1, Scene 2, …`.
-Act, chapter, and scene names are only example node titles; levels are identified
-by their index.
 
 The deepest table links the timeline's scene notes. A shallower table maps each
 scene to its ancestor node at that level, so its cells link those nodes,
@@ -211,12 +203,10 @@ deduplicated within a cell, instead of the scenes. Ancestor links are resolved
 from the project's scene hierarchy; the timeline does not read shallower-level
 subplot-grid cells for them. A scene whose ancestor chain skips a level has no
 node in that level's cells. The row set and time columns are the same in every
-table. Tables are ordered deepest level first, then the levels above it: for
-example, Level 2, then Level 1, then Level 0.
+table.
 
 If the hierarchy has only one populated level, there is one table and no level
-heading. Level labels are generic, and there is no user-facing level setting for
-the timeline.
+heading. Level labels are generic.
 
 A subplot row (including the main plot) mentions a scene when either:
 
@@ -236,7 +226,7 @@ it can appear in several rows at the same time.
 After the tables, if any scene is unmentioned by the main plot and every subplot
 (no row mentions it), the note adds a section headed
 **These scenes have not been mentioned in any subplot line** with the sentence
-“Fill them in in the subplot grid or mention them in the subplot notes.” and the
+“Fill them in on the subplot grid or mention them in the subplot notes.” and the
 list of those scenes. The section is omitted when every scene is mentioned.
 
 ## Problems
@@ -261,10 +251,9 @@ A value can fail in these ways:
 There is no calendar validation: `31/02/2026` is accepted because the day is in
 range. Years and epoch numbers have no range limit.
 
-Scenes with no timeframe value are different: they are not problems and are not
-listed in the Problems section. They are silently left out of the timeline. If
-no scene has a value and there are no problems, no timeline is written, and an
-existing timeline file is left untouched.
+Scenes with no timeframe value are not problems and are silently left out of the
+timeline. If no scene has a value and there are no problems, no timeline is
+written, and an existing timeline file is left untouched.
 
 ## Output
 
@@ -273,15 +262,8 @@ tab (**Timeline Output Path**). The default is `Build/$1_timeline.md`, where
 `$1` is replaced with the project title, so a project named *The Clearing*
 produces `Build/The Clearing_timeline.md`.
 
-Relative paths are resolved against the project folder; start the path with `/`
-to resolve it from the vault root instead. If the path does not end in `.md`,
-that extension is added. An empty setting falls back to the default, and any
-missing folders are created. The note is a build artifact: it is regenerated
-from scene data, so edits made inside it are overwritten on the next rebuild.
-
-If you change the output path, the existing note is not moved or deleted. A
-new note is written at the new path on the next rebuild (changing the path
-itself triggers one); remove the old one yourself if you no longer want it.
+See [Generated files](./GENERATED_FILES.md) for how output paths, extensions,
+and build artifacts work.
 
 ## Updating and Rebuilding
 
@@ -301,51 +283,30 @@ the timeline enabled. It reports `Timeline rebuilt.` even when there was nothing
 to write.
 
 The Status tab's **Open timeline** action opens the configured note and is
-disabled when the timeline is off. **Refresh** regenerates every enabled
+disabled when the timeline is off. The refresh action regenerates every enabled
 generated file, including the timeline. If the note has not been generated, a
-notice asks you to use **Refresh**. See
-[Status tab](../README.md#status-tab).
+notice asks you to use the refresh action. See
+[Status tab](./STATUS_TAB.md).
 
 ## Troubleshooting
 
 - **No timeline file.** Check that the timeline is enabled, that the project is
-  a scenes project, and that at least one scene has a valid timeframe value. If
-  every scene is missing a value, no file is written. Check the configured
-  output path as well.
+  a scenes project, and that at least one scene has a timeframe value. Check the
+  configured output path as well.
 - **A scene is missing from the timeline.** Its timeframe property may be
   missing, blank, or `null`, or its scene note may not exist. A scene followed
-  by a more-indented scene is a container and is skipped by design.
+  by a more-indented scene is a container and is skipped.
 - **The note contains only Problems.** At least one scene has an invalid or
-  inconsistent value; the whole diagram is withheld until every listed problem
-  is fixed. Scenes with missing values are not listed, so they can be absent
-  without a problem entry.
+  inconsistent value; fix every listed problem. Scenes with missing values are
+  not listed as problems.
 - **Scenes are in an unexpected order.** Confirm the project's **Time Format**
-  matches how the values are written. For the epoch formats, the epoch number
-  sorts before the calendar date.
-- **The tables have subplots instead of scenes.** The subplot grid is enabled,
-  so the timeline uses the transposed subplot tables. Disable the subplot grid
-  to get the scene table back, or use the tables' rows and mentions.
+  matches how the values are written.
+- **The tables have subplots instead of scenes.** The subplot grid is enabled;
+  disable it for the scene table, or use the subplot tables' rows and mentions.
 - **A subplot is missing from the table.** Subplot rows come only from Markdown
-  notes in the subplot grid's **Subplot Folder**. The note named `Main` is the
-  main plot, and the other notes are subplots. There is no `type` flag; check
-  the folder and its resolved path.
-- **An extra group's note is missing from the table.** Extra note groups are
-  not timeline inputs in this iteration; only notes in the Subplot Folder become
-  rows. See
-  [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
+  notes in the Subplot Folder; `Main` is the main plot. See
+  [Subplots, Characters, and Extra note groups](./PLOTS_AND_CHARACTERS.md).
 - **The first column uses an unexpected word.** The project's **Subplots
-  Display Name** was changed in **Project Metadata**. The column uses its
-  singular form. The display name does not change the Subplot Folder or which
-  notes appear; clear the field to return to **Subplot**. See
-  [Display Names](./PLOTS_AND_CHARACTERS.md#display-names).
-- **A scene is missing from a row.** The main plot or subplot has to mention it
-  with a non-empty scene-level subplot-grid cell, a wikilink, or its exact scene
-  title. The scene also needs a valid timeframe to appear on the timeline at
-  all.
+  Display Name** changed; clear it to return to **Subplot**.
 - **The subplot tables are missing.** They require both the timeline and the
-  subplot grid to be enabled. If the Subplot and Character Folders are invalid,
-  the subplot grid's generation is blocked; see
-  [PLOT_GRID.md](./PLOT_GRID.md#folders).
-- **An old timeline remains after changing the output path.** Changing the
-  path generates a note at the new path but does not remove the old one; delete
-  the old note yourself.
+  subplot grid to be enabled.

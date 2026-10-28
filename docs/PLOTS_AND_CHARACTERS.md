@@ -2,28 +2,28 @@
 
 Multi-scene projects get a **Notes** tab in the Longform Extended pane. Its
 sub-tabs are the configured note groups: **Scenes**, **Subplots**, and
-**Characters** by default, followed by any extra note groups in configuration
-order. The pane opens on **Notes → Scenes** by default. Each sub-tab lists the
-Markdown notes in that group's configured folder and lets you create, rename,
-reorder, and nest those notes without leaving the pane. Single-note projects
-have only the **Project** and **Compile** tabs; **Notes** and **Status** redirect
-to **Project**.
+**Characters** by default, plus any extra groups. The pane opens on
+**Notes → Scenes**. The **Scenes** sub-tab lists the project's scene list from
+the index file; the other sub-tabs list the Markdown notes in their configured
+folders. Each sub-tab lets you create, rename, reorder, and nest those notes.
+Single-scene projects have only **Project** and **Compile**; **Notes** and
+**Status** redirect to **Project**.
 
-Membership comes from the configured folders. There is no `type` flag or other
-frontmatter marker to add: a Markdown note under the Subplot Folder is a subplot
-(the note named `Main` is the main plot), and a Markdown note under the
-Character Folder is a character. New projects default the Subplot Folder to
-`Subplots` and the Character Folder to `Characters`; existing projects may keep
-custom Subplot or Character Folder names. For example, `Subplots/Main.md` is
-the main plot, and other notes under `Subplots/` are subplots. The folder
-settings, their defaults, and the distinct/non-nested rule are described in
-[PLOT_GRID.md](./PLOT_GRID.md#folders). Extra groups are described in
+![The Subplots sub-tab](./res/subplots-tab.png)
+
+![The Characters sub-tab](./res/characters-tab.png)
+
+For Subplots, Characters, and custom groups, membership comes from the
+configured folders. There is no `type` flag: a Markdown note under the Subplot
+Folder is a subplot (`Main` is the main plot), and one under the Character
+Folder is a character. See
+[PLOT_GRID.md](./PLOT_GRID.md#folders) for the folder settings and
 [Extra note groups](#extra-note-groups).
 
-The sub-tabs are organizational. The subplot grid and the timeline read the
-folders directly, so changing a note's position or indentation in these sub-tabs
-does not change the grid or the tables. See
-[Relationship to the Subplot Grid and Timeline](#relationship-to-the-subplot-grid-and-timeline).
+The subplot, character, and custom group sub-tabs are organizational; the grid
+and timeline read their folders directly. The **Scenes** sub-tab is different:
+its order and indentation define the hierarchy used by compile, the grid, and
+the timeline. See [Relationship to the Subplot Grid and Timeline](#relationship-to-the-subplot-grid-and-timeline).
 
 ## Display Names
 
@@ -35,6 +35,8 @@ The three built-in groups have per-project display names, configured in the
 | **Scenes Display Name** | `Scenes` |
 | **Subplots Display Name** | `Subplots` |
 | **Characters Display Name** | `Characters` |
+
+![The essay project using Sections, Arguments, and References](./res/essay-display-names.png)
 
 A blank field falls back to the default. Display names are presentation only.
 They change labels throughout the plugin and its generated output:
@@ -60,10 +62,12 @@ display-name field for extra groups.
 
 ## Folders and Membership
 
-The configured folders are the source of truth for membership. Every Markdown
-note under a group's folder is a member, including notes in nested subfolders;
-other file types are ignored. The same folder rules apply to the built-in
-groups and to every extra group:
+For Subplots, Characters, and custom groups, the configured folders decide
+membership, including nested subfolders; other file types are ignored. Scenes
+are the exception: membership comes from the `scenes` list, and only direct
+children of the Scene Folder are considered. See
+[Unknown Scenes & Ignored Scenes](./MULTIPLE_SCENE_PROJECTS.md#unknown-scenes--ignored-scenes).
+The rules below apply to every group folder:
 
 - Folder settings are relative to the project folder. A leading `/` is only a
   separator; it does not mean the vault root. (That rule applies only to output
@@ -78,19 +82,19 @@ groups and to every extra group:
 - Every configured group folder — Scenes, Subplots, Characters, and every extra
   group — must be **pairwise distinct** and **non-nested**. No two groups may
   use the same folder, and no group's folder may be a subfolder of another
-  group's folder. The rule applies to any number of extra groups, not just the
-  three built-in groups.
+  group's folder.
 - A Scene Folder of `/` resolves to the project folder, which contains the
   other group folders, so it conflicts with every other group.
 
 **Project Details** shows an inline error for each conflict and rejects an
 invalid folder edit: the field reverts to its stored value and a notice explains
-the conflict. This validation covers all configured groups. For how the
-distinct/non-nested rule affects the subplot grid, see
-[PLOT_GRID.md](./PLOT_GRID.md#folders).
+the conflict. For how the distinct/non-nested rule affects the subplot grid,
+see [PLOT_GRID.md](./PLOT_GRID.md#folders).
 
 Changing a folder setting does not move notes. If you want a group to use a
 different folder, move its notes in your vault first, then change the setting.
+The Scene Folder must already exist; an edit that points at a missing folder is
+not applied.
 
 ## Extra note groups
 
@@ -118,12 +122,9 @@ Each group gets:
   indent and unindent, collapse, open, inline rename, delete to the trash, add
   above or below, and open in a new pane.
 
-A new extra group has no notes until its folder contains Markdown notes, or
-until you create one from its **New** field or its add-above/add-below menu
-items. Notes created for an extra group use that group's optional **Template**
-setting when one is configured; otherwise they are created empty. There is no
-project-wide or global fallback template for extra groups, and the built-in
-Subplot and Character template settings are unchanged.
+A new extra group has no notes until its folder contains Markdown notes.
+Notes created for an extra group use that group's optional **Template**
+setting when one is configured; otherwise they are created empty.
 
 Extra note groups currently get sub-tabs, trees, and creation only. They are
 not subplot-grid rows or columns and are not timeline rows. They are also not
@@ -133,8 +134,8 @@ participate in the folder validation described above.
 ### Removing or Renaming a Group
 
 Removing a group means deleting its name from the **Extra note groups** list. This is
-a configuration-only change. It never deletes the group's folder, its notes, or
-any other group's data. The removed group's index entry (including its optional
+configuration-only: it never deletes the group's folder, its notes, or any other
+group's data. The removed group's index entry (including its optional
 template setting and order/indent overlay) is dropped, but the notes remain on
 disk and are not moved. If you add a group with the same name and folder again,
 those notes appear in its sub-tab after the next sync.
@@ -163,8 +164,10 @@ and no note is created. Duplicate and invalid-name notices use the subplot,
 character, or extra group's singular wording. The note is written to the
 configured folder at its root; missing parent folders are created.
 
-Notes created outside the pane are picked up from the folder on the next sync
-and added to the sub-tab. They are not created through the template workflow.
+For auxiliary groups, notes created outside the pane are picked up on the next
+sync. For Scenes, an unlisted file must be added through the unknown-file
+prompt. See
+[Unknown Scenes & Ignored Scenes](./MULTIPLE_SCENE_PROJECTS.md#unknown-scenes--ignored-scenes).
 
 ### Templates
 
@@ -175,18 +178,19 @@ New notes use a template when one is configured:
 - **Global fallback:** **New subplot template** and **New character template**
   in the plugin settings, under **Composition**. They apply to every project
   and are overridden by a project's own template.
-- All of these template settings default to none. When a project has no
-  template, the global setting applies.
+- All of these template settings default to none.
+
+Template paths are vault-relative, and the file must exist; an invalid path is
+not saved.
 
 Templates are processed the same way as scene templates. If Templater is
 enabled, it processes the template; otherwise, if Obsidian's core Templates
 plugin is enabled, that is used. With neither enabled, the new note is created
 empty. Template errors are logged, and the note remains created.
 
-Templates apply to the built-in Scenes, Subplots, and Characters groups through
-their project or global settings. An extra group has no project-wide or global
-fallback; it uses only its own optional **Template** setting, and creates an
-empty note when that setting is empty.
+An extra group has no project-wide or global fallback; it uses only its own
+optional **Template** setting, and creates an empty note when that setting is
+empty.
 
 The **Add new subplot/character above** and **Add new subplot/character below**
 menu items also create their note through this template workflow, using a unique
@@ -214,15 +218,14 @@ All Notes sub-tabs, built-in and extra, support the same tree operations:
 
 The right-click menu is available on desktop.
 
+![Subplot notes and all other notes categories can be nested like scene notes](./res/subplots-nested.png)
+
 ## Membership and Order Overlay
 
-The configured folders are the source of truth for membership, for the built-in
-groups and for every extra group. Every Markdown note under a group's folder is
-a member, including notes in nested subfolders; other file types are ignored.
-
-The project note stores a small order/indent overlay for each group. It records
-only the displayed order and indentation. It does not decide which notes exist.
-The overlay is reconciled with the folder when the project loads or syncs:
+For Subplots, Characters, and custom groups, the project note stores a small
+order/indent overlay for each group. It records only the displayed order and
+indentation. It does not decide which notes exist. The overlay is reconciled
+with the folder when the project loads or syncs:
 
 - Entries whose notes are gone are removed.
 - Notes that are missing from the overlay are appended at the top level
@@ -240,9 +243,15 @@ cannot represent both. Keep basenames unique within a group. The inline
 rename always targets the configured folder root, so renaming a note from a
 nested subfolder also moves it to that root.
 
+Scenes do not use this overlay; their order and indentation live in the `scenes`
+list. A missing scene note is dropped on sync, and an unlisted folder file becomes
+an unknown file. See
+[Multiple-scene projects](./MULTIPLE_SCENE_PROJECTS.md#unknown-scenes--ignored-scenes).
+
 ## Relationship to the Subplot Grid and Timeline
 
-The subplot grid and timeline do not use the sub-tab overlays:
+The subplot grid and timeline do not use the sub-tab overlays for Subplots and
+Characters:
 
 - The **subplot grid** scans the Subplot and Character Folders for its notes.
   They are columns in the custom view and rows in the native fallback table.
@@ -255,6 +264,10 @@ The subplot grid and timeline do not use the sub-tab overlays:
   order, or which scenes they mention. Extra groups do not become timeline
   rows.
 
+The Scenes tree differs: its order and indentation define the grid's levels and
+the timeline's per-level tables. See [Subplot Grid](./PLOT_GRID.md#levels) and
+[Timeline](./TIMELINE.md).
+
 Generating the subplot grid requires the Scene, Subplot, and Character Folders
 to be pairwise distinct and non-nested. The timeline reads only the Subplot
 Folder. Extra groups are not grid or timeline inputs, but their folders are
@@ -263,15 +276,12 @@ still part of the Project tab's all-groups validation. See
 
 ## Troubleshooting
 
-- **A note is missing from the sub-tab.** Check that it is a Markdown file under
-  the configured folder, including a nested subfolder, and that its basename is
-  unique within that group. Other file types and duplicate basenames are not
-  listed.
-- **A note is in a sub-tab but not in the subplot grid or timeline.** The
-  subplot grid scans only the Subplot and Character Folders; the timeline reads
-  only the Subplot Folder. Extra groups are not grid or timeline inputs at all.
-  Check the subplot grid's level and output settings, or the timeline's
-  timeframes. Sub-tab membership is not the cause.
+- **A note is missing from the sub-tab.** For auxiliary groups, check that it is
+  a Markdown file under the configured folder and that its basename is unique.
+  For Scenes, check that it is in the `scenes` list and directly in the Scene
+  Folder.
+- **A note is in a sub-tab but not in the grid or timeline.** Extra groups are
+  not view inputs; check the subplot grid's level or the timeline's timeframes.
 - **A label shows an unexpected word.** A built-in group's display name was
   changed in **Project Metadata**. Display names change labels only; they do not
   change folders or data. Clear the field to return to the default.
@@ -286,11 +296,6 @@ still part of the Project tab's all-groups validation. See
 - **A removed extra group's folder still exists.** Removing a group is
   configuration-only. It never deletes the folder or its notes; delete them
   yourself if you no longer want them.
-- **An extra group is missing from the grid, timeline, or kanban.** This is
-  expected in this iteration. Only the Subplot and Character Folders feed the
-  subplot grid, timeline rows come only from the Subplot Folder, and the kanban
-  includes scenes and (with **Include subplots**) the Subplot Folder, but no
-  extra group.
 - **The template was not applied.** Templates for the built-in Subplots and
   Characters groups apply to notes created from the New field or the
   add-above/add-below menu. An extra group uses only its own **Template**

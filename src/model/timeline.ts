@@ -325,7 +325,7 @@ function unitLabel(value: number, unit: TimeframeUnit): string {
 function unitValues(
   values: TimeframeValues,
   units: TimeframeUnit[],
-  timeSeparator = "."
+  timeSeparator = ":"
 ): string {
   if (values.number !== undefined) {
     return `${values.number}`;

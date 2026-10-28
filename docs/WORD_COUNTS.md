@@ -4,13 +4,13 @@ Longform Extended includes a set of tools to help you count the number of words 
 
 ## Word Counts for Projects, Drafts, and Scenes
 
-Word counts are tracked per project, draft, and scene. You can always check your word counts in the **Project** tab, and if you turn on the **Show word counts in status bar** setting the word count for the currently-focused project, if applicable, will be shown in the status bar. For performance reasons, word counts are updated on a delay.
+Word counts are tracked per project, draft, and scene. Check word counts in the **Project** tab, or turn on **Show word counts in status bar** to show the focused project's count in the status bar. For performance reasons, word counts are updated on a delay.
 
-The status bar count will show scene (if a multi-scene project) and draft word counts for the given focused pane. Clicking it will show the Project tab of the corresponding project. If the scene and draft have the same number of words, the scene count is omitted to save space; the draft count is shown, or the project count when those also match.
+The status bar count shows scene (if a multi-scene project) and draft word counts for the given focused pane. Clicking it shows the Project tab of the corresponding project. If the scene and draft have the same number of words, the scene count is omitted to save space; the draft count is shown, or the project count when those also match.
 
 ## Writing Sessions and Word Count Goals
 
-Longform Extended also includes support for writing sessions. Sessions are some length of time in which you are writing against a word count goal. Longform Extended will notify you when you’ve hit your goal. This behavior is customizable via a number of settings.
+Longform Extended also supports writing sessions. A session is a span of time in which you write against a word count goal. It notifies you when you’ve hit your goal.
 
 The relevant settings and their defaults are:
 
@@ -19,7 +19,7 @@ The relevant settings and their defaults are:
 | **Show word counts in status bar** | On | Shows the focused project’s count in Obsidian’s status bar. |
 | **Start new writing sessions each day** | On | Starts a new session automatically each day; turn it off to carry one session across days. |
 | **Session word count goal** | `500` | The target number of words. |
-| **Goal applies to** | All projects | Counts words across all projects, per project, or per scene/single-scene note. |
+| **Goal applies to** | Words written across all projects | Counts words across all projects, per project, or per scene/single-scene note. |
 | **Notify on goal reached** | On | Shows a notice when a goal is met. |
 | **Count deletions against goal** | Off | Treats deleted words as negative progress. |
 | **Sessions to keep** | `30` | How many past sessions are stored. |
@@ -27,13 +27,13 @@ The relevant settings and their defaults are:
 ## The Daily Goal Bar
 
 The **Status** tab of a multi-scene project shows a **Daily goal** bar above the
-status actions. It reads `words written / goal words`, fills in as you write,
+status actions. It shows words written against the goal, fills in as you write,
 and its label turns green and bold when the goal is met.
 
 The bar uses the latest writing session and the **Goal applies to** setting:
 
-- **All projects** — all words in the current session.
-- **Each project individually** — words in the selected project’s session.
+- **Words written across all projects** — all words in the current session.
+- **Each project individually** — words in the selected draft’s session; drafts that share a project title are counted separately.
 - **Each scene or single-scene project** — words in the active scene, or in the
   single-scene project when one is selected.
 
@@ -46,4 +46,13 @@ session**.
 
 ## Session Storage
 
-By default, the data comprising your sessions is stored in the same file as other plugin settings. The **Store session data** setting can instead write a dedicated `sessions.json` in the `longform-extended/` plugin folder, or a `.json` file at **Session storage file** in your vault. The vault default is `longform-sessions.json`. You might want a separate file if you’d like to keep your session data per-device via `.gitignore`, for example.
+By default, session data is stored in the plugin's `data.json`, alongside the
+other Longform Extended settings. **Store session data** can instead write a
+dedicated `sessions.json` in the `longform-extended/` plugin folder, or a `.json`
+file at **Session storage file** in your vault (default `longform-sessions.json`).
+A separate file can help with selective sync or Git.
+
+Only `data.json` is read when the plugin loads. The plugin-folder and vault-file
+modes write session data but do not read it back, so session history is not
+restored after a restart. Use the default **With longform extended settings**
+option if you need sessions to persist across restarts.

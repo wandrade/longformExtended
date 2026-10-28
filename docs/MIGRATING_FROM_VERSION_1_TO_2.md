@@ -1,8 +1,8 @@
-# Migrating from Longform 1.x to 2.0
+# Migrating Longform 1.x Projects
 
-Longform 2.0 changed the format and location of [index files](./INDEX_FILE.md)
-and the data saved in plugin storage. Longform Extended inherits that migration.
-The first time you upgrade, the pane prompts you to migrate your projects.
+Upstream Longform 2.0 changed the format and location of [index files](./INDEX_FILE.md)
+and plugin data; Longform Extended inherits that format. The first time you
+upgrade, the pane prompts you to migrate your projects.
 
 ## Automated Migration (Recommended)
 
@@ -35,34 +35,33 @@ commands with these defaults:
 - No project-specific scene, subplot, or character template; the global
   templates still apply when set.
 
-Migration does not delete the old index files. They are left in place with a
-deprecation notice and are no longer used by the migrated project. Their
-metadata is not valid after migrating, and you can delete them when you are
-satisfied with the result.
+Migration does not delete the old index files. Their metadata is not valid after
+migrating, and you can delete them when you are satisfied with the result.
 
 ### Display names and extra note groups
 
 The per-project display names and extra note groups are optional settings.
 An existing or migrated project that does not define them reads the default
 display names **Scenes**, **Subplots**, and **Characters**, and an empty extra
-note-group list. There is no migration step, destructive action, or folder
-change for these features. Adding or removing an extra group is
+note-group list. There is no migration step or folder change for these
+features. Adding or removing an extra group is
 configuration-only and never deletes its folder or notes. See
 [PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
 
 ### Migrated projects and the scene folder
 
 A migrated project keeps a project-root scene folder (`/`), which resolves to
-the project folder itself. Because the default Subplot and Character Folders
-sit inside that folder, the three folders are nested, and subplot grid
-generation is blocked until you choose a distinct, non-nested Scene Folder.
-See [PLOT_GRID.md](./PLOT_GRID.md#folders). This does not by itself block the
-core Longform scene tree, timeline, or kanban generation.
+the project folder itself. Because that folder contains the default Subplot
+and Character Folders, the configuration violates the distinct/non-nested
+rule, and subplot grid generation is blocked until you choose a separate Scene
+Folder. See
+[Folders and membership](./PLOTS_AND_CHARACTERS.md#folders-and-membership).
+This does not by itself block the core Longform scene tree, timeline, or kanban
+generation.
 
 ## Migrating Manually
 
-It is technically possible to migrate your projects manually, if you prefer.
-This is not recommended, but for completeness, here is how:
+You can migrate projects manually, though it is not recommended:
 
 1. For each draft in each project you'd like to migrate, create a note to serve as that draft’s index file and use the insert frontmatter commands to insert the relevant frontmatter.
 2. If the draft has scenes, list them in the `scenes` entry, and set the `sceneFolder` entry to be the relative path to those scenes.
@@ -74,4 +73,3 @@ This is not recommended, but for completeness, here is how:
    - Save the file and exit the text editor.
    - Open Obsidian.
 5. At this point Longform Extended will count your projects as having been migrated. Check each to make sure it looks correct; if not, you likely have a file in the wrong place.
-6. When you’re satisfied with your project, you can delete the old, now-unused index files.

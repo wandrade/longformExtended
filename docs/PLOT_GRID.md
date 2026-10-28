@@ -5,6 +5,10 @@ subplots and characters across the structure of your story. Cells are editable,
 and an edit is written back into the corresponding subplot or character note's
 frontmatter.
 
+![The subplot grid for a story project](./res/plot-grid-story.png)
+
+![The essay project's argument grid](./res/plot-grid-essay.png)
+
 The grid is a native Obsidian Bases file (`.base`). Its custom transposed view
 puts the subplot and character notes in columns and the hierarchy nodes in rows
 for easier reading; the native fallback table shows the notes as rows. A
@@ -17,20 +21,17 @@ Base file: regeneration overwrites the file.
 ## Requirements
 
 - **Obsidian 1.14 or newer.** This is the plugin's minimum version; it includes
-  the Bases view API used by the custom view and the native Kanban view used by
-  the kanban feature.
+  the Bases view API used by the custom view.
 - **Longform Extended enabled.** The custom view is registered by the plugin.
 - **The Bases core plugin enabled.** If it is disabled, the custom view is not
   available; the generated Base still includes a native table view as a
   fallback.
-- **A multi-scene project.** Single-note projects do not get a subplot grid.
+- **A multi-scene project.** Single-scene projects do not get a subplot grid.
 - **Markdown notes in the configured folders.** Every Markdown note under the
   Subplot Folder is a subplot note (the note named `Main` is the main plot; the
   others are subplots), and every Markdown note under the Character Folder is a
   character note. In the custom view these notes are columns; in the native
-  fallback table they are rows. There is no frontmatter type flag to add:
-  folder membership is the only thing that decides membership. See
-  [Folders](#folders).
+  fallback table they are rows. See [Folders](#folders).
 
 ## Configuration
 
@@ -65,8 +66,7 @@ Character Folders, note paths, `plotgrid_*` keys, or data. A blank display name
 falls back to its default. See
 [PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#display-names).
 
-Extra note groups are **not** read by the subplot grid. They do not add rows or
-columns, and changing their folders does not affect this feature. See
+Extra note groups are not subplot-grid inputs; see
 [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
 
 Turning **Enable subplot grid** off stops future rebuilds and removes the
@@ -88,8 +88,6 @@ rule applies only to output file paths.) New projects default the scene folder
 to `Scenes`, the Subplot Folder to `Subplots`, and the Character Folder to
 `Characters`. Existing projects may keep custom Subplot or Character Folder
 names. An empty Subplot or Character Folder setting falls back to its default.
-For example, `Subplots/Main.md` is the main plot, and other notes under
-`Subplots/` are subplots.
 
 Migrated legacy projects may still have a project-root scene folder (`/`),
 which resolves to the project folder itself.
@@ -97,35 +95,25 @@ That folder contains the subplot and character folders, so the configuration is
 nested. Choose a distinct, non-nested scene folder before the subplot grid will
 generate.
 
-The three folders must be pairwise **distinct** and **non-nested**: no two
-may be the same folder, and none may be a subfolder of another. If the
-configuration breaks this rule, the Project tab shows an error and generation
-is blocked; a manual rebuild reports a Notice. No Base or `plotgrid_*` keys are
-written until the paths are fixed.
-
-The Project tab applies the same distinct/non-nested validation to **every**
-configured group folder, including extra note groups. An edit that would make
-any two group folders equal or nested is rejected: the field reverts to its
-stored value and a notice names the conflicting groups. This validation is
-broader than grid generation. The subplot grid itself reads and validates only
-the Scene, Subplot, and Character Folders; extra groups never add rows or
-columns. See
-[PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md#folders-and-membership).
+The three folders must be pairwise **distinct** and **non-nested**; if the
+configuration breaks this rule, generation is blocked and a manual rebuild
+reports a Notice. No Base or `plotgrid_*` keys are written until the paths are
+fixed. See
+[Folders and membership](./PLOTS_AND_CHARACTERS.md#folders-and-membership) for
+the full rule and the Project tab's validation of every group.
 
 Every Markdown note under the Subplot Folder is a subplot note, and every
 Markdown note under the Character Folder is a character note. The note named
 `Main` is the main plot; the other notes in the Subplot Folder are subplots.
-There is no `type` frontmatter field to add, and a note outside those folders
-never appears: folder membership is the only source of truth. Nested subfolders
-are included. Other file types are ignored.
+A note outside those folders never appears: folder membership is the only
+source of truth. Nested subfolders are included. Other file types are ignored.
 
 The same folders feed the **Notes → Subplots** and **Notes → Characters**
 sub-tabs, but the sub-tabs keep only a project-level order and indentation
 overlay. The subplot grid does not use that overlay: it scans the folders directly
 and applies its own note order (`Main` first, then subplots, then characters).
-Extra note groups have their own sub-tabs and overlays, but they are not
-scanned by the subplot grid. New subplot and character notes are created in
-these folders with the project templates. See
+New subplot and character notes are created in these folders with the project
+templates. See
 [PLOTS_AND_CHARACTERS.md](./PLOTS_AND_CHARACTERS.md).
 
 ## Levels
@@ -180,9 +168,8 @@ shows only the selected level's rows; other levels' keys stay in the notes,
 hidden, so switching back restores them. The native fallback table is not
 filtered by the dropdown: it shows all levels' columns.
 
-The act/chapter/scene hierarchy is only an example; levels are ranks. If the
-top level is chapters, for example, level 0 is that top level. Structural nodes
-need their own note files in the scene folder, as scenes do elsewhere in
+The act/chapter/scene hierarchy is only an example; levels are ranks. Structural
+nodes need their own note files in the scene folder, as scenes do elsewhere in
 Longform Extended; otherwise Longform Extended drops them and the levels shift.
 
 ### Structural Notes Must Exist
@@ -195,85 +182,53 @@ never create its note, Longform Extended filters it out.
 The symptom is that a level seems to collapse or shift. A project whose
 hierarchy lists structural nodes and scenes but only has scene notes will lose
 the structural nodes, making level 0 a deeper level. To fix it, create a note
-in the scene folder named exactly like each structural entry, as with any other
-Longform Extended scene, then reload the project or run **Rebuild subplot
-grid**. Those nodes then stay in the hierarchy and become rows.
+in the scene folder named exactly like each structural entry; because loading
+prunes scene entries with no matching note, the new note appears as an unknown
+file and must be added through the unknown-file prompt in the **Scenes**
+sub-tab. Adding appends it to the end of the scene list, so re-indent it to
+restore its intended level.
 
 ## Data and YAML
 
 The note columns (or rows, in the native fallback table) are the Markdown notes
-under the Subplot and Character Folders. There is no `type` flag: folder
-membership decides membership. In the custom view a note named `Main` (matched
-case-insensitively) in the Subplot Folder is the main plot and comes first, then
-the other subplots, then the characters, each group alphabetical by note name.
+under the Subplot and Character Folders. In the custom view a note named `Main`
+(matched case-insensitively) in the Subplot Folder is the main plot and comes
+first, then the other subplots, then the characters, each group alphabetical by
+note name.
 
-Each note gets a frontmatter key for every hierarchy node at every populated
-level; nodes that slug to the same key share it. The key is built from the
-node's title, not from its ancestor path:
+Each note gets one `plotgrid_<title>` key per hierarchy node at every populated
+level. The title is lowercased, runs of non-alphanumeric characters become one
+`_`, and leading or trailing `_` characters are removed; a title with no letters
+or digits becomes `node` (so `plotgrid_node`). Same-level collisions get `_2`,
+`_3`, and so on. Keys are not namespaced by level: if nodes at different levels
+produce the same key, they share one cell. For example, `Chapter 1` becomes
+`plotgrid_chapter_1`.
 
-- The prefix is `plotgrid_`.
-- The title is lowercased, runs of non-alphanumeric characters become one `_`,
-  and leading or trailing `_` characters are removed.
-- A title with no letters or digits becomes `node`, so the key is
-  `plotgrid_node`.
-- If two nodes at the same level produce the same key, `_2`, `_3`, and so on
-  are appended.
-- Keys are not namespaced by level. If nodes at different levels produce the
-  same key, they share one key and therefore one cell.
+The plugin manages these keys:
 
-For a project that uses simple titles, level 1 might produce:
+- Missing keys for a populated level are added with an empty string value.
+- Existing `plotgrid_*` keys are kept, including keys for levels you are not
+  viewing. Values of existing keys and every key outside the namespace are
+  never modified.
+- A note is rewritten only when a key is added or a legacy key is migrated.
+  Legacy ancestor-path keys are migrated automatically, and other levels' keys
+  are never deleted.
 
-```yaml
----
-plotgrid_chapter_1: ""
-plotgrid_chapter_2: ""
-plotgrid_chapter_3: ""
----
-```
-
-At level 0, `Act 1: The Beginning` slugs to `act_1_the_beginning`, so the key
-becomes `plotgrid_act_1_the_beginning`. At level 1, a chapter named
-`Chapter 1 - Arrival` becomes `plotgrid_chapter_1_arrival`, regardless of which
-act contains it. Keys written by an earlier version from the ancestor path
-(for example `plotgrid_act_1__chapter_1_arrival`) are migrated for the
-generated column on the next generation: the value moves to the new key when
-that cell is empty, and only that migrated legacy key is removed. A non-empty
-value already stored under the new key is kept, and keys and values belonging
-to other levels are never deleted.
-
-The plugin maintains these keys:
-
-- Missing keys for any populated level are added with an empty string value.
-- Every existing `plotgrid_*` key is kept. Choosing a level in the view does
-  not delete keys for other levels; the custom view simply does not display
-  them.
-- Values of existing `plotgrid_*` keys and every key outside the namespace are
-  never modified. Unrelated frontmatter keeps its value and its order.
-- A note is written only when a generated key needs to be added or a legacy key
-  needs migrating. An unchanged note is not rewritten.
-- Empty cells are empty strings (`""`), which is why the keys are added that
-  way.
-
-The `plotgrid_` namespace is managed by the plugin. You can see the keys in
-Obsidian's Properties panel, but edit cells in the grid rather than editing
-these keys by hand. Keys for other levels remain in the note but are not shown
-until you choose that level in the view. Do not use the namespace for your own
-properties: every `plotgrid_*` key is treated as plugin data.
+The `plotgrid_` namespace is plugin-managed. You can see the keys in Obsidian's
+Properties panel, but edit cells in the grid rather than editing the keys by
+hand. Do not use the namespace for your own properties.
 
 Every Markdown note under the subplot and character folders receives these
-keys. There is no flag to opt out with, so keep reference notes, templates,
-or other unrelated Markdown out of those folders if you do not want them in the
-grid.
+keys. There is no flag to opt out, so keep reference notes, templates, or other
+unrelated Markdown out of those folders if you do not want them in the grid.
 
 ## The Generated Base
 
-The Base is written to the path set in **Subplot Grid Output Path**. The default is
-`Build/$1_plotgrid.base`, where `$1` is replaced with the project title. Relative
-paths are resolved against the project folder; start the path with `/` to write
-from the vault root. If the path does not end in `.base`, that extension is
-added. An empty setting falls back to the default, and missing folders are
-created. An existing project with an explicit output path keeps it; only the
-default changed, so a stored path is not rewritten or moved.
+The Base is written to the path set in **Subplot Grid Output Path**. The default
+is `Build/$1_plotgrid.base`, where `$1` is replaced with the project title. An
+existing project with an explicit output path keeps it; only the default
+changed, so a stored path is not rewritten or moved. See
+[Generated files](./GENERATED_FILES.md) for the shared output rules.
 
 The generated file contains:
 
@@ -283,8 +238,7 @@ The generated file contains:
 - The custom transposed view first, titled with the configured singular name
   plus `Grid` (default **Subplot Grid**). It has a **Level** dropdown above the
   table, shows the selected level's hierarchy nodes as rows, and shows the notes
-  as columns. A note named `Main` (the main plot) comes first, then the other
-  subplots, then the characters, each group alphabetical by note name.
+  as columns.
 - A native table view as a fallback, titled with the same name plus `(Table)`
   (default **Subplot Grid (Table)**). Its rows are notes and its columns are the
   properties for all levels; it is not filtered by the custom view's Level
@@ -299,12 +253,12 @@ by default — on its own line above the name. The native table uses a row-label
 formula that emits the same prefix; its row style may keep the prefix and name
 on one line.
 
-Each cell displays only the value stored for that hierarchy node at its own
-level. A higher-level row does not show or mirror values from deeper levels.
+Each cell displays the value stored under that column's `plotgrid_*` key.
+Because keys are not namespaced by level, nodes at different levels that produce
+the same key share one column and one value: in that case a higher-level row and
+the deeper node show the same cell.
 
-The `.base` is a build artifact. If you edit its YAML or adjust the views inside
-it, those edits are overwritten the next time the Base is regenerated. Edit the
-cells in the grid instead: those edits go to the note frontmatter and survive.
+Cell edits go to the note frontmatter and survive.
 
 No Base is written when the feature is disabled, when the hierarchy has no
 populated levels, when there are no notes under the folders, or when the three
@@ -346,74 +300,50 @@ The subplot grid refreshes automatically:
 Generated outputs are excluded from triggering rebuilds, including Bases written
 to custom output paths, so writing the grid does not loop. Choosing a level in
 the view is client-side and does not rebuild the Base. Automatic skips (for
-example, a hierarchy with no populated levels) are logged to the developer
-console once per reason rather than shown as notices.
+example, a hierarchy with no populated levels) are silent rather than shown as
+notices; a manual **Rebuild subplot grid** reports the reason.
 
 To force a rebuild, select the project and run **Rebuild subplot grid** from the
 command palette. The command is only available for a multi-scene project with
-the subplot grid enabled. It reports either the number of columns and notes
-written or the reason nothing was written.
+the subplot grid enabled. It reports the number of columns and grid notes, or
+the reason nothing was written.
 
 The Status tab provides the shared actions described in
-[Status tab](../README.md#status-tab):
+[Status tab](./STATUS_TAB.md):
 
-- **Refresh** regenerates every enabled generated file for the selected
+- The refresh action regenerates every enabled generated file for the selected
   project: the timeline, the kanban board, and the subplot grid.
 - **Open subplot grid** opens the configured Base. It is disabled when the
   subplot grid is off. If the file has not been generated, a notice asks you to
-  use **Refresh**.
+  use the refresh action.
 
 Changing the output path writes a new Base at the new path but does not move or
 delete the old one.
 
 ## Troubleshooting
 
-- **No Base was created.** Check that the subplot grid is enabled, that the project
-  is a scenes project, that the hierarchy has at least one populated level, and
-  that the subplot and character folders contain Markdown notes. An existing Base
-  is left untouched when nothing is written; the console explains the skip.
-- **The dropdown's level 0 shows deeper nodes than expected.** The structural
-  nodes probably have no notes. Longform Extended keeps only entries with matching notes
-  directly in the scene folder. Create the missing structural notes, then
-  rebuild.
+- **No Base was created.** Check that the subplot grid is enabled, that the
+  project is a scenes project, that the hierarchy has a populated level, and
+  that the Subplot or Character Folder contains Markdown notes.
+- **The dropdown's level 0 shows deeper nodes than expected.** Structural nodes
+  without notes are filtered out, and loading prunes their scene entries.
+  Create the missing notes, add them through the unknown-file prompt in the
+  **Scenes** sub-tab, and re-indent them to restore their hierarchy position.
 - **A level is missing from the dropdown.** Only populated levels appear.
-  Levels with no nodes are omitted, and structural nodes without note files do
-  not survive Longform Extended's filtering.
 - **A note is missing from the grid.** Confirm it is a Markdown file under the
-  subplot or character folder. Folder membership is the only requirement;
-  there is no `type` flag to add. The folders are project-folder-relative; a
-  leading `/` does not mean the vault root. Check for a misspelled folder name.
-- **An extra group's note is missing from the grid.** Extra note groups are not
-  subplot-grid inputs in this iteration. Only notes in the Subplot and Character
-  Folders become columns or rows. See
-  [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
-- **The title or a row label uses an unexpected word.** The project's Subplots
-  or Characters display name was changed in **Project Metadata**. Display names
-  change labels only, not folders or data. Clear the field to return to the
-  default. See [Display Names](#display-names).
-- **The grid will not generate after editing a folder.** The Scene Folder,
-  Subplot Folder, and Character Folder must be pairwise distinct and
-  non-nested. Change the paths so none equals or contains another, then
-  rebuild. Generation is blocked while the configuration is invalid; a manual
-  rebuild reports a Notice. A migrated project whose Scene Folder is still the project root
-  (`/`) hits this rule because the project root contains the subplot and
-  character folders. The Project tab also rejects any folder edit that makes two
-  configured groups — including extra groups — equal or nested, even though
-  extra groups do not feed the grid.
-- **A note is in the wrong group.** Subplots come from the Subplot Folder and
-  characters from the Character Folder. Move the note to the other folder
-  rather than adding frontmatter.
-- **A previous level's keys are still in the frontmatter.** This is expected.
-  Choosing a level in the view preserves every level's `plotgrid_*` keys and
-  values; only the selected level's rows are shown in the grid. Choose that
-  level to see and edit them. Legacy ancestor-path keys migrate for the
-  generated columns, and other-level data is never deleted.
-- **My edits to the Base disappeared.** The Base is generated. Change cells in
-  the grid (which writes the notes) rather than editing the `.base` file.
-- **The custom view is missing.** Enable Obsidian's Bases core plugin and reload
-  the plugin after updating it. The generated Base also includes a native table
-  view as a fallback.
-- **The subplot grid stops updating after an update.** Reload Obsidian or disable
-  and re-enable the plugin so the new code is loaded, then rebuild.
-- **An old Base remains after changing the output path.** Changing the path
-  writes a new file but does not remove the old one; delete it yourself.
+  Subplot or Character Folder. Folder membership is the only requirement; there
+  is no `type` flag.
+- **The title or a row label uses an unexpected word.** A display name changed
+  in **Project Metadata**. Display names change labels only; clear the field to
+  return to the default.
+- **The grid will not generate after editing a folder.** The Scene, Subplot,
+  and Character Folders must be distinct and non-nested. See
+  [Folders and membership](./PLOTS_AND_CHARACTERS.md#folders-and-membership).
+- **A previous level's keys are still in the frontmatter.** This is expected;
+  choose that level in the view to see and edit them.
+- **My edits to the Base disappeared.** The Base is generated; edit cells in
+  the grid instead.
+- **The custom view is missing.** Enable Obsidian's Bases core plugin and
+  reload.
+- **The subplot grid stops updating after an update.** Reload Obsidian or
+  re-enable the plugin, then rebuild.

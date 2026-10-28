@@ -1,7 +1,7 @@
 # Commands in Longform Extended
 
 Longform Extended adds the following commands to the command palette. The
-palette only offers a command whose conditions are met, so commands that need a
+palette only offers commands whose conditions are met, so those that need a
 selected project, an active editor, or an enabled feature stay hidden
 otherwise.
 
@@ -10,12 +10,12 @@ otherwise.
 | Compile current project with current workflow | A project and workflow are selected | Compiles the selected project with its current workflow. |
 | Compile project… | At least one project exists | Choose a project, draft, and workflow, then compile. |
 | Open current note’s project | The active note is a project index or one of its scenes | Selects that project as the current project. |
-| Previous scene | Editing a scene | Opens the previous scene in the project. |
-| Previous scene at indent level | Editing a scene | Opens the previous scene at the same indentation level. |
-| Next scene | Editing a scene | Opens the next scene in the project. |
-| Next scene at indent level | Editing a scene | Opens the next scene at the same indentation level. |
-| Indent scene | Editing a scene, subplot, or character note | Increases the note’s indentation by one in the project tree. |
-| Unindent scene | Editing a scene, subplot, or character note that is indented | Decreases the note’s indentation by one. |
+| Previous scene | Editing a scene that has a previous scene | Opens the previous scene in the project. |
+| Previous scene at indent level | Editing a scene that has a previous scene at the same indentation | Opens the previous scene at the same indentation level. |
+| Next scene | Editing a scene that has a next scene | Opens the next scene in the project. |
+| Next scene at indent level | Editing a scene that has a next scene at the same indentation | Opens the next scene at the same indentation level. |
+| Indent scene | Editing a scene, subplot, character, or extra-group note | Increases the note’s indentation by one in the project tree. |
+| Unindent scene | Editing a scene, subplot, character, or extra-group note that is indented | Decreases the note’s indentation by one. |
 | Jump to project | Always | Fuzzy-matches project titles and selects one in the pane. |
 | Jump to scene in current project | A multi-scene project with at least one scene is selected | Fuzzy-matches the project’s scenes, with their indentation, and opens one. |
 | Open Longform Extended pane | Always | Reveals the Longform Extended pane in the sidebar. |
@@ -28,7 +28,7 @@ otherwise.
 | Rebuild kanban | A multi-scene project with the kanban enabled is selected | Regenerates the kanban board and its word counts, and reports the result. |
 | Rebuild subplot grid | A multi-scene project with the subplot grid enabled is selected | Regenerates the Base and the `plotgrid_*` keys, and reports the result. |
 
-**Indent scene** and **Unindent scene** work on the subplot and character trees
-as well as the scene tree. The scene navigation commands only move through the
-project’s scene list; they do not move through the subplot or character
-sub-tabs.
+**Indent scene** and **Unindent scene** work on the subplot, character, and
+extra-group trees as well as the scene tree. The scene navigation commands only
+move through the project’s scene list; they do not move through the subplot,
+character, or extra-group sub-tabs.
