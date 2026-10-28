@@ -4,11 +4,13 @@ status: todo
 longformKanbanStatus: todo
 plotgrid_part_one_the_coast: "Missing map surfaces in cave"
 plotgrid_the_tide_cave: "Ilya finds scraped coastline copy"
-plotgrid_the_ferry: "Sera carries stolen map pages"
-plotgrid_part_two_the_crossing: "Search narrows to lighthouse archive"
-plotgrid_the_lighthouse: "Fen confesses erasing the route"
 plotgrid_part_three_the_return: "Map returns to public record"
 plotgrid_the_last_marker: "Copy replaces the missing chart"
+plotgrid_the_chart_wall: "Fen's erased route on plaster"
+plotgrid_the_patrol_boat: "Patrol hunts the stolen pages"
+plotgrid_the_harbour_office: "Records office holds the wreck file"
+plotgrid_the_return_crossing: "Sera carries the map back"
+plotgrid_the_final_marker: "The coastline is cut into stone"
 ---
 
 # The Missing Map
