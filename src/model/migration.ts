@@ -49,7 +49,7 @@ export async function readLegacySettings(
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
-    return parsed as Partial<LongformExtendedPluginSettings>;
+    return parsed;
   } catch (error) {
     console.warn(
       `[Longform Extended] Could not read upstream Longform settings`,
