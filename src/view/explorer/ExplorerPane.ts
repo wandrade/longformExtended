@@ -15,9 +15,8 @@ import ConfirmActionModal from "../ConfirmActionModal";
 import { ICON_NAME } from "../icon";
 import ExplorerView from "./ExplorerView.svelte";
 import { scenePath } from "src/model/scene-navigation";
-import { migrate } from "src/model/migration";
 import { get } from "svelte/store";
-import { drafts, pluginSettings, selectedDraft } from "src/model/stores";
+import { drafts, selectedDraft } from "src/model/stores";
 import { insertScene } from "src/model/draft-utils";
 import {
   auxiliaryKindLabel,
@@ -405,10 +404,6 @@ export class ExplorerPane extends ItemView {
         menu.showAtPosition({ x, y });
       }
     );
-
-    context.set("migrate", () => {
-      void migrate(get(pluginSettings), this.app);
-    });
 
     context.set("showNewDraftModal", () => {
       new NewDraftModal(this.app).open();

@@ -53,7 +53,7 @@ import {
   sessions,
 } from "./model/stores";
 import { addCommands } from "./commands";
-import { determineMigrationStatus } from "./model/migration";
+import { migrate, readLegacySettings } from "./model/migration";
 import { draftForPath } from "./model/scene-navigation";
 import { draftForStoredPath } from "./model/draft-utils";
 import { WritingSessionTracker } from "./model/writing-session-tracker";
@@ -233,8 +233,15 @@ export default class LongformExtendedPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const loadedSettings =
-      (await this.loadData()) as Partial<LongformExtendedPluginSettings> | null;
+    const stored = (await this.loadData()) as
+      | Partial<LongformExtendedPluginSettings>
+      | null;
+
+    const firstRun = stored === null;
+    const loadedSettings = firstRun
+      ? await readLegacySettings(this.app, this.manifest.dir ?? null)
+      : stored;
+
     const settings: LongformExtendedPluginSettings = Object.assign(
       {},
       DEFAULT_SETTINGS,
@@ -249,7 +256,6 @@ export default class LongformExtendedPlugin extends Plugin {
     );
     pluginSettings.set(_pluginSettings);
     selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
-    determineMigrationStatus(_pluginSettings);
 
     let _workflows = settings["workflows"];
 
@@ -289,6 +295,10 @@ export default class LongformExtendedPlugin extends Plugin {
       onStatusClick,
       this.app.vault
     );
+
+    if (firstRun) {
+      await this.saveSettings();
+    }
   }
 
   async saveSettings(): Promise<void> {
@@ -311,6 +321,11 @@ export default class LongformExtendedPlugin extends Plugin {
   private async postLayoutInit(): Promise<void> {
     // Initialize StoreVaultSync with sync awareness
     await this.storeVaultSync.initialize();
+
+    if (await migrate(get(pluginSettings), this.app)) {
+      await this.saveSettings();
+      await this.storeVaultSync.discoverDrafts();
+    }
 
     this.notesObserver.beginObserving();
 

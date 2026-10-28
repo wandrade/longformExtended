@@ -1,6 +1,5 @@
 import { last } from "lodash";
 import { App, normalizePath } from "obsidian";
-import { writable } from "svelte/store";
 import { insertDraftIntoFrontmatter } from "./draft-utils";
 import { pluginSettings } from "./stores";
 import {
@@ -25,8 +24,6 @@ import {
 const INDEX_MIGRATION_NOTICE =
   "\n\nThis is a Longform 1.0 Index File, and the project it corresponded to has since been migrated. It has been marked as to-be-ignored in the new project and can be safely deleted.";
 
-export const needsMigration = writable<boolean>(false);
-
 /** The draft shape written by the legacy Projects 1.0/2.0 index format. */
 type LegacyDraft = {
   name: string;
@@ -34,19 +31,41 @@ type LegacyDraft = {
   scenes: string[];
 };
 
-/**
- * The version values compared below are data-format versions inherited from
- * upstream Longform FORKED_VERSION. They are independent of Longform
- * Extended's own release version (see manifest.json), so do not align them
- * with the fork's semver.
- */
-export function determineMigrationStatus(settings: LongformExtendedPluginSettings) {
-  needsMigration.set(settings.version < LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION);
+const LEGACY_PLUGIN_ID = "longform";
+
+export async function readLegacySettings(
+  app: App,
+  pluginDir: string | null
+): Promise<Partial<LongformExtendedPluginSettings> | null> {
+  const pluginsDir =
+    pluginDir?.split("/").slice(0, -1).join("/") ||
+    `${app.vault.configDir}/plugins`;
+  const path = normalizePath(`${pluginsDir}/${LEGACY_PLUGIN_ID}/data.json`);
+  try {
+    if (!(await app.vault.adapter.exists(path))) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(await app.vault.adapter.read(path));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.warn(
+      `[Longform Extended] Could not read upstream Longform settings`,
+      error
+    );
+    return null;
+  }
 }
 
-export async function migrate(settings: LongformExtendedPluginSettings, app: App) {
+/** Returns true when the version was advanced. */
+export async function migrate(
+  settings: LongformExtendedPluginSettings,
+  app: App
+): Promise<boolean> {
   if (settings.version >= LONGFORM_EXTENDED_CURRENT_PLUGIN_DATA_VERSION) {
-    return;
+    return false;
   }
 
   let currentVersion = settings.version;
@@ -215,10 +234,10 @@ export async function migrate(settings: LongformExtendedPluginSettings, app: App
     currentVersion = currentVersion + 1;
   }
 
-  pluginSettings.update((settings) => {
-    settings.version = currentVersion;
-    settings.projects = {};
-    return settings;
-  });
-  needsMigration.set(false);
+  pluginSettings.update((settings) => ({
+    ...settings,
+    version: currentVersion,
+    projects: {},
+  }));
+  return true;
 }
