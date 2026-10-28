@@ -13,16 +13,9 @@
   import ProjectDetails from "./ProjectDetails.svelte";
   import StatusView from "./StatusView.svelte";
   import NotesSubTab from "./NotesSubTab.svelte";
-  import { needsMigration } from "src/model/migration";
   import { noteGroupDescriptors } from "src/model/note-groups";
   import type { AuxiliaryNoteKind } from "src/model/auxiliary-notes";
-  import { getContext } from "svelte";
   import Tab from "./Tab.svelte";
-
-  const _migrate: () => void = getContext("migrate");
-  function doMigration() {
-    _migrate();
-  }
 
   $: {
     const hasScenesDraft = $selectedDraft?.format === "scenes";
@@ -57,25 +50,7 @@
       : ($selectedNotesTab as AuxiliaryNoteKind);
 </script>
 
-{#if $needsMigration}
-  <div class="longform-extended-explorer">
-    <p>
-      Longform Extended has been upgraded and requires a migration to a new format.
-      Deprecated index files are left in place with a deprecation notice, and
-      some scene notes may move. It’s recommended to back up your vault before
-      migrating.
-    </p>
-    <p>
-      You can view the docs and an explanation of what this migration does <a
-        href="https://github.com/wandrade/longformExtended/blob/main/docs/MIGRATING_FROM_VERSION_1_TO_2.md"
-        >here</a
-      >.
-    </p>
-    <button class="longform-extended-migrate-button" type="button" on:click={doMigration}
-      >Migrate</button
-    >
-  </div>
-{:else if $waitingForSync}
+{#if $waitingForSync}
   <div class="longform-extended-sync-wait">
     <div class="longform-extended-spinner"></div>
     <div class="longform-extended-sync-message">
