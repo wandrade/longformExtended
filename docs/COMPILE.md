@@ -129,7 +129,9 @@ first interval has elapsed, not when the plugin or project starts. Leaving the
 field empty or setting it to `0` turns the timer off.
 
 A missing workflow, or one that fails validation, skips the compile step. The
-status refresh still runs. Autocompile has no visible progress display.
+status refresh still runs. Autocompile has no visible progress display, and it
+never opens or focuses the compiled manuscript, even when the **Save as Note**
+step has **Open Compiled Manuscript** checked.
 
 ## The Future
 

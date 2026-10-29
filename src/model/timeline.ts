@@ -156,17 +156,17 @@ export async function buildTimeline(
       continue;
     }
 
-    const raw = app.metadataCache.getFileCache(file)?.frontmatter?.[
-      tagName
-    ] as unknown;
-    if (
-      raw === undefined ||
-      raw === null ||
-      frontmatterValueToString(raw).trim() === ""
-    ) {
+    const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+    const hasTag =
+      frontmatter !== undefined &&
+      Object.prototype.hasOwnProperty.call(frontmatter, tagName);
+    // No timeframe property at all is not an error: the scene is simply not
+    // on the timeline. A property that exists but is empty is a problem.
+    if (!hasTag) {
       missing.push(scene.title);
       continue;
     }
+    const raw = frontmatter?.[tagName] as unknown;
 
     const parsed = parseTimeframe(raw, format);
     if (isTimeframeParseError(parsed)) {
@@ -274,7 +274,7 @@ export async function writeTimeline(
   // With the subplot grid on, the scene table becomes the transposed plot
   // table; the Mermaid diagram and Problems section are unchanged.
   let plotTable: TimelinePlotTable | null = null;
-  if (draft.plotGridEnabled && result.errors.length === 0) {
+  if (draft.plotGridEnabled && result.entries.length > 0) {
     plotTable = await buildPlotTimeline(app, draft, result);
   }
 
@@ -402,23 +402,6 @@ function containsExactTitle(text: string, title: string): boolean {
   return false;
 }
 
-/** Coerces a frontmatter value to the same text a template literal would. */
-function frontmatterValueToString(raw: unknown): string {
-  if (typeof raw === "string") {
-    return raw;
-  }
-  if (
-    typeof raw === "number" ||
-    typeof raw === "boolean" ||
-    typeof raw === "bigint"
-  ) {
-    return String(raw);
-  }
-  if (Array.isArray(raw)) {
-    return raw.map((item) => frontmatterValueToString(item)).join(",");
-  }
-  return "[object Object]";
-}
 
 function hasOwn(record: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, key) as boolean;
@@ -1028,26 +1011,8 @@ function renderMermaid(result: TimelineResult): string {
   return lines.join("\n");
 }
 
-export function renderTimeline(
-  result: TimelineResult,
-  plotTable: TimelinePlotTable | null = null,
-  plotLabel: string = singularDisplayName(DEFAULT_PLOTS_DISPLAY_NAME)
-): string {
-  if (result.errors.length > 0) {
-    const problems = ["## Problems", ""];
-    for (const error of result.errors) {
-      problems.push(`- **${error.sceneTitle}** ${error.message}`);
-    }
-    problems.push("", "Fix these and the timeline will be rebuilt.");
-    return `# Story Timeline\n\n${problems.join("\n")}\n`;
-  }
-
-  if (plotTable) {
-    return `# Story Timeline\n\n${renderMermaid(
-      result
-    )}\n\n${renderTimelinePlotTable(result, plotTable, plotLabel)}\n`;
-  }
-
+/** Renders the plain four-column entry table. */
+function renderEntryTable(result: TimelineResult): string {
   const primary = result.primaryUnit;
   const secondary = result.secondaryUnit;
   const present = result.units;
@@ -1097,7 +1062,56 @@ export function renderTimeline(
     lastPeriodKey = periodKey;
   }
 
-  return `# Story Timeline\n\n${renderMermaid(result)}\n\n${table.join(
-    "\n"
-  )}\n`;
+  return table.join("\n");
+}
+
+export function renderTimeline(
+  result: TimelineResult,
+  plotTable: TimelinePlotTable | null = null,
+  plotLabel: string = singularDisplayName(DEFAULT_PLOTS_DISPLAY_NAME)
+): string {
+  const parts: string[] = [];
+
+  if (result.errors.length > 0) {
+    // One heading per distinct message, then the scenes that produced it.
+    const grouped = new Map<string, string[]>();
+    for (const error of result.errors) {
+      const titles = grouped.get(error.message) ?? [];
+      titles.push(error.sceneTitle.trim());
+      grouped.set(error.message, titles);
+    }
+
+    const problems = ["## Problems", ""];
+    for (const [message, titles] of grouped) {
+      const heading = `${message.charAt(0).toUpperCase()}${message
+        .slice(1)
+        .replace(/\.$/, "")}`;
+      problems.push(`**${heading}**`, "");
+      for (const title of titles) {
+        problems.push(`- ${title}`);
+      }
+      problems.push("");
+    }
+    problems.push(
+      "Scenes with an empty or invalid timeframe are left out of the timeline below."
+    );
+    parts.push(problems.join("\n"));
+  }
+
+  if (result.entries.length > 0) {
+    const table = plotTable
+      ? renderTimelinePlotTable(result, plotTable, plotLabel)
+      : renderEntryTable(result);
+    parts.push(`${renderMermaid(result)}\n\n${table}`);
+  }
+
+  if (result.missing.length > 0) {
+    const missing = ["## Scenes without a timeframe", ""];
+    for (const title of result.missing) {
+      missing.push(`- ${title.trim()}`);
+    }
+    parts.push(missing.join("\n"));
+  }
+
+  return `# Story Timeline\n\n${parts.join("\n\n")}\n`;
 }
