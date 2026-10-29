@@ -19,6 +19,12 @@ longform:
     - - The Lighthouse
     - Part Three The Return
     - - The Last Marker
+      - The Chart Wall
+      - The Patrol Boat
+      - The Return Crossing
+      - The Harbour Office
+      - The Copy
+      - The Final Marker
   plots:
     - Main
     - The Missing Map
