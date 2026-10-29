@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { TFile, type App } from "obsidian";
+
 import {
+  applyDefaultTimeframe,
   arraysToIndentedScenes,
   draftForStoredPath,
   draftTitle,
@@ -415,5 +418,56 @@ describe("draftForStoredPath", () => {
 
   it("returns null when there are no drafts", () => {
     expect(draftForStoredPath("Anything.md", [])).toBeNull();
+  });
+});
+
+function makeTimeframeWorld(initial: Record<string, unknown> = {}) {
+  const frontmatter: Record<string, unknown> = { ...initial };
+  let calls = 0;
+  const app = {
+    fileManager: {
+      processFrontMatter: async (
+        _file: TFile,
+        callback: (data: Record<string, unknown>) => void
+      ) => {
+        calls += 1;
+        callback(frontmatter);
+      },
+    },
+  } as unknown as App;
+  const file = Object.assign(new TFile(), {
+    path: "Books/My/Scenes/Scene.md",
+  });
+  return { app, file, frontmatter, calls: () => calls };
+}
+
+describe("applyDefaultTimeframe", () => {
+  it("adds an empty timeframe when the timeline is enabled", async () => {
+    const world = makeTimeframeWorld();
+
+    await applyDefaultTimeframe(world.app, world.file, makeSceneDraft());
+
+    expect(world.frontmatter).toEqual({ timeframe: "" });
+  });
+
+  it("leaves an existing timeframe key alone", async () => {
+    const world = makeTimeframeWorld({ timeframe: "04/03/2026 09:30" });
+
+    await applyDefaultTimeframe(world.app, world.file, makeSceneDraft());
+
+    expect(world.frontmatter).toEqual({ timeframe: "04/03/2026 09:30" });
+  });
+
+  it("does nothing when the timeline is disabled", async () => {
+    const world = makeTimeframeWorld();
+
+    await applyDefaultTimeframe(
+      world.app,
+      world.file,
+      makeSceneDraft({ timelineEnabled: false })
+    );
+
+    expect(world.frontmatter).toEqual({});
+    expect(world.calls()).toBe(0);
   });
 });
