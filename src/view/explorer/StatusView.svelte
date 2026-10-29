@@ -1,6 +1,13 @@
 <script lang="ts">
-  import { Notice, TFile, setTooltip } from "obsidian";
+  import { Notice, TFile, setTooltip, type Vault } from "obsidian";
+  import { getContext } from "svelte";
 
+  import {
+    calculateWorkflow,
+    type CompileStatus,
+    type CompileStepKind,
+    type Workflow,
+  } from "src/compile";
   import { configuredOutputPath } from "src/model/generated-note";
   import {
     buildKanban,
@@ -10,6 +17,7 @@
   import { noteGroupSingularName } from "src/model/note-groups";
   import { writePlotGrid } from "src/model/plot-grid";
   import {
+    currentWorkflow,
     pluginSettings,
     selectedDraft,
     sessions,
@@ -20,6 +28,7 @@
     DEFAULT_KANBAN_OUTPUT_PATH,
     DEFAULT_PLOT_GRID_OUTPUT_PATH,
     DEFAULT_TIMELINE_OUTPUT_PATH,
+    type Draft,
     type MultipleSceneDraft,
   } from "src/model/types";
 
@@ -30,8 +39,16 @@
   const app = useApp();
 
   const REFRESH_TOOLTIP = "Force immediate generation of status files.";
+  const COMPILE_TOOLTIP = "Compile manuscript";
   const OPEN_TIMELINE_TOOLTIP = "Open timeline";
   const OPEN_KANBAN_TOOLTIP = "Open kanban";
+
+  const compile: (
+    draft: Draft,
+    workflow: Workflow,
+    kinds: CompileStepKind[],
+    statusCallback: (status: CompileStatus) => void
+  ) => Vault = getContext("compile");
 
   let busy = false;
   let draft: MultipleSceneDraft | null = null;
@@ -58,6 +75,7 @@
     busy ||
     !draft ||
     (!timelineEnabled && !kanbanEnabled && !plotGridEnabled);
+  $: compileDisabled = busy || !draft || !$currentWorkflow;
 
   /**
    * Words counted toward the session goal for the configured scope, or `null`
@@ -106,6 +124,51 @@
   $: goalComplete =
     goalWords !== null && goalTarget > 0 && goalWords >= goalTarget;
   $: goalText = `${(goalWords ?? 0).toLocaleString()}/${goalTarget.toLocaleString()} words`;
+
+  /**
+   * Keeps every button at least square by choosing the smallest number of rows
+   * that fits. Buttons are split evenly (ceil(n / rows) per row, so an odd
+   * count puts the extra button on the first row) instead of leaving a lone
+   * button on the last row.
+   */
+  function balancedGrid(node: HTMLElement) {
+    const layout = () => {
+      const count = node.children.length;
+      if (count === 0) {
+        return;
+      }
+
+      const width = node.clientWidth;
+      const gap = parseFloat(getComputedStyle(node).columnGap) || 0;
+      const first = node.firstElementChild as HTMLElement | null;
+      const min = first ? first.offsetHeight : 0;
+
+      let rows = 1;
+      let perRow = count;
+      while (rows < count) {
+        perRow = Math.ceil(count / rows);
+        if (perRow * min + gap * (perRow - 1) <= width) {
+          break;
+        }
+        rows += 1;
+      }
+
+      node.style.setProperty(
+        "--longform-extended-status-columns",
+        `${perRow}`
+      );
+    };
+
+    const observer = new ResizeObserver(layout);
+    observer.observe(node);
+    layout();
+
+    return {
+      destroy() {
+        observer.disconnect();
+      },
+    };
+  }
 
   /** Obsidian tooltip action. */
   function tooltip(node: HTMLElement, text: string) {
@@ -208,6 +271,23 @@
     }
   }
 
+  function quickCompile(): void {
+    const current = draft;
+    const workflow = $currentWorkflow;
+    if (busy || !current || !workflow) {
+      return;
+    }
+
+    const kinds = calculateWorkflow(workflow, current.format === "scenes")[1];
+    compile(current, workflow, kinds, (status) => {
+      if (status.kind === "CompileStatusError") {
+        new Notice(`Compile failed: ${status.error}. See the console.`);
+      } else if (status.kind === "CompileStatusSuccess") {
+        new Notice("Compile complete.");
+      }
+    });
+  }
+
   function openTimeline(): void {
     if (!draft || !draft.timelineEnabled) {
       return;
@@ -254,7 +334,17 @@
     </div>
   {/if}
   {#if draft}
-    <div class="longform-extended-status-grid">
+    <div class="longform-extended-status-grid" use:balancedGrid>
+      <button
+        type="button"
+        class="clickable-icon longform-extended-status-button"
+        aria-label={COMPILE_TOOLTIP}
+        disabled={compileDisabled}
+        use:tooltip={COMPILE_TOOLTIP}
+        on:click={quickCompile}
+      >
+        <Icon iconName="play" />
+      </button>
       <button
         type="button"
         class="clickable-icon longform-extended-status-button"
@@ -359,7 +449,10 @@
 
   .longform-extended-status-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(
+      var(--longform-extended-status-columns, 5),
+      minmax(0, 1fr)
+    );
     gap: var(--size-4-2);
   }
 

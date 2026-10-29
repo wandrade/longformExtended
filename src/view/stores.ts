@@ -20,7 +20,7 @@ import type { Draft, DraftWordCounts } from "src/model/types";
 // Writable stores
 export const activeFile = writable<TFile | null>(null);
 
-export type ExplorerTab = "Notes" | "Project" | "Compile" | "Status";
+export type ExplorerTab = "Notes" | "Project" | "Compile";
 export const selectedTab = writable<ExplorerTab>("Notes");
 
 /**

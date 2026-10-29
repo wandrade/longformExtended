@@ -19,10 +19,7 @@
 
   $: {
     const hasScenesDraft = $selectedDraft?.format === "scenes";
-    if (
-      !hasScenesDraft &&
-      ($selectedTab === "Notes" || $selectedTab === "Status")
-    ) {
+    if (!hasScenesDraft && $selectedTab === "Notes") {
       $selectedTab = "Project";
     }
   }
@@ -68,13 +65,16 @@
   <div class="longform-extended-explorer">
     <ProjectPicker />
     {#if $selectedDraft && $selectedDraft.format === "scenes"}
+      <div class="longform-extended-overview">
+        <div class="longform-extended-overview-title">Overview</div>
+        <StatusView />
+      </div>
       <div>
         <div class="tabs">
           <div class="tab-list">
             <Tab tab="Notes" />
             <Tab tab="Project" />
             <Tab tab="Compile" />
-            <Tab tab="Status" />
           </div>
         </div>
         {#if $selectedTab === "Notes"}
@@ -95,10 +95,6 @@
         {:else if $selectedTab === "Project"}
           <div class="tab-panel-container">
             <ProjectDetails />
-          </div>
-        {:else if $selectedTab === "Status"}
-          <div class="tab-panel-container">
-            <StatusView />
           </div>
         {:else}
           <div class="tab-panel-container disconnected">
@@ -135,6 +131,21 @@
 <style>
   .longform-extended-explorer {
     font-size: var(--longform-extended-explorer-font-size);
+  }
+
+  .longform-extended-overview {
+    margin-bottom: var(--size-4-2);
+    padding-bottom: var(--size-4-2);
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+
+  .longform-extended-overview-title {
+    margin-bottom: var(--size-4-1);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .longform-extended-migrate-button {
