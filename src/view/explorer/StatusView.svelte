@@ -1,6 +1,13 @@
 <script lang="ts">
-  import { Notice, TFile, setTooltip } from "obsidian";
+  import { Notice, TFile, setTooltip, type Vault } from "obsidian";
+  import { getContext } from "svelte";
 
+  import {
+    calculateWorkflow,
+    type CompileStatus,
+    type CompileStepKind,
+    type Workflow,
+  } from "src/compile";
   import { configuredOutputPath } from "src/model/generated-note";
   import {
     buildKanban,
@@ -10,6 +17,7 @@
   import { noteGroupSingularName } from "src/model/note-groups";
   import { writePlotGrid } from "src/model/plot-grid";
   import {
+    currentWorkflow,
     pluginSettings,
     selectedDraft,
     sessions,
@@ -20,6 +28,7 @@
     DEFAULT_KANBAN_OUTPUT_PATH,
     DEFAULT_PLOT_GRID_OUTPUT_PATH,
     DEFAULT_TIMELINE_OUTPUT_PATH,
+    type Draft,
     type MultipleSceneDraft,
   } from "src/model/types";
 
@@ -30,8 +39,16 @@
   const app = useApp();
 
   const REFRESH_TOOLTIP = "Force immediate generation of status files.";
+  const COMPILE_TOOLTIP = "Compile manuscript";
   const OPEN_TIMELINE_TOOLTIP = "Open timeline";
   const OPEN_KANBAN_TOOLTIP = "Open kanban";
+
+  const compile: (
+    draft: Draft,
+    workflow: Workflow,
+    kinds: CompileStepKind[],
+    statusCallback: (status: CompileStatus) => void
+  ) => Vault = getContext("compile");
 
   let busy = false;
   let draft: MultipleSceneDraft | null = null;
@@ -58,6 +75,7 @@
     busy ||
     !draft ||
     (!timelineEnabled && !kanbanEnabled && !plotGridEnabled);
+  $: compileDisabled = busy || !draft || !$currentWorkflow;
 
   /**
    * Words counted toward the session goal for the configured scope, or `null`
@@ -208,6 +226,23 @@
     }
   }
 
+  function quickCompile(): void {
+    const current = draft;
+    const workflow = $currentWorkflow;
+    if (busy || !current || !workflow) {
+      return;
+    }
+
+    const kinds = calculateWorkflow(workflow, current.format === "scenes")[1];
+    compile(current, workflow, kinds, (status) => {
+      if (status.kind === "CompileStatusError") {
+        new Notice(`Compile failed: ${status.error}. See the console.`);
+      } else if (status.kind === "CompileStatusSuccess") {
+        new Notice("Compile complete.");
+      }
+    });
+  }
+
   function openTimeline(): void {
     if (!draft || !draft.timelineEnabled) {
       return;
@@ -265,6 +300,16 @@
         on:click={refresh}
       >
         <Icon iconName="refresh-cw" />
+      </button>
+      <button
+        type="button"
+        class="clickable-icon longform-extended-status-button"
+        aria-label={COMPILE_TOOLTIP}
+        disabled={compileDisabled}
+        use:tooltip={COMPILE_TOOLTIP}
+        on:click={quickCompile}
+      >
+        <Icon iconName="play" />
       </button>
       <button
         type="button"
@@ -359,7 +404,7 @@
 
   .longform-extended-status-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: var(--size-4-2);
   }
 
