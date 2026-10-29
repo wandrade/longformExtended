@@ -125,6 +125,51 @@
     goalWords !== null && goalTarget > 0 && goalWords >= goalTarget;
   $: goalText = `${(goalWords ?? 0).toLocaleString()}/${goalTarget.toLocaleString()} words`;
 
+  /**
+   * Keeps every button at least square by choosing the smallest number of rows
+   * that fits. Buttons are split evenly (ceil(n / rows) per row, so an odd
+   * count puts the extra button on the first row) instead of leaving a lone
+   * button on the last row.
+   */
+  function balancedGrid(node: HTMLElement) {
+    const layout = () => {
+      const count = node.children.length;
+      if (count === 0) {
+        return;
+      }
+
+      const width = node.clientWidth;
+      const gap = parseFloat(getComputedStyle(node).columnGap) || 0;
+      const first = node.firstElementChild as HTMLElement | null;
+      const min = first ? first.offsetHeight : 0;
+
+      let rows = 1;
+      let perRow = count;
+      while (rows < count) {
+        perRow = Math.ceil(count / rows);
+        if (perRow * min + gap * (perRow - 1) <= width) {
+          break;
+        }
+        rows += 1;
+      }
+
+      node.style.setProperty(
+        "--longform-extended-status-columns",
+        `${perRow}`
+      );
+    };
+
+    const observer = new ResizeObserver(layout);
+    observer.observe(node);
+    layout();
+
+    return {
+      destroy() {
+        observer.disconnect();
+      },
+    };
+  }
+
   /** Obsidian tooltip action. */
   function tooltip(node: HTMLElement, text: string) {
     setTooltip(node, text);
@@ -289,7 +334,17 @@
     </div>
   {/if}
   {#if draft}
-    <div class="longform-extended-status-grid">
+    <div class="longform-extended-status-grid" use:balancedGrid>
+      <button
+        type="button"
+        class="clickable-icon longform-extended-status-button"
+        aria-label={COMPILE_TOOLTIP}
+        disabled={compileDisabled}
+        use:tooltip={COMPILE_TOOLTIP}
+        on:click={quickCompile}
+      >
+        <Icon iconName="play" />
+      </button>
       <button
         type="button"
         class="clickable-icon longform-extended-status-button"
@@ -300,16 +355,6 @@
         on:click={refresh}
       >
         <Icon iconName="refresh-cw" />
-      </button>
-      <button
-        type="button"
-        class="clickable-icon longform-extended-status-button"
-        aria-label={COMPILE_TOOLTIP}
-        disabled={compileDisabled}
-        use:tooltip={COMPILE_TOOLTIP}
-        on:click={quickCompile}
-      >
-        <Icon iconName="play" />
       </button>
       <button
         type="button"
@@ -404,7 +449,10 @@
 
   .longform-extended-status-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(
+      var(--longform-extended-status-columns, 5),
+      minmax(0, 1fr)
+    );
     gap: var(--size-4-2);
   }
 
