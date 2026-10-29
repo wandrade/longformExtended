@@ -289,17 +289,23 @@ function renderKanbanBase(
 
   // groupOrder is a visibility whitelist: only these groups are shown, in this
   // order. Unrecognized statuses are rewritten to one reserved value, so they
-  // share a single "Incorrectly Assigned" column when any were found.
-  const groupOrder = [...result.columns];
+  // share a single "Incorrectly Assigned" column when any were found. `null`
+  // is Bases' documented literal for the group of notes with no value for the
+  // grouped property (its "None" group); it must be listed here or those notes
+  // are dropped by the whitelist.
+  const groupOrder: (string | null)[] = [...result.columns];
   if (
     result.hasIncorrectStatus &&
     !groupOrder.includes(KANBAN_INCORRECT_LABEL)
   ) {
     groupOrder.push(KANBAN_INCORRECT_LABEL);
   }
+  if (showUnassigned) {
+    groupOrder.push(null);
+  }
 
   const groupOrderLines = groupOrder.map(
-    (column) => `      - ${JSON.stringify(column)}`
+    (column) => `      - ${column === null ? "null" : JSON.stringify(column)}`
   );
 
   // `note.status` is both the grouped property and the membership marker:

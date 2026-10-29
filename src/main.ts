@@ -43,6 +43,7 @@ import type { Workflow } from "./compile";
 import { DEFAULT_WORKFLOWS } from "./compile";
 import { StoreVaultSync } from "./model/store-vault-sync";
 import { ProjectNotesObserver } from "./model/notes-observer";
+import { AutocompileScheduler } from "./model/autocompile";
 import {
   selectedDraft,
   selectedDraftVaultPath,
@@ -83,6 +84,7 @@ export default class LongformExtendedPlugin extends Plugin {
 
   private storeVaultSync: StoreVaultSync;
   private notesObserver: ProjectNotesObserver;
+  private autocompileScheduler: AutocompileScheduler;
 
   async onload(): Promise<void> {
     addIcon(ICON_NAME, ICON_SVG);
@@ -175,6 +177,7 @@ export default class LongformExtendedPlugin extends Plugin {
 
     this.storeVaultSync = new StoreVaultSync(this.app);
     this.notesObserver = new ProjectNotesObserver(this.app);
+    this.autocompileScheduler = new AutocompileScheduler(this.app);
 
     this.app.workspace.onLayoutReady(() => {
       void this.postLayoutInit();
@@ -219,6 +222,7 @@ export default class LongformExtendedPlugin extends Plugin {
   onunload(): void {
     this.storeVaultSync.destroy();
     this.notesObserver.destroy();
+    this.autocompileScheduler?.destroy();
     this.unsubscribeSettings();
     this.unsubscribeWorkflows();
     this.unsubscribeDraftSelection?.();
@@ -328,6 +332,7 @@ export default class LongformExtendedPlugin extends Plugin {
     }
 
     this.notesObserver.beginObserving();
+    this.autocompileScheduler.start();
 
     // Continue with the rest of initialization only after sync is complete
     this.watchProjects();

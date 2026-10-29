@@ -256,7 +256,7 @@
   function doWithUnknown(fileName: string, action: "add" | "ignore") {
     if (!$selectedDraft) return;
     if (action === "add") {
-      addScene(fileName);
+      void addScene(app, fileName);
     } else {
       ignoreScene(fileName);
     }
@@ -265,7 +265,7 @@
   function doWithAll(action: "add" | "ignore") {
     if (!$selectedDraft) return;
     if (action === "add") {
-      addAll();
+      void addAll(app);
     } else {
       ignoreAll();
     }

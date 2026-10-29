@@ -52,6 +52,7 @@ function makeDraft(
     plotGridOutputPath: "Base/$1_plotgrid.base",
     plotGridPlotsDir: "Bible/Plots",
     plotGridCharactersDir: "Bible/Characters",
+    autocompileMinutes: null,
     ...overrides,
   };
 }
@@ -353,6 +354,7 @@ describe("writeKanbanBase", () => {
     expect(contents).toContain('      - "Planned"');
     expect(contents).toContain('      - "Draft"');
     expect(contents).toContain(`      - "${KANBAN_INCORRECT_LABEL}"`);
+    expect(contents).toContain("      - null");
     expect(contents).not.toContain("Unassigned");
     expect(contents).toContain("formulas:");
     expect(contents).toContain("kanban_word_count");
@@ -385,7 +387,46 @@ describe("writeKanbanBase", () => {
     expect(contents).not.toContain("kanban_word_count");
     expect(contents).toContain("note.wordCount");
     expect(contents).not.toContain("Incorrectly Assigned");
+    expect(contents).not.toContain("      - null");
     expect(contents).not.toContain("Unassigned");
+  });
+
+  it("lists Bases' None group only when unassigned notes are shown", async () => {
+    const { app, generated } = makeWorld([]);
+
+    await writeKanbanBase(
+      app,
+      makeDraft({ kanbanShowUnassigned: true }),
+      result
+    );
+    const withNone = generated.get("Books/My/Build/Book_kanban.base") ?? "";
+    expect(withNone).toContain(
+      [
+        "    groupOrder:",
+        '      - "Planned"',
+        '      - "Draft"',
+        `      - "${KANBAN_INCORRECT_LABEL}"`,
+        "      - null",
+      ].join("\n")
+    );
+
+    generated.clear();
+    await writeKanbanBase(
+      app,
+      makeDraft({ kanbanShowUnassigned: false }),
+      result
+    );
+    const withoutNone =
+      generated.get("Books/My/Build/Book_kanban.base") ?? "";
+    expect(withoutNone).toContain(
+      [
+        "    groupOrder:",
+        '      - "Planned"',
+        '      - "Draft"',
+        `      - "${KANBAN_INCORRECT_LABEL}"`,
+      ].join("\n")
+    );
+    expect(withoutNone).not.toContain("      - null");
   });
 
   it("omits the word-count column when saving counts is disabled", async () => {

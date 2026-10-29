@@ -48,7 +48,7 @@ export const WriteToNoteStep = makeBuiltinStep({
       const filePath = resolvePath(context.projectPath, target);
       await writeToFile(context.app, filePath, input.contents);
 
-      if (openAfter) {
+      if (openAfter && context.openOutput !== false) {
         context.app.workspace.openLinkText(filePath, "/", true).catch((err) => {
           console.error("[Longform Extended] Could not open", filePath, err);
         });

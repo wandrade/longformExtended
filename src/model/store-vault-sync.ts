@@ -14,6 +14,7 @@ import {
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+  autocompileMinutesSetting,
   DEFAULT_PLOT_GRID_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
   DEFAULT_PLOTS_DISPLAY_NAME,
@@ -53,6 +54,7 @@ import {
   setDraftOnFrontmatterObject,
 } from "src/model/draft-utils";
 import { fileNameFromPath } from "./note-utils";
+import { applyDefaultKanbanStatus } from "./kanban-status";
 import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
 
 type FileWithMetadata = {
@@ -364,7 +366,7 @@ export class StoreVaultSync {
       });
     }
 
-    this.addAuxiliaryNote(file);
+    await this.addAuxiliaryNote(file);
   }
 
   async fileDeleted(file: TFile) {
@@ -441,7 +443,7 @@ export class StoreVaultSync {
         selectedDraftVaultPath.set(file.path);
       }
     } else {
-      this.renameAuxiliaryNote(file, oldPath, drafts);
+      await this.renameAuxiliaryNote(file, oldPath, drafts);
 
       // scene renamed
       const newTitle = fileNameFromPath(file.path);
@@ -539,17 +541,23 @@ export class StoreVaultSync {
   }
 
   /** Adds a note that appeared in a plot/character folder to its overlay. */
-  private addAuxiliaryNote(file: TFile): boolean {
+  private async addAuxiliaryNote(file: TFile): Promise<boolean> {
     if (!this.isAuxiliaryNote(file)) {
       return false;
     }
 
-    const isMember = get(draftsStore).some(
-      (draft) =>
-        draft.format === "scenes" &&
-        this.auxiliaryKindForPath(draft, file.path) !== null
-    );
-    if (!isMember) {
+    const members: { draft: MultipleSceneDraft; kind: AuxiliaryNoteKind }[] =
+      [];
+    for (const draft of get(draftsStore)) {
+      if (draft.format !== "scenes") {
+        continue;
+      }
+      const kind = this.auxiliaryKindForPath(draft, file.path);
+      if (kind) {
+        members.push({ draft, kind });
+      }
+    }
+    if (members.length === 0) {
       return false;
     }
 
@@ -575,6 +583,17 @@ export class StoreVaultSync {
         return draft;
       });
     });
+
+    // A subplot can appear on the board, so a note that joins the project from
+    // outside the plugin receives the same first-column default as a created
+    // subplot. Character and custom group notes never reach the board.
+    if (changed) {
+      for (const { draft, kind } of members) {
+        if (kind === "plots") {
+          await applyDefaultKanbanStatus(this.app, file, draft);
+        }
+      }
+    }
 
     return changed;
   }
@@ -625,11 +644,11 @@ export class StoreVaultSync {
    * same tree preserves position and indent; a move out removes the entry; a
    * move in appends it at the root.
    */
-  private renameAuxiliaryNote(
+  private async renameAuxiliaryNote(
     file: TFile,
     oldPath: string,
     drafts: Draft[]
-  ): void {
+  ): Promise<void> {
     if (!this.isAuxiliaryNote(file)) {
       return;
     }
@@ -652,6 +671,9 @@ export class StoreVaultSync {
     if (!member) {
       return;
     }
+
+    // Notes moved in from outside the project get the subplot board default.
+    const addedPlots: MultipleSceneDraft[] = [];
 
     draftsStore.update((allDrafts) => {
       return allDrafts.map((draft) => {
@@ -690,11 +712,20 @@ export class StoreVaultSync {
               ...newEntries,
               { title: newName, indent: 0 },
             ]);
+            if (newKind === "plots") {
+              addedPlots.push(draft);
+            }
           }
         }
         return draft;
       });
     });
+
+    // Only a move into the subplot folder needs the kanban default. Character
+    // and custom group notes, and in-place renames, are left alone.
+    for (const draft of addedPlots) {
+      await applyDefaultKanbanStatus(this.app, file, draft);
+    }
   }
 
   async draftsStoreChanged(newValue: Draft[]) {
@@ -840,6 +871,9 @@ export class StoreVaultSync {
         typeof rawPlotGridCharactersDir === "string"
           ? rawPlotGridCharactersDir
           : DEFAULT_PLOT_GRID_CHARACTERS_DIR;
+      const autocompileMinutes = autocompileMinutesSetting(
+        longformEntry["autocompileMinutes"]
+      );
       const ignoredFiles = (longformEntry["ignoredFiles"] ?? []) as string[];
       const normalizedSceneFolder = normalizePath(
         `${fileWithMetadata.file.parent.path}/${sceneFolder}`
@@ -940,6 +974,7 @@ export class StoreVaultSync {
           plotGridOutputPath,
           plotGridPlotsDir,
           plotGridCharactersDir,
+          autocompileMinutes,
           workflow,
         },
         dirty,

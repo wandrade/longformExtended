@@ -118,6 +118,19 @@ Workflows are vault-wide; if you change a workflow within a project, it will cha
 
 You can drag steps within a workflow to rearrange them.
 
+## Autocompile
+
+Autocompile is a per-project setting in the **Autocompile** section of the
+Project tab. Set a whole number of minutes to have Longform Extended compile the
+project with its selected workflow on that interval, then regenerate the
+timeline, kanban board, and subplot grid. Each generated file is rebuilt only
+when that output's own enable setting is on. The first run happens after the
+first interval has elapsed, not when the plugin or project starts. Leaving the
+field empty or setting it to `0` turns the timer off.
+
+A missing workflow, or one that fails validation, skips the compile step. The
+status refresh still runs. Autocompile has no visible progress display.
+
 ## The Future
 
 Compile remains a feature that will change over time. [Open issues](https://github.com/wandrade/longformExtended/issues?q=is%3Aissue+is%3Aopen+label%3Acompile) are a good way to track what's on the roadmap.

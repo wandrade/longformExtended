@@ -125,6 +125,11 @@ export type CompileContext = {
   draft: Draft;
   /** Obsidian’s app object, for accessing APIs. */
   app: App;
+  /**
+   * Whether steps may open or reveal files. Background runs such as
+   * autocompile pass `false` so compilation never steals focus.
+   */
+  openOutput?: boolean;
   /** Utility functions provided to steps for convenience. */
   utilities: {
     /** Obsidian’s normalizePath function. Converts an arbitrary file path string into a normalized one. */

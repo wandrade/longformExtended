@@ -46,6 +46,7 @@
   let showNoteGroups = true;
   let showKanban = true;
   let showTimeline = true;
+  let showAutocompile = true;
   let showPlotGrid = true;
 
   function titleChanged(event: Event) {
@@ -561,6 +562,25 @@
       allDrafts.map((d) =>
         d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
           ? { ...d, timelineOutputPath: value }
+          : d
+      )
+    );
+  }
+
+  function autocompileMinutesChanged(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const raw = input.value.trim();
+    const parsed = raw.length === 0 ? NaN : Number(raw);
+    const minutes =
+      Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+    input.value = minutes === null ? "" : `${minutes}`;
+    if (!$selectedDraft) {
+      return;
+    }
+    drafts.update((allDrafts) =>
+      allDrafts.map((d) =>
+        d.vaultPath === $selectedDraftVaultPath && d.format === "scenes"
+          ? { ...d, autocompileMinutes: minutes }
           : d
       )
     );
@@ -1102,6 +1122,39 @@
       <div
         class="longform-extended-project-details-section-header"
         on:click={() => {
+          showAutocompile = !showAutocompile;
+        }}
+      >
+        <Disclosure collapsed={!showAutocompile} />
+        <h4>Autocompile</h4>
+      </div>
+      {#if showAutocompile}
+        <div>
+          <label for="longform-extended-project-autocompile-minutes"
+            >Autocompile Minutes</label
+          >
+          <input
+            id="longform-extended-project-autocompile-minutes"
+            type="number"
+            min="0"
+            step="1"
+            value={$selectedDraft.autocompileMinutes ?? ""}
+            on:change={autocompileMinutesChanged}
+          />
+          <p class="longform-extended-project-warning">
+            Every this many minutes, compile the project with its selected
+            workflow and regenerate the timeline, kanban, and subplot grid.
+            Leave empty or 0 to disable.
+          </p>
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if $selectedDraft && $selectedDraft.format === "scenes"}
+    <div class="longform-extended-project-section">
+      <div
+        class="longform-extended-project-details-section-header"
+        on:click={() => {
           showPlotGrid = !showPlotGrid;
         }}
       >
@@ -1239,7 +1292,8 @@
     margin: 0 0 0 var(--size-4-4);
   }
 
-  input[type="text"] {
+  input[type="text"],
+  input[type="number"] {
     width: 100%;
   }
 

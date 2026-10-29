@@ -1,5 +1,7 @@
+import type { App } from "obsidian";
 import { drafts, selectedDraft } from "src/model/stores";
 import type { MultipleSceneDraft } from "src/model/types";
+import { addUnknownScenes } from "src/model/draft-utils";
 import { get } from "svelte/store";
 
 const getSelectedDraftWithIndex = () => {
@@ -11,23 +13,12 @@ const getSelectedDraftWithIndex = () => {
   return { index, draft };
 };
 
-export const addScene = (fileName: string) => {
-  const { index, draft } = getSelectedDraftWithIndex();
-  if (!draft) {
+export const addScene = async (app: App, fileName: string) => {
+  const { draft } = getSelectedDraftWithIndex();
+  if (!draft || draft.format !== "scenes") {
     return;
   }
-  if (index >= 0 && draft.format === "scenes") {
-    drafts.update((d) => {
-      const targetDraft = d[index] as MultipleSceneDraft;
-      (d[index] as MultipleSceneDraft).scenes = [
-        ...targetDraft.scenes,
-        { title: fileName, indent: 0 },
-      ];
-      (d[index] as MultipleSceneDraft).unknownFiles =
-        targetDraft.unknownFiles.filter((f) => f !== fileName);
-      return d;
-    });
-  }
+  await addUnknownScenes(app, drafts, draft, [fileName]);
 };
 
 export const ignoreScene = (fileName: string) => {
@@ -52,22 +43,12 @@ export const ignoreScene = (fileName: string) => {
   }
 };
 
-export const addAll = () => {
-  const { index, draft } = getSelectedDraftWithIndex();
-  if (!draft) {
+export const addAll = async (app: App) => {
+  const { draft } = getSelectedDraftWithIndex();
+  if (!draft || draft.format !== "scenes") {
     return;
   }
-  if (index >= 0 && draft.format === "scenes") {
-    drafts.update((d) => {
-      const targetDraft = d[index] as MultipleSceneDraft;
-      (d[index] as MultipleSceneDraft).scenes = [
-        ...targetDraft.scenes,
-        ...targetDraft.unknownFiles.map((f) => ({ title: f, indent: 0 })),
-      ];
-      (d[index] as MultipleSceneDraft).unknownFiles = [];
-      return d;
-    });
-  }
+  await addUnknownScenes(app, drafts, draft, draft.unknownFiles);
 };
 
 export const ignoreAll = () => {
