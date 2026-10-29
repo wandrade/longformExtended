@@ -127,3 +127,5 @@ Longform Extended is dual-licensed.
 - All additions and changes in this fork are under a separate license that allows private use and modification but requires consent for redistribution. See [LICENSE-ADDITIONS.md](./LICENSE-ADDITIONS.md).
 
 Longform is created by Kevin Barrett. Longform Extended is maintained by Werner Thomassen Andrade.
+
+The fork was [explicitly approved by the original author](https://github.com/kevboh/longform/issues/349).
