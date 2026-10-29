@@ -156,17 +156,17 @@ export async function buildTimeline(
       continue;
     }
 
-    const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
-    const hasTag =
-      frontmatter !== undefined &&
-      Object.prototype.hasOwnProperty.call(frontmatter, tagName);
+    const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter as
+      | Record<string, unknown>
+      | undefined;
+    const hasTag = frontmatter !== undefined && tagName in frontmatter;
     // No timeframe property at all is not an error: the scene is simply not
     // on the timeline. A property that exists but is empty is a problem.
     if (!hasTag) {
       missing.push(scene.title);
       continue;
     }
-    const raw = frontmatter?.[tagName] as unknown;
+    const raw = frontmatter?.[tagName];
 
     const parsed = parseTimeframe(raw, format);
     if (isTimeframeParseError(parsed)) {
