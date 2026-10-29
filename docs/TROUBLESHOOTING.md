@@ -8,12 +8,14 @@ enabled, writes `longform-order` and `longform-number` to scene notes. It never
 deletes files based on index changes. Longform Extended follows that rule for
 prose: the added views never edit note prose.
 
-The added views do write the frontmatter they document — `status`,
-`longformKanbanStatus`, `wordCount`, and `plotgrid_*` — and they update the
-project index file's `longform` entry for note-group configuration, display names,
-and order overlays. They also write the generated timeline, kanban, and
-subplot-grid files. Everything outside those properties and the scene-order keys
-is left alone.
+The added views do write the frontmatter they document: `status`, `wordCount`,
+`plotgrid_*`, and the configured timeframe property on new scene notes. The
+plugin seeds `status` on new scene and subplot notes and rewrites a status that
+matches no kanban column to `Incorrectly Assigned`. It also updates the project
+index file's `longform` entry for note-group configuration, display names, and
+order overlays. It writes the generated timeline, kanban, and subplot-grid
+files. Everything outside those properties and the scene-order keys is left
+alone.
 
 ## Project desync
 
@@ -51,8 +53,8 @@ Disable upstream Longform before enabling Longform Extended.
 - Check that the feature is enabled in the **Project** tab.
 - Check that the project is a multi-scene project. Timeline, kanban, and subplot
   grid are not generated for single-scene projects.
-- Use the **Status** tab's refresh action, or the feature's **Rebuild**
-  command, to force regeneration.
+- Use the refresh action in the **Overview** block, or the feature's
+  **Rebuild** command, to force regeneration.
 - For the timeline, at least one scene needs a valid timeframe value.
 - For the kanban, at least one card note needs a non-empty `status`.
 - For the subplot grid, the Scene, Subplot, and Character Folders must be

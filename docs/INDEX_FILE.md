@@ -40,7 +40,7 @@ projects need no migration.
 | timelineOutputPath | `string` | `Build/$1_timeline.md` | Timeline output path. |
 | kanbanColumns | `string` | `Planned Draft Reviewed` | Kanban columns, in order. |
 | kanbanOutputPath | `string` | `Build/$1_kanban.base` | Kanban output path. |
-| kanbanShowUnassigned | `boolean` | `false` | Whether notes with no status get an `Unassigned` column. Only `true` is stored. |
+| kanbanShowUnassigned | `boolean` | `false` | Whether notes with an empty `status` are shown in Bases' `None` group. Only `true` is stored. |
 | kanbanSaveWordCounts | `boolean` | `true` | Whether scene word counts are written to `wordCount`. Only `false` is stored. |
 | kanbanEnabled | `boolean` | `true` | Whether the kanban board is generated. Only `false` is stored. |
 | kanbanIncludePlots | `boolean` | `true` | Whether **Include subplots** is on. Only `false` is stored. |

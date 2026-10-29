@@ -1,7 +1,6 @@
 ---
 description: "June's struggle to finish her film after the final reel disappears."
 status: doing
-longformKanbanStatus: doing
 plotgrid_act_i_setup: "June fights to finish film"
 plotgrid_the_soundstage: "June pushes Cal through take"
 plotgrid_the_screening_room: "June finds final reel gone"

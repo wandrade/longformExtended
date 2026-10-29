@@ -59,7 +59,8 @@ and `Characters`). The singular form is derived from the plural display name
 - Row-label prefixes use the configured singular names, so notes are labeled
   `(Subplot)` and `(Character)` by default, or `(Thread)` and `(Cast)` when the
   display names are `Threads` and `Cast`.
-- The Status tab's open action and its tooltip use the configured singular name.
+- The Overview block's open action and its tooltip use the configured singular
+  name.
 
 Display names are presentation only. They do not change the Scene, Subplot, or
 Character Folders, note paths, `plotgrid_*` keys, or data. A blank display name
@@ -70,7 +71,7 @@ Extra note groups are not subplot-grid inputs; see
 [Extra note groups](./PLOTS_AND_CHARACTERS.md#extra-note-groups).
 
 Turning **Enable subplot grid** off stops future rebuilds and removes the
-**Rebuild subplot grid** command for that project; the Status tab's
+**Rebuild subplot grid** command for that project. The Overview block's
 **Open subplot grid** action stays visible but is disabled. Turning it off does
 not delete an existing Base or the `plotgrid_*` keys already in notes.
 
@@ -308,8 +309,8 @@ command palette. The command is only available for a multi-scene project with
 the subplot grid enabled. It reports the number of columns and grid notes, or
 the reason nothing was written.
 
-The Status tab provides the shared actions described in
-[Status tab](./STATUS_TAB.md):
+The Overview block provides the shared actions described in
+[Overview](./OVERVIEW.md):
 
 - The refresh action regenerates every enabled generated file for the selected
   project: the timeline, the kanban board, and the subplot grid.

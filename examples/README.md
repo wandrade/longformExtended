@@ -31,8 +31,8 @@ because Longform filters out hierarchy entries that have no matching file.
 
 All four projects use `format: scenes`, `timeFormat: datetime`, and
 `kanbanColumns: todo doing done`, except the essay, which uses
-`timeFormat: number`. Scene and row notes carry both `status` and the
-plugin-managed `longformKanbanStatus`; structural group notes have no status.
+`timeFormat: number`. Scene and row notes carry `status`. Structural group notes
+have no status.
 
 The essay demonstrates the display-name settings without renaming the grid
 folders. Its scene folder is `Sections`, while `plotGridPlotsDir` is `Subplots`

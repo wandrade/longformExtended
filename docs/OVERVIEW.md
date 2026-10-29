@@ -1,13 +1,14 @@
-# Status Tab
+# Overview
 
-Multi-scene projects have a **Status** tab in the Longform Extended pane. It holds
-the daily writing-goal bar and the actions that work with the generated files.
-Single-scene projects do not have a Status tab; choosing **Status** redirects to
-**Project**.
+Multi-scene projects show an **Overview** block at the top of the Longform
+Extended pane, always visible above the **Notes**, **Project**, and **Compile**
+tabs. It holds the daily writing-goal bar and the actions that work with the
+project and its generated files. Single-scene projects do not show an Overview
+block.
 
 ## Daily Goal Bar
 
-The bar shows the current session's progress toward the writing goal; its label
+The bar shows the current session's progress toward the writing goal. Its label
 turns green and bold when the goal is met. It uses the latest writing session and
 the **Goal applies to** setting, and is hidden when the goal is `0` or less or
 when the selected scope has no measurable target.
@@ -21,8 +22,11 @@ scopes, settings, and storage options.
 
 ## Actions
 
-The Status tab has four icon actions:
+The block has five icon actions:
 
+- **Compile** (tooltip: “Compile manuscript”) compiles the selected project
+  with its current compile workflow. It is disabled when no workflow is
+  selected, and while a refresh is running.
 - **Refresh** (tooltip: “Force immediate generation of status files.”)
   regenerates every enabled generated file for the selected project: the
   timeline, the kanban board, and the subplot grid. It also writes the kanban
@@ -40,6 +44,12 @@ the refresh action. Only the subplot-grid action's tooltip follows the project's
 display names, so a Subplots display name of `Threads` produces an “Open thread
 grid” tooltip. The timeline and kanban tooltips are fixed. See
 [Display names](./PLOTS_AND_CHARACTERS.md#display-names).
+
+## Layout
+
+The five actions sit in a grid and never shrink below a square. When the pane is
+narrow they wrap onto multiple rows, split evenly, with an odd count leaving the
+extra button on the first row.
 
 ## Related
 

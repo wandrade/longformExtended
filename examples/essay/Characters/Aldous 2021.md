@@ -1,7 +1,6 @@
 ---
 description: "A study of same-day delivery adoption, household labor, and the logistics behind speed."
 status: done
-longformKanbanStatus: done
 plotgrid_part_one_the_promise: "Aldous documents convenience's early promises"
 plotgrid_the_convenience: "Supports claim with delivery survey"
 plotgrid_the_hidden_cost: "Supplies warehouse labor evidence"

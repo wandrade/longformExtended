@@ -1,7 +1,6 @@
 ---
 description: "Cal's desperate edit of his own worst scene, hidden from the director."
 status: todo
-longformKanbanStatus: todo
 plotgrid_act_i_setup: "Reel vanishes before final scene"
 plotgrid_the_soundstage: "Cal hides reel in prop case"
 plotgrid_the_screening_room: "Empty canister confirms theft"

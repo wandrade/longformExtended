@@ -45,8 +45,7 @@ function hasStatusValue(raw: unknown): boolean {
 /**
  * Seeds a newly created scene or subplot note with the board's first column so
  * it appears on the generated kanban without a manual edit. Existing
- * frontmatter, including a status supplied by a template, is preserved. The
- * grouping helper (`longformKanbanStatus`) is left for the kanban rebuild.
+ * frontmatter, including a status supplied by a template, is preserved.
  */
 export async function applyDefaultKanbanStatus(
   app: App,

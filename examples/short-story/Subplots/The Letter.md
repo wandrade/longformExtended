@@ -1,7 +1,6 @@
 ---
 description: "A hidden letter from Mara's mother forces both friends to confront an old silence."
 status: todo
-longformKanbanStatus: todo
 plotgrid_act_i_arrival: "Old letter surfaces at depot"
 plotgrid_the_bus_stop: "Tomas hides letter in bus"
 plotgrid_the_empty_kitchen: "Sealed letter names Mara's mother"

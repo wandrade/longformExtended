@@ -21,7 +21,7 @@ Longform Extended is an [Obsidian](https://obsidian.md) plugin for writing and o
 | Timeline | Chronological scene view driven by a `timeframe` property, with per-level subplot tables. | [Timeline](./docs/TIMELINE.md) |
 | Kanban | Status-driven board; dragging a card writes its status back to the note. | [Kanban](./docs/KANBAN.md) |
 | Subplot grid | Editable grid of subplots and characters across the scene hierarchy. | [Subplot grid](./docs/PLOT_GRID.md) |
-| Status tab | Daily writing-goal bar plus refresh and open actions for generated files. | [Status tab](./docs/STATUS_TAB.md) |
+| Overview block | Daily writing-goal bar plus compile, refresh, and open actions, always visible above the tabs. | [Overview](./docs/OVERVIEW.md) |
 | Generated files | Where the timeline, kanban, and subplot grid are written. | [Generated files](./docs/GENERATED_FILES.md) |
 
 The additions are deliberately lightweight: no required fields, no per-scene character or plot schema, and no separate story database. Each auxiliary group — Subplots, Characters, and custom groups — is just a name, a folder, an optional template, and an order overlay; folder membership decides which notes belong to it.
@@ -59,7 +59,7 @@ npm run build
 2. **Add scenes.** In the pane's **Notes → Scenes** tab, type a title in **New Scene** and press Enter.
 3. **Add subplots and characters.** Use **Notes → Subplots** and **Notes → Characters**. Membership is folder-based; no `type` flag is needed.
 4. **Check the Project tab.** Timeline, kanban, and subplot grid are enabled by default. Their outputs go to `Build/` inside the project folder; the Scene, Subplot, and Character Folders are under **Project Metadata**.
-5. **Use the Status tab.** The refresh action regenerates every enabled generated file. The open actions open the configured outputs.
+5. **Use the Overview block.** The refresh action regenerates every enabled generated file. The compile action runs the current workflow, and the open actions open the configured outputs.
 
 New to Longform or Longform Extended? [Getting Started](./docs/GETTING_STARTED.md) covers creating multi-scene and single-scene projects, drafts, and the inherited workflow. [Longform's own guide](https://github.com/kevboh/longform#getting-started) is the upstream reference.
 
@@ -92,7 +92,7 @@ User-script compile steps were removed in 1.0.0 for security and linter complian
 | Subplot grid | [PLOT_GRID.md](./docs/PLOT_GRID.md) |
 | Generated files and output paths | [GENERATED_FILES.md](./docs/GENERATED_FILES.md) |
 | Subplots, characters, and note groups | [PLOTS_AND_CHARACTERS.md](./docs/PLOTS_AND_CHARACTERS.md) |
-| Status tab | [STATUS_TAB.md](./docs/STATUS_TAB.md) |
+| Overview block | [OVERVIEW.md](./docs/OVERVIEW.md) |
 | Scene-only styling | [SCENE_ONLY_STYLING.md](./docs/SCENE_ONLY_STYLING.md) |
 | Commands | [COMMANDS.md](./docs/COMMANDS.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) |

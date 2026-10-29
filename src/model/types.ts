@@ -46,13 +46,10 @@ export const DEFAULT_PLOT_GRID_PLOTS_DIR = "Subplots";
 export const DEFAULT_PLOT_GRID_CHARACTERS_DIR = "Characters";
 export const KANBAN_STATUS_TAG = "status";
 /**
- * Plugin-managed frontmatter property that the generated Bases board groups by
- * and that Bases writes when a card is dragged. It mirrors the real status,
- * collapsing unrecognized statuses so they do not each become a column.
+ * Reserved status value that collects every unrecognized status so they share
+ * one visible board column instead of creating one column per value.
  */
-export const KANBAN_HELPER_TAG = "longformKanbanStatus";
 export const KANBAN_INCORRECT_LABEL = "Incorrectly Assigned";
-export const KANBAN_UNASSIGNED_LABEL = "Unassigned";
 
 export type IndentedScene = {
   title: string;

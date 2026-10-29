@@ -1,7 +1,6 @@
 ---
 description: "A cartographer who trusts measurements more than the people who preserved them."
 status: doing
-longformKanbanStatus: doing
 plotgrid_part_one_the_coast: "Ilya risks career for truth"
 plotgrid_the_tide_cave: "Ilya records cave's hidden channel"
 plotgrid_the_ferry: "Ilya guards logbook on deck"

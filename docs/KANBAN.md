@@ -6,12 +6,12 @@ Kanban view. It requires **Obsidian 1.14 or newer**; enable Obsidian's **Bases**
 core plugin. No community kanban plugin is needed. Only multi-scene projects get
 a board; single-scene projects do not.
 
-The board shows the project's listed scenes in the configured columns. With
-**Include subplots** enabled (the default), it also shows the notes in the
-configured **Subplot Folder**; notes in the **Character Folder** are never
-included. Dragging a card to
-another column updates that note's real `status` frontmatter, so the board and
-the notes stay in sync.
+The board shows the notes in the project's **Scene Folder** that have a status
+that matches a configured column. With **Include subplots** enabled (the
+default), it also shows notes in the configured **Subplot Folder** on the same
+terms. Notes in the **Character Folder** are never included. Dragging a card to
+another column writes that column's title into the note's `status` frontmatter
+directly, so the board and the notes stay in sync.
 
 ![A generated kanban board](./res/kanban-example.png)
 
@@ -24,7 +24,7 @@ The Kanban section of the Project tab controls the feature:
 | **Enable kanban** | On | Turns generation on or off. |
 | **Kanban Columns** | `Planned Draft Reviewed` | The columns, in order. |
 | **Kanban Output Path** | `Build/$1_kanban.base` | Where the board is written. |
-| **Show notes with no status** | Off | Adds an `Unassigned` column when notes have no status. |
+| **Show notes with no status** | Off | Shows notes with an empty `status` in Bases' own `None` group. Off filters them out of the board. |
 | **Save word counts** | On | Writes each card scene's word count to its frontmatter. |
 | **Include subplots** | On | Includes notes from the Subplot Folder on the board. The visible label follows the project's Subplots Display Name. |
 
@@ -60,9 +60,9 @@ default.
 
 Column titles are also the values written to `status` when cards are dragged.
 
-`Incorrectly Assigned` and `Unassigned` are reserved titles used by the two
-synthetic columns described below. Do not add them to **Kanban Columns**; if
-you do, the synthetic column merges with the configured one.
+`Incorrectly Assigned` is a reserved title used by the holding column described
+below. Do not add it to **Kanban Columns**. If you do, the holding column merges
+with the configured one.
 
 ## The Status Property
 
@@ -78,84 +78,76 @@ The value must match a configured column exactly. Leading and trailing
 whitespace is ignored, but case is not. Notes from the Subplot Folder use the
 same property and the same rules as scenes.
 
-The generated board does not group directly by `status`. It groups by a
-plugin-managed helper property, `longformKanbanStatus`, because Bases only
-writes a dropped card's new group back to the note when the grouped property is
-a writable note property. Grouping by a formula would make the cards
-undraggable. The helper also collapses every unrecognized status into a single
-column instead of creating one column per value:
+The generated board groups by `note.status` itself. Because `status` is a
+writable note property, Bases writes a dropped card's new column straight into
+the note, with no intermediate property.
 
-| Note status | Helper value | Board column |
-| --- | --- | --- |
-| A configured column, e.g. `Draft` | `Draft` | `Draft` |
-| Any other non-empty value | `Incorrectly Assigned` | `Incorrectly Assigned` |
-| Missing or empty and **Show notes with no status** is on | `Unassigned` | `Unassigned` |
-| Missing or empty and **Show notes with no status** is off | no helper | not shown |
+A non-empty status that matches no configured column is rewritten in the note
+to the reserved value `Incorrectly Assigned`. The original value is not stored
+anywhere, so a typo is gone once the rewrite happens. See
+[Statuses That Are Not Columns](#statuses-that-are-not-columns).
 
-When you drag a card:
+Notes with a missing or empty status are handled by **Show notes with no
+status**. See [Notes Without a Status](#notes-without-a-status).
 
-- **To a configured column:** Bases writes that column title into
-  `longformKanbanStatus`. The plugin then writes the same value into `status`
-  and regenerates the board.
-- **To `Unassigned`:** the plugin clears `status` (removes the property).
-- **To `Incorrectly Assigned`:** there is no status to assign, so the plugin
-  restores the helper and the card snaps back to its previous column. To fix an
-  invalid status, drag the card into a configured column instead.
+### New Notes
 
-`longformKanbanStatus` is managed by the plugin for both scene cards and cards
-from the Subplot Folder.
-You can see it in Obsidian's Properties panel, but do not edit it by hand: the
-next rebuild overwrites it.
-If you edit `status` directly, the helper follows on the next rebuild. Edits to
-the helper made while the plugin is disabled are not replayed; the next build
-trusts `status` and rewrites the helper.
+When the kanban is enabled, creating a new scene or subplot note sets `status`
+to the first configured column. When **Kanban Columns** is empty, it uses the
+first column of the default list. This runs after any template is applied and
+never overwrites a status the template already set. Character notes and notes
+in custom groups never get a status.
 
 ## What Appears on the Board
 
-The board shows:
+The board is a folder query, not a scene-list query. It shows:
 
-- Scenes that are listed in the project and are not structural containers (a
-  scene followed by a more-indented scene is a container).
-- When **Include subplots** is on, the notes in the configured Subplot Folder.
-  They do not need to be listed in the project's scenes.
+- Notes in the Scene Folder whose `status` matches a configured column. This
+  includes notes that are not listed in the project's scenes. A structural
+  container (a scene followed by a more-indented scene) appears only if it has
+  a status.
+- When **Include subplots** is on, notes in the configured Subplot Folder whose
+  `status` matches a configured column. They do not need to be listed in the
+  project's scenes.
 
-Notes in the Character Folder are never shown, and notes in extra note groups
-are never shown. The helper property is the board's membership marker, so the
-plugin also removes it from notes in the scene folder that are not listed
-scenes. Consequently:
-
-- Notes in the scene folder that are not in the project's scene list never
-  appear, even if they have a `status`.
-- A scene or note from the Subplot Folder that has no status appears only when
-  **Show notes with no status** is enabled.
+Notes in the Character Folder and notes in extra note groups are never shown.
+A note with no status appears only when **Show notes with no status** is
+enabled.
 
 The generated Base filters to the scene folder and, when **Include subplots**
-is on, the Subplot Folder as an OR choice, and always requires a non-empty
-`longformKanbanStatus` helper. With **Include subplots** off, the folder filter
-is the scene folder only. Membership otherwise comes from the helper property.
+is on, the Subplot Folder as an OR choice. When **Show notes with no status** is
+off, it also requires a non-empty `status`.
 
 ## Notes Without a Status
 
 By default, notes with a missing or empty `status` are excluded from the board.
-Enable **Show notes with no status** in the Project tab to include them. They
-appear in a single column labeled exactly `Unassigned` (not the Bases `None`
-column), and that column is omitted when no card note is unassigned.
+The generated Base requires a non-empty `status` in that case. Enable **Show
+notes with no status** in the Project tab to include them. They then appear in
+Bases' own `None` group. There is no synthetic unassigned column.
 
-A board is only written when at least one scene, or (with **Include subplots**)
-at least one note from the Subplot Folder, has a non-empty status. So enabling
-**Show notes with no status** on a project where every card note is unassigned
-does not create a board.
+A board is only written when at least one listed non-container scene, or (with
+**Include subplots**) at least one note from the Subplot Folder, has a non-empty
+status. So enabling **Show notes with no status** on a project where every such
+note is unassigned does not create a board.
 
 ## Statuses That Are Not Columns
 
-If a card note's status does not match any configured column, it appears in a
-single column labeled exactly `Incorrectly Assigned`. That column is placed
-after the configured columns and is omitted when every card note's status is
-recognized. Unrecognized status values never become their own columns.
+If a listed scene's status, or (with **Include subplots**) a Subplot Folder
+note's status, does not match any configured column, the plugin rewrites the
+note's `status` to `Incorrectly Assigned`. The original value is not stored
+anywhere. That column is placed after the configured columns and appears
+only when at least one note was rewritten. Unrecognized status values never
+become their own columns.
 
 A value is unrecognized when it differs at all, including by case: `draft` does
-not match `Draft`. Fix the note's `status`, add the value to **Kanban Columns**,
-or drag the card into a configured column.
+not match `Draft`. Fix the note's `status` or drag the card into a configured
+column. Adding the original value to **Kanban Columns** later does not bring a
+rewritten note back, because the note now says `Incorrectly Assigned`. Set its
+status again.
+
+`Incorrectly Assigned` is a holding area, not an assignable status. Dragging a
+card into that column writes the reserved value to the note, and the card stays
+there until you move it to a configured column or correct its status.
 
 ## Word Counts
 
@@ -208,10 +200,9 @@ the configured path is left untouched.
 The board refreshes automatically when the plugin loads and when files in the
 project change, including notes in the scene folder that are not listed as
 project scenes. When **Include subplots** is on, changes to notes in the Subplot
-Folder also refresh the board. A drag updates the helper property, which
-triggers a rebuild;
-the rebuild writes the new `status` and then regenerates the board. These
-writes are idempotent.
+Folder also refresh the board. A card drop writes `status` directly to the
+note through Bases, which triggers a rebuild. The rebuild regenerates the
+board. These writes are idempotent.
 
 It also rebuilds when project settings that affect it change, such as the
 columns, the show-unassigned setting, save word counts, include subplots, or the
@@ -227,25 +218,29 @@ command palette. The command is only available for a multi-scene project with
 the kanban enabled. It reports `Kanban rebuilt.` even when there was nothing to
 write.
 
-The Status tab's **Open kanban** action opens the configured board and is
+The Overview block's **Open kanban** action opens the configured board and is
 disabled when the kanban is off. The refresh action regenerates every enabled
 generated file, including the board. If the board has not been generated, a
-notice asks you to use the refresh action. See [Status tab](./STATUS_TAB.md).
+notice asks you to use the refresh action. See [Overview](./OVERVIEW.md).
 
 ## Troubleshooting
 
 - **No board was created.** Check that the kanban is enabled, that the project
   is a scenes project, and that at least one card note has a non-empty
   `status`. A project whose card notes are all unassigned produces no board.
-- **A note is missing from the board.** Check whether it is unlisted, its note
-  file is missing, it is a structural container, has no status, sits outside the
-  scene or Subplot Folder, or is in the Character Folder or an extra note group.
-- **A note is in an unexpected column.** Status matching is case-sensitive;
-  an unrecognized value goes to `Incorrectly Assigned`.
-- **A card will not stay in `Incorrectly Assigned`.** That column is a holding
-  area, not an assignable status. Drag the card into a configured column.
+- **A note is missing from the board.** Check whether its `status` is empty or
+  unmatched, its note file is missing, it sits outside the Scene and Subplot
+  Folders, or it is in the Character Folder or an extra note group. A note in
+  the Subplot Folder is included only when **Include subplots** is on.
+- **A note is in an unexpected column.** Status matching is case-sensitive. A
+  listed scene or Subplot Folder note whose status matches no column is
+  rewritten to `Incorrectly Assigned`.
+- **A card is in `Incorrectly Assigned`.** Its status matched no configured
+  column and was rewritten. The original value is gone. Drag the card into a
+  configured column or set its status again.
 - **Dragging does not save the new status.** Restore the generated Base with
-  **Rebuild kanban**; it must group by `note.longformKanbanStatus`.
+  **Rebuild kanban**. It must group by `note.status` so Bases writes drops back
+  to the note.
 - **A word count is missing.** Check **Save word counts**, the card's status,
   and that the scene is listed. Subplot cards intentionally have no word count.
 - **The board is stale after an external change.** Run **Rebuild kanban**.

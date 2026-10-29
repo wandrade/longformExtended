@@ -72,6 +72,10 @@ the property per project in the Timeline section of the Project tab; an empty
 name is ignored. Scenes that do not have the property, or whose value is blank
 or `null`, are left off the timeline.
 
+New scene notes created while the timeline is enabled get the configured
+property with an empty value, so it is ready to fill in. A template that already
+sets the property is left alone.
+
 ## Time Formats
 
 Each project picks a time format that describes how its timeframe values are
@@ -282,11 +286,10 @@ command palette. The command is only available for a multi-scene project with
 the timeline enabled. It reports `Timeline rebuilt.` even when there was nothing
 to write.
 
-The Status tab's **Open timeline** action opens the configured note and is
+The Overview block's **Open timeline** action opens the configured note and is
 disabled when the timeline is off. The refresh action regenerates every enabled
 generated file, including the timeline. If the note has not been generated, a
-notice asks you to use the refresh action. See
-[Status tab](./STATUS_TAB.md).
+notice asks you to use the refresh action. See [Overview](./OVERVIEW.md).
 
 ## Troubleshooting
 

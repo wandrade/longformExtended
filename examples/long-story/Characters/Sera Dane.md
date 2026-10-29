@@ -1,7 +1,6 @@
 ---
 description: "A smuggler with practical loyalties and a better memory for routes than for promises."
 status: doing
-longformKanbanStatus: doing
 plotgrid_part_one_the_coast: "Sera bargains for safe passage"
 plotgrid_the_tide_cave: "Sera guides Ilya through tide"
 plotgrid_the_ferry: "Sera bribes deckhand for silence"

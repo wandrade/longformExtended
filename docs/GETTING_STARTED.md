@@ -10,7 +10,8 @@ scanning the vault for that entry, so you can create a project with the built-in
 tools or author the frontmatter yourself.
 
 Longform Extended keeps Longform's core workflow and adds configurable note
-groups, a timeline, a kanban board, an editable subplot grid, and a status tab.
+groups, a timeline, a kanban board, an editable subplot grid, and an Overview
+block above the tabs.
 
 ## Inherited from Longform
 
@@ -33,8 +34,8 @@ see [Both plugins enabled](./TROUBLESHOOTING.md#both-plugins-enabled).
   groups; see [Subplots, Characters, and Extra note groups](./PLOTS_AND_CHARACTERS.md).
 - Generated [Timeline](./TIMELINE.md), [Kanban](./KANBAN.md), and
   [Subplot Grid](./PLOT_GRID.md) files, configured in the Project tab.
-- The [Status tab](./STATUS_TAB.md) with a daily goal bar and generated-file
-  actions.
+- The [Overview block](./OVERVIEW.md) with a daily goal bar, a compile action,
+  and the generated-file actions.
 
 ## Creating a Multi-scene Project (Novel)
 
@@ -51,10 +52,14 @@ collections, and so on.
    ![The Create project modal for a multi-scene project](./res/walkthrough-create-multi.png)
 
 5. The pane opens the new project on **Notes → Scenes**. A multi-scene project has
-   **Notes**, **Project**, **Compile**, and **Status** tabs.
+   **Notes**, **Project**, and **Compile** tabs, with an always-visible
+   **Overview** block above them.
 6. In **Notes → Scenes**, click **New Scene**, type a title, and press Enter. The
    scene note is created in the project's Scene Folder (default `Scenes`) and
-   opens in the editor. Shift+Enter creates the note without opening it.
+   opens in the editor. Shift+Enter creates the note without opening it. With the
+   timeline enabled, the note gets the configured timeframe property, empty
+   unless a template already set it. With the kanban enabled, its `status` is
+   set to the first kanban column, unless a template already set one.
 7. The scene is added to the index file's `scenes` array:
 
    ```yaml
@@ -97,9 +102,9 @@ and similar pieces.
    [Compile](./COMPILE.md).
 
 Single-scene projects have only **Project** and **Compile** tabs. Choosing
-**Notes** or **Status** redirects to **Project**. The timeline, kanban, and
-subplot grid are multi-scene features and are not generated for single-scene
-projects.
+**Notes** redirects to **Project**. They do not show the **Overview** block. The
+timeline, kanban, and subplot grid are multi-scene features and are not
+generated for single-scene projects.
 
 ## Drafts and Projects
 
@@ -140,6 +145,6 @@ and an order overlay; folder membership decides which notes belong to it.
 - [Kanban](./KANBAN.md)
 - [Subplot Grid](./PLOT_GRID.md)
 - [Subplots, Characters, and Extra note groups](./PLOTS_AND_CHARACTERS.md)
-- [Status tab](./STATUS_TAB.md)
+- [Overview block](./OVERVIEW.md)
 - [Commands](./COMMANDS.md)
 - [Troubleshooting](./TROUBLESHOOTING.md)

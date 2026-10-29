@@ -6,4 +6,4 @@ In Longform Extended, a project can either be single-scene or [multi-scene](./MU
 
 This format is useful for (perhaps ironically) shorter-form projects, like short stories or essays.
 
-These projects are available in the Longform Extended pane like any other project, but have only **Project** and **Compile** tabs. They have no **Notes** tab, and no **Status** tab; choosing either redirects to **Project**. The timeline, kanban, and subplot grid are multi-scene features and are not generated for single-scene projects.
+These projects are available in the Longform Extended pane like any other project, but have only **Project** and **Compile** tabs. They have no **Notes** tab, so choosing **Notes** redirects to **Project**, and they do not show the **Overview** block. The timeline, kanban, and subplot grid are multi-scene features and are not generated for single-scene projects.

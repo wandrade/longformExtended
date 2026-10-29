@@ -6,8 +6,8 @@ sub-tabs are the configured note groups: **Scenes**, **Subplots**, and
 **Notes → Scenes**. The **Scenes** sub-tab lists the project's scene list from
 the index file; the other sub-tabs list the Markdown notes in their configured
 folders. Each sub-tab lets you create, rename, reorder, and nest those notes.
-Single-scene projects have only **Project** and **Compile**; **Notes** and
-**Status** redirect to **Project**.
+Single-scene projects have only **Project** and **Compile**. Choosing **Notes**
+redirects to **Project**.
 
 ![The Subplots sub-tab](./res/subplots-tab.png)
 
@@ -45,7 +45,7 @@ They change labels throughout the plugin and its generated output:
 - labels in **Project Details**, including the folder and template fields;
 - the subplot grid's view title and its row-label prefixes;
 - the timeline subplot table's first column;
-- labels derived from subplots in the Status tab and in Kanban, such as the
+- labels derived from subplots in the Overview block and in Kanban, such as the
   **Open subplot grid** action and the **Include subplots** checkbox.
 
 They do not change folder settings, folder paths, note paths, frontmatter keys,
@@ -157,6 +157,10 @@ singular name: **New Subplot** and **New Character** for the built-ins, or
 - Press **Enter** to create the note and open it.
 - Press **Shift+Enter** to create the note without opening it.
 - Press **Escape** to clear the field.
+
+When the kanban is enabled, a new subplot note is also given the first kanban
+column as its `status`, unless its template already sets one. Character notes
+and custom-group notes never get a status.
 
 A name that matches an existing entry in that sub-tab, or that contains
 characters that are not valid in a file name, is rejected with an inline error
