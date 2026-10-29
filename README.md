@@ -18,6 +18,7 @@ Longform Extended is an [Obsidian](https://obsidian.md) plugin for writing and o
 | Word counts and sessions | Project, draft, and scene counts, plus daily writing goals. | [Word counts and sessions](./docs/WORD_COUNTS.md) |
 | Subplots, characters, and custom groups | Built-in Subplots and Characters groups plus any number of custom folders, each with its own tree. | [Subplots, characters, and note groups](./docs/PLOTS_AND_CHARACTERS.md) |
 | Compile | Workflow-based steps that turn a project into a manuscript. | [Compile](./docs/COMPILE.md) |
+| Autocompile | Recompiles a project and regenerates its status files on a per-project interval. | [Compile](./docs/COMPILE.md#autocompile) |
 | Timeline | Chronological scene view driven by a `timeframe` property, with per-level subplot tables. | [Timeline](./docs/TIMELINE.md) |
 | Kanban | Status-driven board; dragging a card writes its status back to the note. | [Kanban](./docs/KANBAN.md) |
 | Subplot grid | Editable grid of subplots and characters across the scene hierarchy. | [Subplot grid](./docs/PLOT_GRID.md) |

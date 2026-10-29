@@ -95,7 +95,7 @@ type SceneInsertionLocation = {
  * Adds the timeframe property, empty, so the scene can be dated later. A
  * template that already sets the property is left alone.
  */
-async function applyDefaultTimeframe(
+export async function applyDefaultTimeframe(
   app: App,
   file: TFile,
   draft: MultipleSceneDraft

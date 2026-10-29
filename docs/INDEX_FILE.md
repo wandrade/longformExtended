@@ -48,6 +48,7 @@ projects need no migration.
 | plotGridOutputPath | `string` | `Build/$1_plotgrid.base` | Subplot Grid output path. |
 | plotGridPlotsDir | `string` | `Subplots` | Subplot Folder, relative to the project folder. |
 | plotGridCharactersDir | `string` | `Characters` | Character Folder, relative to the project folder. |
+| autocompileMinutes | positive whole `number` | None | Minutes between automatic compiles and status refreshes. Omitted when unset, empty, or `0`, which all mean off. |
 
 ### Display Names and Extra note groups
 

@@ -39,6 +39,9 @@ The block has five icon actions:
 - **Open subplot grid** opens the configured subplot-grid Base. It is disabled
   when the subplot grid is off.
 
+The same compile and refresh work can run on a per-project timer, configured
+with [Autocompile](./COMPILE.md#autocompile) in the Project tab.
+
 If an open action's file has not been generated yet, a notice asks you to use
 the refresh action. Only the subplot-grid action's tooltip follows the project's
 display names, so a Subplots display name of `Threads` produces an “Open thread
