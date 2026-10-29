@@ -6,6 +6,7 @@ import {
   configuredOutputPath,
   writeGeneratedNote,
 } from "./generated-note";
+import { parseKanbanColumns } from "./kanban-status";
 import { isInsidePlotGridDirectory } from "./plot-grid";
 import { findScene, sceneFolderPath, scenePath } from "./scene-navigation";
 import { drafts as draftsStore, draftWordCounts } from "./stores";
@@ -18,6 +19,8 @@ import {
   KANBAN_UNASSIGNED_LABEL,
   type MultipleSceneDraft,
 } from "./types";
+
+export { parseKanbanColumns };
 
 export type KanbanCard = { title: string; path: string };
 export type KanbanError = { sceneTitle: string; status: string };
@@ -54,20 +57,6 @@ type RecentWrite = {
 };
 const recentWrites = new Map<string, RecentWrite>();
 const CACHE_SETTLE_MS = 5000;
-
-/** Splits column titles on spaces, honoring single or double quotes. */
-export function parseKanbanColumns(raw: string): string[] {
-  const columns: string[] = [];
-  const regex = /"([^"]*)"|'([^']*)'|(\S+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(raw)) !== null) {
-    const value = match[1] ?? match[2] ?? match[3] ?? "";
-    if (value.length > 0) {
-      columns.push(value);
-    }
-  }
-  return columns;
-}
 
 /** Coerces a frontmatter value to the same text a template literal would. */
 function frontmatterValueToString(raw: unknown): string {

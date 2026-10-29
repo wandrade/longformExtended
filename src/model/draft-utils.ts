@@ -11,6 +11,7 @@ import {
   type MultipleSceneDraft,
 } from "./types";
 import { scenePath } from "src/model/scene-navigation";
+import { applyDefaultKanbanStatus } from "./kanban-status";
 import { createNoteWithPotentialTemplate } from "./note-utils";
 import { pluginSettings } from "./stores";
 
@@ -99,6 +100,10 @@ export async function createScene(
   const template = draft.sceneTemplate ?? get(pluginSettings).sceneTemplate;
   const note = await createNoteWithPotentialTemplate(app, path, template);
   if (note === null) return;
+
+  // The template (if any) is already applied, so this only fills in a missing
+  // status and keeps whatever frontmatter the template wrote.
+  await applyDefaultKanbanStatus(app, note, draft);
 
   if (get(pluginSettings).writeProperty) {
     await app.fileManager.processFrontMatter(note, (fm: Record<string, unknown>) => {
