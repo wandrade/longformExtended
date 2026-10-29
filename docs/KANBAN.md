@@ -6,10 +6,9 @@ Kanban view. It requires **Obsidian 1.14 or newer**; enable Obsidian's **Bases**
 core plugin. No community kanban plugin is needed. Only multi-scene projects get
 a board; single-scene projects do not.
 
-The board shows the notes in the project's **Scene Folder** that have a status
-that matches a configured column. With **Include subplots** enabled (the
-default), it also shows notes in the configured **Subplot Folder** on the same
-terms. Notes in the **Character Folder** are never included. Dragging a card to
+The board shows the notes in the project's **Scene Folder** that carry a
+`status`. With **Include subplots** enabled (the default), it also shows notes
+in the configured **Subplot Folder** on the same terms. Notes in the **Character Folder** are never included. Dragging a card to
 another column writes that column's title into the note's `status` frontmatter
 directly, so the board and the notes stay in sync.
 
@@ -95,20 +94,18 @@ status**. See [Notes Without a Status](#notes-without-a-status).
 When the kanban is enabled, creating a new scene or subplot note sets `status`
 to the first configured column. When **Kanban Columns** is empty, it uses the
 first column of the default list. This runs after any template is applied and
-never overwrites a status the template already set. Character notes and notes
-in custom groups never get a status.
+never overwrites a non-empty status the template already set. Character notes
+and notes in custom groups never get a status.
 
 ## What Appears on the Board
 
 The board is a folder query, not a scene-list query. It shows:
 
-- Notes in the Scene Folder whose `status` matches a configured column. This
-  includes notes that are not listed in the project's scenes. A structural
-  container (a scene followed by a more-indented scene) appears only if it has
-  a status.
-- When **Include subplots** is on, notes in the configured Subplot Folder whose
-  `status` matches a configured column. They do not need to be listed in the
-  project's scenes.
+- Notes in the Scene Folder that carry a `status`. This includes notes that are
+  not listed in the project's scenes. A structural container (a scene followed
+  by a more-indented scene) appears only if it has a status.
+- When **Include subplots** is on, notes in the configured Subplot Folder that
+  carry a `status`. They do not need to be listed in the project's scenes.
 
 Notes in the Character Folder and notes in extra note groups are never shown.
 A note with no status appears only when **Show notes with no status** is
@@ -190,10 +187,9 @@ replaced with the project title, so a project named *My Book* produces
 See [Generated files](./GENERATED_FILES.md) for how output paths, extensions,
 and build artifacts work.
 
-No board is written when no card note has a status. With **Include subplots**
-off, that means no non-container scene with a status; with it on, a note from
-the Subplot Folder with a status is enough. In that case an existing board at
-the configured path is left untouched.
+No board is written when no listed non-container scene has a status. With
+**Include subplots** on, a note from the Subplot Folder with a status is enough.
+In that case an existing board at the configured path is left untouched.
 
 ## Updating and Rebuilding
 
@@ -205,9 +201,9 @@ note through Bases, which triggers a rebuild. The rebuild regenerates the
 board. These writes are idempotent.
 
 It also rebuilds when project settings that affect it change, such as the
-columns, the show-unassigned setting, save word counts, include subplots, or the
-output path. Word counts are also written when Longform Extended's recorded scene word
-counts change.
+columns, the show-notes-with-no-status setting, save word counts, include
+subplots, or the output path. Word counts are also written when Longform
+Extended's recorded scene word counts change.
 
 The plugin ignores its own generated files when watching for changes, including
 boards written to a custom output path, so writing the board does not trigger
@@ -228,10 +224,10 @@ notice asks you to use the refresh action. See [Overview](./OVERVIEW.md).
 - **No board was created.** Check that the kanban is enabled, that the project
   is a scenes project, and that at least one card note has a non-empty
   `status`. A project whose card notes are all unassigned produces no board.
-- **A note is missing from the board.** Check whether its `status` is empty or
-  unmatched, its note file is missing, it sits outside the Scene and Subplot
-  Folders, or it is in the Character Folder or an extra note group. A note in
-  the Subplot Folder is included only when **Include subplots** is on.
+- **A note is missing from the board.** Check whether its `status` is empty, its
+  note file is missing, it sits outside the Scene and Subplot Folders, or it is
+  in the Character Folder or an extra note group. A note in the Subplot Folder
+  is included only when **Include subplots** is on.
 - **A note is in an unexpected column.** Status matching is case-sensitive. A
   listed scene or Subplot Folder note whose status matches no column is
   rewritten to `Incorrectly Assigned`.

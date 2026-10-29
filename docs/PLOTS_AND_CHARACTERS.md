@@ -159,8 +159,8 @@ singular name: **New Subplot** and **New Character** for the built-ins, or
 - Press **Escape** to clear the field.
 
 When the kanban is enabled, a new subplot note is also given the first kanban
-column as its `status`, unless its template already sets one. Character notes
-and custom-group notes never get a status.
+column as its `status`, unless its template already sets a non-empty one.
+Character notes and custom-group notes never get a status.
 
 A name that matches an existing entry in that sub-tab, or that contains
 characters that are not valid in a file name, is rejected with an inline error

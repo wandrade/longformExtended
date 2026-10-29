@@ -59,7 +59,8 @@ collections, and so on.
    opens in the editor. Shift+Enter creates the note without opening it. With the
    timeline enabled, the note gets the configured timeframe property, empty
    unless a template already set it. With the kanban enabled, its `status` is
-   set to the first kanban column, unless a template already set one.
+   set to the first kanban column, unless a template already set a non-empty
+   one.
 7. The scene is added to the index file's `scenes` array:
 
    ```yaml
