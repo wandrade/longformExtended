@@ -235,9 +235,12 @@ list of those scenes. The section is omitted when every scene is mentioned.
 
 ## Problems
 
-Invalid or inconsistent values are collected into a `## Problems` section. If
-there is at least one problem, the note contains only the problems list: the
-diagram and table are omitted until the values are fixed.
+Invalid, inconsistent, and empty values are collected into a `## Problems`
+section at the top of the note, above the timeline. Problems are grouped by
+their message: one heading per kind of problem, with the affected scenes listed
+beneath it. The timeline below still
+renders, using only the scenes whose values are valid, so a single bad value
+does not hide the rest.
 
 A value can fail in these ways:
 
@@ -248,9 +251,12 @@ A value can fail in these ways:
   minute and second `0`–`59`.
 - **Inconsistent** — it uses a different number of units than the rest of the
   project.
-- **Empty/unreadable** — a value that is neither a string nor a number, such as
-  `false` or an object, is reported as an empty timeframe. Blank and `null`
-  values are treated as missing, not as problems.
+- **Empty** — the property exists but holds nothing: `timeframe:` with no
+  value, `null`, `false`, or an object.
+
+A scene with no timeframe property at all is not a problem. It is listed under
+**Scenes without a timeframe** at the bottom of the note, after the timeline
+and tables.
 
 There is no calendar validation: `31/02/2026` is accepted because the day is in
 range. Years and epoch numbers have no range limit.
@@ -294,14 +300,16 @@ notice asks you to use the refresh action. See [Overview](./OVERVIEW.md).
 ## Troubleshooting
 
 - **No timeline file.** Check that the timeline is enabled, that the project is
-  a scenes project, and that at least one scene has a timeframe value. Check the
-  configured output path as well.
-- **A scene is missing from the timeline.** Its timeframe property may be
-  missing, blank, or `null`, or its scene note may not exist. A scene followed
-  by a more-indented scene is a container and is skipped.
-- **The note contains only Problems.** At least one scene has an invalid or
-  inconsistent value; fix every listed problem. Scenes with missing values are
-  not listed as problems.
+  a scenes project, and that at least one scene has a timeframe property. A
+  project where no scene has the property writes nothing. Check the configured
+  output path as well.
+- **A scene is missing from the timeline.** Check the **Scenes without a
+  timeframe** list at the bottom of the note: those scenes have no timeframe
+  property. A scene followed by a more-indented scene is a container and is
+  skipped. If the scene note does not exist at all, it appears in neither list.
+- **A scene is listed under Problems.** Its timeframe property exists but the
+  value is empty, invalid, or inconsistent. Fix or clear the value. The
+  timeline still renders the remaining scenes.
 - **Scenes are in an unexpected order.** Confirm the project's **Time Format**
   matches how the values are written.
 - **The tables have subplots instead of scenes.** The subplot grid is enabled;
