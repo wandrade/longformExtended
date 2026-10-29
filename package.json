@@ -7,7 +7,8 @@
     "lint": "svelte-check --tsconfig tsconfig.json --fail-on-hints && eslint . --ext .ts",
     "test:unit": "vitest",
     "dev": "rollup --config rollup.config.js -w",
-    "build": "npm run lint && rollup --config rollup.config.js --environment BUILD:production"
+    "build": "npm run lint && rollup --config rollup.config.js --environment BUILD:production",
+    "deploy:local": "bash scripts/build-install.sh"
   },
   "keywords": [],
   "author": "Werner Thomassen Andrade",
