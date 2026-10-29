@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { App } from "obsidian";
 
 import { AutocompileScheduler } from "../../src/model/autocompile";
-import { calculateWorkflow, compile, WorkflowError } from "../../src/compile";
+import { calculateWorkflow, compile, WorkflowError } from "src/compile";
 import { refreshGeneratedFiles } from "../../src/model/refresh-generated";
 import { drafts as draftsStore, workflows } from "../../src/model/stores";
 import type { MultipleSceneDraft } from "../../src/model/types";
 
-vi.mock("../../src/compile", () => ({
+vi.mock("src/compile", () => ({
   compile: vi.fn(),
   calculateWorkflow: vi.fn(),
   WorkflowError: { Valid: "", BadFirstStep: "bad first step" },
@@ -229,7 +229,7 @@ describe("AutocompileScheduler", () => {
 
     expect(compile).toHaveBeenCalledTimes(1);
     expect(refreshGeneratedFiles).toHaveBeenCalledTimes(1);
-    expect(compile.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(vi.mocked(compile).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(refreshGeneratedFiles).mock.invocationCallOrder[0]
     );
   });
