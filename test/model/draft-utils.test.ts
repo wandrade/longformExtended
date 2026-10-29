@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { TFile, type App } from "obsidian";
+import { get, writable } from "svelte/store";
 
 import {
+  addUnknownScenes,
   applyDefaultTimeframe,
   arraysToIndentedScenes,
   draftForStoredPath,
@@ -15,6 +17,7 @@ import {
 import {
   DEFAULT_KANBAN_INCLUDE_PLOTS,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
+  type Draft,
   type MultipleSceneDraft,
   type SingleSceneDraft,
 } from "src/model/types";
@@ -469,5 +472,117 @@ describe("applyDefaultTimeframe", () => {
 
     expect(world.frontmatter).toEqual({});
     expect(world.calls()).toBe(0);
+  });
+});
+
+function makeAddWorld(
+  paths: string[],
+  initial: Record<string, Record<string, unknown>> = {}
+) {
+  const files = new Map<string, TFile>();
+  for (const path of paths) {
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    files.set(
+      path,
+      Object.assign(new TFile(), {
+        path,
+        name,
+        basename: name.replace(/\.md$/i, ""),
+        parent: { path: path.slice(0, Math.max(0, path.lastIndexOf("/"))) },
+      })
+    );
+  }
+  const frontmatter = new Map<string, Record<string, unknown>>();
+  for (const [path, data] of Object.entries(initial)) {
+    frontmatter.set(path, { ...data });
+  }
+  const app = {
+    vault: {
+      getAbstractFileByPath: (path: string) => files.get(path) ?? null,
+    },
+    fileManager: {
+      processFrontMatter: async (
+        file: TFile,
+        callback: (data: Record<string, unknown>) => void
+      ) => {
+        const data = frontmatter.get(file.path) ?? {};
+        callback(data);
+        frontmatter.set(file.path, data);
+      },
+    },
+  } as unknown as App;
+  return { app, frontmatter };
+}
+
+describe("addUnknownScenes", () => {
+  const project = "Books/My/Book.md";
+  const scenePath = (name: string) => `Books/My/Scenes/${name}.md`;
+
+  it("adds one unknown file and seeds both scene defaults", async () => {
+    const { app, frontmatter } = makeAddWorld([project, scenePath("New One")]);
+    const draft = makeSceneDraft({
+      scenes: [{ title: "First", indent: 0 }],
+      unknownFiles: ["New One"],
+    });
+    const store = writable<Draft[]>([draft]);
+
+    await addUnknownScenes(app, store, draft, ["New One"]);
+
+    expect(get(store)[0]).toMatchObject({
+      scenes: [
+        { title: "First", indent: 0 },
+        { title: "New One", indent: 0 },
+      ],
+      unknownFiles: [],
+    });
+    expect(frontmatter.get(scenePath("New One"))).toEqual({
+      status: "Planned",
+      timeframe: "",
+    });
+  });
+
+  it("adds every unknown file and never overwrites existing values", async () => {
+    const { app, frontmatter } = makeAddWorld(
+      [project, scenePath("One"), scenePath("Two")],
+      {
+        [scenePath("Two")]: { status: "Draft", timeframe: "" },
+      }
+    );
+    const draft = makeSceneDraft({ unknownFiles: ["One", "Two"] });
+    const store = writable<Draft[]>([draft]);
+
+    await addUnknownScenes(app, store, draft, draft.unknownFiles);
+
+    const updated = get(store)[0] as MultipleSceneDraft;
+    expect(updated.scenes).toEqual([
+      { title: "One", indent: 0 },
+      { title: "Two", indent: 0 },
+    ]);
+    expect(updated.unknownFiles).toEqual([]);
+    expect(frontmatter.get(scenePath("One"))).toEqual({
+      status: "Planned",
+      timeframe: "",
+    });
+    expect(frontmatter.get(scenePath("Two"))).toEqual({
+      status: "Draft",
+      timeframe: "",
+    });
+  });
+
+  it("writes nothing when both features are off", async () => {
+    const { app, frontmatter } = makeAddWorld([project, scenePath("New One")]);
+    const draft = makeSceneDraft({
+      unknownFiles: ["New One"],
+      kanbanEnabled: false,
+      timelineEnabled: false,
+    });
+    const store = writable<Draft[]>([draft]);
+
+    await addUnknownScenes(app, store, draft, ["New One"]);
+
+    expect((get(store)[0] as MultipleSceneDraft).scenes).toEqual([
+      { title: "New One", indent: 0 },
+    ]);
+    expect(frontmatter.size).toBe(0);
   });
 });

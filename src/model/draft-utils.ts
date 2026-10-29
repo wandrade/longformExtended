@@ -119,6 +119,69 @@ export async function applyDefaultTimeframe(
   );
 }
 
+/**
+ * Seeds a scene note with the defaults every scene receives: the board's first
+ * column and an empty timeframe property. Shared by creation and by notes that
+ * join the project from outside the plugin so the two paths cannot drift.
+ */
+export async function applySceneDefaults(
+  app: App,
+  file: TFile,
+  draft: MultipleSceneDraft
+): Promise<void> {
+  await applyDefaultKanbanStatus(app, file, draft);
+  await applyDefaultTimeframe(app, file, draft);
+}
+
+/**
+ * Adds notes that already exist in the scenes folder to the project and then
+ * applies the same defaults a newly created scene receives. The per-file Add
+ * action and the Add all bulk action both come through here.
+ */
+export async function addUnknownScenes(
+  app: App,
+  draftsStore: Writable<Draft[]>,
+  draft: MultipleSceneDraft,
+  fileNames: string[]
+): Promise<void> {
+  if (draft.format !== "scenes" || fileNames.length === 0) {
+    return;
+  }
+
+  // A note can only be added once even if a caller lists it twice.
+  const names = fileNames.filter(
+    (name, index) => fileNames.indexOf(name) === index
+  );
+
+  draftsStore.update((allDrafts) => {
+    return allDrafts.map((candidate) => {
+      if (
+        candidate.vaultPath !== draft.vaultPath ||
+        candidate.format !== "scenes"
+      ) {
+        return candidate;
+      }
+      candidate.scenes = [
+        ...candidate.scenes,
+        ...names.map((title) => ({ title, indent: 0 })),
+      ];
+      candidate.unknownFiles = candidate.unknownFiles.filter(
+        (name) => !names.includes(name)
+      );
+      return candidate;
+    });
+  });
+
+  for (const name of names) {
+    const file = app.vault.getAbstractFileByPath(
+      scenePath(name, draft, app.vault)
+    );
+    if (file instanceof TFile) {
+      await applySceneDefaults(app, file, draft);
+    }
+  }
+}
+
 export async function createScene(
   app: App,
   path: string,
@@ -132,8 +195,7 @@ export async function createScene(
 
   // The template (if any) is already applied, so this only fills in a missing
   // status and keeps whatever frontmatter the template wrote.
-  await applyDefaultKanbanStatus(app, note, draft);
-  await applyDefaultTimeframe(app, note, draft);
+  await applySceneDefaults(app, note, draft);
 
   if (get(pluginSettings).writeProperty) {
     await app.fileManager.processFrontMatter(note, (fm: Record<string, unknown>) => {
