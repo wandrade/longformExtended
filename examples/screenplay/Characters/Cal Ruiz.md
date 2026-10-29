@@ -1,7 +1,6 @@
 ---
 description: "A charming lead actor hiding exhaustion and fear behind a practiced performance."
 status: done
-longformKanbanStatus: done
 plotgrid_act_i_setup: "Cal hides exhaustion behind charm"
 plotgrid_the_soundstage: "Cal misses mark, hides reel"
 plotgrid_the_screening_room: "Cal avoids June's questioning"

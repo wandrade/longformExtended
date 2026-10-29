@@ -1,7 +1,6 @@
 ---
 description: "A night-shift nurse returning to the coast with more unfinished business than she admits."
 status: done
-longformKanbanStatus: done
 plotgrid_act_i_arrival: "Mara seeks closure in rain"
 plotgrid_the_bus_stop: "Mara waits, soaked and wary"
 plotgrid_the_empty_kitchen: "Mara presses Tomas for answers"

@@ -135,6 +135,14 @@ function makeWorld(paths: string[]): AuxWorld {
         opened.push(path);
       },
     },
+    fileManager: {
+      processFrontMatter: async (
+        _file: TFile,
+        update: (frontmatter: Record<string, unknown>) => void
+      ) => {
+        update({});
+      },
+    },
     plugins: {
       getPlugin: (id: string) =>
         id === "templater-obsidian"

@@ -1,7 +1,6 @@
 ---
 description: "A bus driver and old friend whose loyalty has turned into a careful habit of delay."
 status: doing
-longformKanbanStatus: doing
 plotgrid_act_i_arrival: "Tomas delays the final departure"
 plotgrid_the_bus_stop: "Tomas drives the empty route"
 plotgrid_the_empty_kitchen: "Tomas admits he kept letter"

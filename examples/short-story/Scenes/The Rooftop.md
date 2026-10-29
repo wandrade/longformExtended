@@ -1,7 +1,6 @@
 ---
 status: todo
 timeframe: "11/10/2026 01:10"
-longformKanbanStatus: todo
 longform-order: 4
 longform-number: "2.1"
 ---

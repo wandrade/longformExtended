@@ -1,7 +1,6 @@
 ---
 description: "A director finishing a film she has already spent too much of herself on."
 status: doing
-longformKanbanStatus: doing
 plotgrid_act_i_setup: "June demands one last take"
 plotgrid_the_soundstage: "June corrects Cal's missed mark"
 plotgrid_the_screening_room: "June notices the missing frames"

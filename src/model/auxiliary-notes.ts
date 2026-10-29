@@ -2,6 +2,7 @@ import { normalizePath, type App, type TFile } from "obsidian";
 import { isEqual } from "lodash";
 import { get, type Writable } from "svelte/store";
 
+import { applyDefaultKanbanStatus } from "./kanban-status";
 import {
   createNoteWithPotentialTemplate,
   fileNameFromPath,
@@ -352,6 +353,11 @@ export async function insertAuxiliaryNote(
   );
   if (note === null) {
     return;
+  }
+
+  // Only subplot notes join the kanban; characters and custom groups never do.
+  if (kind === "plots") {
+    await applyDefaultKanbanStatus(app, note, draft);
   }
 
   draftsStore.update((allDrafts) => {

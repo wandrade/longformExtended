@@ -11,9 +11,7 @@ import {
 } from "../../src/model/kanban";
 import { drafts as draftsStore, draftWordCounts } from "../../src/model/stores";
 import {
-  KANBAN_HELPER_TAG,
   KANBAN_INCORRECT_LABEL,
-  KANBAN_UNASSIGNED_LABEL,
   type MultipleSceneDraft,
 } from "../../src/model/types";
 
@@ -182,9 +180,7 @@ describe("buildKanban", () => {
     expect(result.cards["Draft"].map((card) => card.title)).toEqual([
       "Group Scene A",
     ]);
-    expect(result.errors).toEqual([
-      { sceneTitle: "Group Scene B", status: "Nope" },
-    ]);
+    expect(result.hasIncorrectStatus).toBe(true);
     expect(result.unassigned.map((card) => card.title)).toEqual([
       "Group Scene C",
     ]);
@@ -192,15 +188,13 @@ describe("buildKanban", () => {
 
     expect(world.frontmatter.get("Books/My/Scenes/Group Scene A.md")).toEqual({
       status: "Draft",
-      [KANBAN_HELPER_TAG]: "Draft",
     });
     expect(world.frontmatter.get("Books/My/Scenes/Group Scene B.md")).toEqual({
-      status: "Nope",
-      [KANBAN_HELPER_TAG]: KANBAN_INCORRECT_LABEL,
+      status: KANBAN_INCORRECT_LABEL,
     });
-    expect(world.frontmatter.get("Books/My/Scenes/Group Scene C.md")).toEqual({
-      [KANBAN_HELPER_TAG]: KANBAN_UNASSIGNED_LABEL,
-    });
+    expect(world.frontmatter.get("Books/My/Scenes/Group Scene C.md")).toEqual(
+      {}
+    );
   });
 
   it("falls back to the default columns when none are configured", async () => {
@@ -264,7 +258,7 @@ describe("buildKanban", () => {
     ]);
   });
 
-  it("reconciles a Bases drag into the real status and snaps invalid drops back", async () => {
+  it("files a note into the column matching its edited status", async () => {
     const world = makeWorld(["Books/My/Scenes/Drag Scene.md"]);
     world.frontmatter.set("Books/My/Scenes/Drag Scene.md", { status: "Draft" });
     const draft = makeDraft({
@@ -277,13 +271,11 @@ describe("buildKanban", () => {
     await buildKanban(world.app, draft);
     expect(world.frontmatter.get("Books/My/Scenes/Drag Scene.md")).toEqual({
       status: "Draft",
-      [KANBAN_HELPER_TAG]: "Draft",
     });
 
-    // A Bases drop changes the helper while the status stays put.
+    // Bases writes a dragged card's new group straight into `status`.
     world.frontmatter.set("Books/My/Scenes/Drag Scene.md", {
-      status: "Draft",
-      [KANBAN_HELPER_TAG]: "Reviewed",
+      status: "Reviewed",
     });
     const dragged = await buildKanban(world.app, draft);
     expect(dragged.cards["Reviewed"].map((card) => card.title)).toEqual([
@@ -291,41 +283,18 @@ describe("buildKanban", () => {
     ]);
     expect(world.frontmatter.get("Books/My/Scenes/Drag Scene.md")).toEqual({
       status: "Reviewed",
-      [KANBAN_HELPER_TAG]: "Reviewed",
-    });
-
-    // A drop to an invalid helper keeps the current status.
-    world.frontmatter.set("Books/My/Scenes/Drag Scene.md", {
-      status: "Reviewed",
-      [KANBAN_HELPER_TAG]: "Bogus",
-    });
-    const snapped = await buildKanban(world.app, draft);
-    expect(snapped.cards["Reviewed"].map((card) => card.title)).toEqual([
-      "Drag Scene",
-    ]);
-    expect(world.frontmatter.get("Books/My/Scenes/Drag Scene.md")).toEqual({
-      status: "Reviewed",
-      [KANBAN_HELPER_TAG]: "Reviewed",
     });
   });
 
-  it("turns a drop into Unassigned into a missing status", async () => {
+  it("collects notes with no status as unassigned", async () => {
     const world = makeWorld(["Books/My/Scenes/Unassigned Scene.md"]);
-    world.frontmatter.set("Books/My/Scenes/Unassigned Scene.md", {
-      status: "Draft",
-    });
     const draft = makeDraft({
       kanbanShowUnassigned: true,
       kanbanIncludePlots: false,
       scenes: [{ title: "Unassigned Scene", indent: 0 }],
     });
     draftsStore.set([draft]);
-    await buildKanban(world.app, draft);
 
-    world.frontmatter.set("Books/My/Scenes/Unassigned Scene.md", {
-      status: "Draft",
-      [KANBAN_HELPER_TAG]: KANBAN_UNASSIGNED_LABEL,
-    });
     const result = await buildKanban(world.app, draft);
 
     expect(result.unassigned.map((card) => card.title)).toEqual([
@@ -333,9 +302,7 @@ describe("buildKanban", () => {
     ]);
     expect(
       world.frontmatter.get("Books/My/Scenes/Unassigned Scene.md")
-    ).toEqual({
-      [KANBAN_HELPER_TAG]: KANBAN_UNASSIGNED_LABEL,
-    });
+    ).toEqual({});
   });
 });
 
@@ -345,7 +312,7 @@ describe("writeKanbanBase", () => {
     columns: ["Planned", "Draft"],
     cards: { Planned: [], Draft: [] },
     unassigned: [{ title: "Scene C", path: "Books/My/Scenes/Group Scene C.md" }],
-    errors: [{ sceneTitle: "Scene B", status: "Nope" }],
+    hasIncorrectStatus: true,
     hasAnyStatus: true,
   };
 
@@ -358,7 +325,7 @@ describe("writeKanbanBase", () => {
     expect(generated.size).toBe(0);
   });
 
-  it("includes plots, their word-count formula, and the extra groups", async () => {
+  it("includes plots and their word-count formula", async () => {
     const { app, generated } = makeWorld([]);
     await writeKanbanBase(
       app,
@@ -381,17 +348,18 @@ describe("writeKanbanBase", () => {
     expect(contents).toContain(
       `'file.inFolder("Books/My/Bible/Plots")'`
     );
-    expect(contents).toContain(
-      `'!note.${KANBAN_HELPER_TAG}.isEmpty()'`
-    );
+    expect(contents).not.toContain("!note.status.isEmpty()");
+    expect(contents).toContain("      property: note.status");
+    expect(contents).toContain('      - "Planned"');
+    expect(contents).toContain('      - "Draft"');
+    expect(contents).toContain(`      - "${KANBAN_INCORRECT_LABEL}"`);
+    expect(contents).not.toContain("Unassigned");
     expect(contents).toContain("formulas:");
     expect(contents).toContain("kanban_word_count");
     expect(contents).toContain(
       `if(file.inFolder("Books/My/Bible/Plots"), "", wordCount)`
     );
     expect(contents).toContain("formula.kanban_word_count");
-    expect(contents).toContain(`- "${KANBAN_INCORRECT_LABEL}"`);
-    expect(contents).toContain(`- "${KANBAN_UNASSIGNED_LABEL}"`);
     expect(contents).toContain('displayName: "Word Count"');
   });
 
@@ -403,7 +371,7 @@ describe("writeKanbanBase", () => {
         kanbanIncludePlots: false,
         kanbanSaveWordCounts: true,
       }),
-      { ...result, errors: [], unassigned: [] }
+      { ...result, hasIncorrectStatus: false, unassigned: [] }
     );
 
     const contents =
@@ -411,12 +379,13 @@ describe("writeKanbanBase", () => {
     expect(contents).toContain(
       `    - 'file.inFolder("Books/My/Scenes")'`
     );
+    expect(contents).toContain("    - '!note.status.isEmpty()'");
     expect(contents).not.toContain("    - or:");
     expect(contents).not.toContain("formulas:");
     expect(contents).not.toContain("kanban_word_count");
     expect(contents).toContain("note.wordCount");
-    expect(contents).not.toContain(KANBAN_INCORRECT_LABEL);
-    expect(contents).not.toContain(KANBAN_UNASSIGNED_LABEL);
+    expect(contents).not.toContain("Incorrectly Assigned");
+    expect(contents).not.toContain("Unassigned");
   });
 
   it("omits the word-count column when saving counts is disabled", async () => {
@@ -453,7 +422,7 @@ describe("writeKanbanWordCounts", () => {
       ],
     },
     unassigned: [{ title: "Scene C", path: "Books/My/Scenes/Group Scene C.md" }],
-    errors: [],
+    hasIncorrectStatus: false,
     hasAnyStatus: true,
   };
 

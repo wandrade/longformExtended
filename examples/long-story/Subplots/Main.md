@@ -1,7 +1,6 @@
 ---
 description: "Ilya's attempt to restore an erased coastal route and face what its erasure protected."
 status: doing
-longformKanbanStatus: doing
 plotgrid_part_one_the_coast: "Ilya charts a dangerous coastline"
 plotgrid_the_ferry: "Sera smuggles map across channel"
 plotgrid_part_two_the_crossing: "Crossing exposes the missing route"

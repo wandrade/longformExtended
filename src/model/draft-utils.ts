@@ -5,12 +5,14 @@ import {
   DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_PLOTS_DISPLAY_NAME,
   DEFAULT_SCENE_DISPLAY_NAME,
+  DEFAULT_TIMEFRAME_TAG_NAME,
   defaultNoteGroupFolder,
   type Draft,
   type IndentedScene,
   type MultipleSceneDraft,
 } from "./types";
 import { scenePath } from "src/model/scene-navigation";
+import { applyDefaultKanbanStatus } from "./kanban-status";
 import { createNoteWithPotentialTemplate } from "./note-utils";
 import { pluginSettings } from "./stores";
 
@@ -89,6 +91,34 @@ type SceneInsertionLocation = {
   relativeTo: number | null;
 };
 
+/**
+ * Adds the timeframe property, empty, so the scene can be dated later. A
+ * template that already sets the property is left alone.
+ */
+async function applyDefaultTimeframe(
+  app: App,
+  file: TFile,
+  draft: MultipleSceneDraft
+): Promise<void> {
+  if (!draft.timelineEnabled) {
+    return;
+  }
+
+  const tag =
+    (draft.timeframeTagName || DEFAULT_TIMEFRAME_TAG_NAME).trim() ||
+    DEFAULT_TIMEFRAME_TAG_NAME;
+
+  await app.fileManager.processFrontMatter(
+    file,
+    (fm: Record<string, unknown>) => {
+      if (Object.prototype.hasOwnProperty.call(fm, tag)) {
+        return;
+      }
+      fm[tag] = "";
+    }
+  );
+}
+
 export async function createScene(
   app: App,
   path: string,
@@ -99,6 +129,11 @@ export async function createScene(
   const template = draft.sceneTemplate ?? get(pluginSettings).sceneTemplate;
   const note = await createNoteWithPotentialTemplate(app, path, template);
   if (note === null) return;
+
+  // The template (if any) is already applied, so this only fills in a missing
+  // status and keeps whatever frontmatter the template wrote.
+  await applyDefaultKanbanStatus(app, note, draft);
+  await applyDefaultTimeframe(app, note, draft);
 
   if (get(pluginSettings).writeProperty) {
     await app.fileManager.processFrontMatter(note, (fm: Record<string, unknown>) => {

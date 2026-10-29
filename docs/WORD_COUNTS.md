@@ -26,9 +26,10 @@ The relevant settings and their defaults are:
 
 ## The Daily Goal Bar
 
-The **Status** tab of a multi-scene project shows a **Daily goal** bar above the
-status actions. It shows words written against the goal, fills in as you write,
-and its label turns green and bold when the goal is met.
+The **Overview** block at the top of a multi-scene project shows a **Daily
+goal** bar above the action buttons. It shows words written against the goal,
+fills in as you write, and its label turns green and bold when the goal is
+met.
 
 The bar uses the latest writing session and the **Goal applies to** setting:
 
@@ -39,7 +40,8 @@ The bar uses the latest writing session and the **Goal applies to** setting:
 
 The bar is hidden when the goal is `0` or less, and when the selected scope has
 no measurable target (for example, the per-scene scope with no active scene).
-Single-scene projects have no **Status** tab, so the bar is not shown for them.
+Single-scene projects do not show the **Overview** block, so the bar is not
+shown for them. See [Overview](./OVERVIEW.md).
 The same progress is reflected in the **Project** tab’s word-count section and
 in goal notifications; see [Commands](./COMMANDS.md) for **Start new writing
 session**.

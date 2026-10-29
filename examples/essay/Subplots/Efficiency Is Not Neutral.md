@@ -1,7 +1,6 @@
 ---
 description: "Argues that efficiency claims encode hidden priorities about time, labor, and access."
 status: doing
-longformKanbanStatus: doing
 plotgrid_part_one_the_promise: "Efficiency framing hides chosen values"
 plotgrid_the_convenience: "Delivery apps frame speed as neutral"
 plotgrid_the_hidden_cost: "Warehouse quotas reveal built-in choices"

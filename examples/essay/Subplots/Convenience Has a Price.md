@@ -1,7 +1,6 @@
 ---
 description: "Traces who pays for frictionless delivery when speed is treated as a free default."
 status: todo
-longformKanbanStatus: todo
 plotgrid_part_one_the_promise: "Promise postpones who pays"
 plotgrid_the_convenience: "Same-day delivery conceals its subsidy"
 plotgrid_the_hidden_cost: "Packaging waste burdens municipal budget"

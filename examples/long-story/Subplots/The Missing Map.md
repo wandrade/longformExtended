@@ -1,7 +1,6 @@
 ---
 description: "A chart removed after a wreck, and the family promise that kept it hidden."
 status: todo
-longformKanbanStatus: todo
 plotgrid_part_one_the_coast: "Missing map surfaces in cave"
 plotgrid_the_tide_cave: "Ilya finds scraped coastline copy"
 plotgrid_part_three_the_return: "Map returns to public record"

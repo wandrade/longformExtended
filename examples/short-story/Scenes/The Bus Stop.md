@@ -1,7 +1,6 @@
 ---
 status: done
 timeframe: "10/10/2026 23:40"
-longformKanbanStatus: done
 longform-order: 1
 longform-number: "1.1"
 ---

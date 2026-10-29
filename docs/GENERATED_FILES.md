@@ -24,5 +24,5 @@ The generated files are build artifacts: edits inside them are overwritten on
 rebuild. Edit the source notes and frontmatter instead. The plugin ignores its
 own generated files when watching for changes.
 
-If a file looks stale, use the refresh action on the Status tab or the feature's
-**Rebuild** command.
+If a file looks stale, use the refresh action in the [Overview](./OVERVIEW.md)
+block or the feature's **Rebuild** command.

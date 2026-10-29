@@ -2,7 +2,7 @@
 
 In Longform Extended, a project can either be [single-scene](./SINGLE_SCENE_PROJECTS.md) or multi-scene. Multi-scene projects order a set of notes that live in the same folder. These notes are referred to as _scenes_.
 
-Multi-scene projects have four tabs: **Notes**, **Project**, **Compile**, and **Status**. **Notes** contains sub-tabs for the configured note groups: **Scenes**, **Subplots**, and **Characters** by default, plus any extra note groups. The **Scenes** sub-tab gives you a lot of features to manage your work as it grows; the others are described in [Subplots, Characters, and Extra note groups](./PLOTS_AND_CHARACTERS.md). The **Project** tab holds project metadata and the Timeline, Kanban, and Subplot Grid settings, and the **Status** tab has the generated-file actions described in [Status tab](./STATUS_TAB.md).
+Multi-scene projects have three tabs: **Notes**, **Project**, and **Compile**, with an always-visible **Overview** block above them. **Notes** contains sub-tabs for the configured note groups: **Scenes**, **Subplots**, and **Characters** by default, plus any extra note groups. The **Scenes** sub-tab gives you a lot of features to manage your work as it grows. The others are described in [Subplots, Characters, and Extra note groups](./PLOTS_AND_CHARACTERS.md). The **Project** tab holds project metadata and the Timeline, Kanban, and Subplot Grid settings. The **Overview** block holds the daily goal bar, a compile action, and the generated-file actions described in [Overview](./OVERVIEW.md).
 
 ![The Project tab with its sections collapsed](./res/project-tab.png)
 
