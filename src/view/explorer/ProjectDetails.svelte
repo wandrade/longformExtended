@@ -40,14 +40,14 @@
 
   const app = useApp();
 
-  let showMetdata = true;
-  let showWordCount = true;
-  let showDrafts = true;
-  let showNoteGroups = true;
-  let showKanban = true;
-  let showTimeline = true;
-  let showAutocompile = true;
-  let showPlotGrid = true;
+  let showMetdata = false;
+  let showWordCount = false;
+  let showDrafts = false;
+  let showNoteGroups = false;
+  let showKanban = false;
+  let showTimeline = false;
+  let showAutocompile = false;
+  let showPlotGrid = false;
 
   function titleChanged(event: Event) {
     let newTitle = (event.target as any).value;
