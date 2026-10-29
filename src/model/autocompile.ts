@@ -136,8 +136,15 @@ export class AutocompileScheduler {
       return;
     }
 
-    await compile(this.app, draft, workflow, kinds, () => {
-      // Autocompile has no visible status surface.
-    });
+    await compile(
+      this.app,
+      draft,
+      workflow,
+      kinds,
+      () => {
+        // Autocompile has no visible status surface.
+      },
+      { openOutput: false }
+    );
   }
 }

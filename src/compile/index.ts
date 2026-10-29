@@ -187,7 +187,8 @@ export async function compile(
   draft: Draft,
   workflow: Workflow,
   kinds: CompileStepKind[],
-  statusCallback: (status: CompileStatus) => void
+  statusCallback: (status: CompileStatus) => void,
+  options: { openOutput?: boolean } = {}
 ): Promise<void> {
   let currentInput: CompileInput;
 
@@ -245,6 +246,7 @@ export async function compile(
       projectPath: projectFolderPath(draft, app.vault),
       draft,
       app,
+      openOutput: options.openOutput !== false,
       utilities: {
         normalizePath,
       },
