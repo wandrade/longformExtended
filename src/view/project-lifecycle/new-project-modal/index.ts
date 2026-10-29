@@ -2,6 +2,7 @@ import { App, Modal, TFolder } from "obsidian";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { selectedDraftVaultPath } from "src/model/stores";
 import {
+  DEFAULT_AUTOCOMPILE_MINUTES,
   DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_INCLUDE_PLOTS,
@@ -93,6 +94,7 @@ export default class NewProjectModalContainer extends Modal {
               plotGridOutputPath: DEFAULT_PLOT_GRID_OUTPUT_PATH,
               plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
               plotGridCharactersDir: DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+              autocompileMinutes: DEFAULT_AUTOCOMPILE_MINUTES,
             };
             return multi;
           } else {

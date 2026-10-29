@@ -53,6 +53,7 @@ function makeSceneDraft(
     plotGridOutputPath: "Base/$1_plotgrid.base",
     plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
     plotGridCharactersDir: "Characters",
+    autocompileMinutes: null,
     ...overrides,
   };
 }

@@ -85,6 +85,7 @@ function makeDraft(
     plotGridOutputPath: "Base/$1_plotgrid.base",
     plotGridPlotsDir: "Bible/Plots",
     plotGridCharactersDir: "Bible/Characters",
+    autocompileMinutes: null,
     ...overrides,
   };
 }

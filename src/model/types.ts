@@ -34,6 +34,24 @@ export function isTimeframeFormat(value: unknown): value is TimeframeFormat {
   );
 }
 
+/**
+ * Reads a persisted autocompile interval. Anything that is not a positive
+ * number of minutes (empty string, null, undefined, negative, non-numeric)
+ * means "off" and yields `null`.
+ */
+export function autocompileMinutesSetting(value: unknown): number | null {
+  let parsed = NaN;
+  if (typeof value === "number") {
+    parsed = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    parsed = Number(value);
+  }
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.floor(parsed);
+}
+
 export const DEFAULT_TIMEFRAME_TAG_NAME = "timeframe";
 export const DEFAULT_TIME_FORMAT: TimeframeFormat = "datetime";
 export const DEFAULT_TIMELINE_OUTPUT_PATH = "Build/$1_timeline.md";
@@ -44,6 +62,8 @@ export const DEFAULT_PLOT_GRID_ENABLED = true;
 export const DEFAULT_PLOT_GRID_OUTPUT_PATH = "Build/$1_plotgrid.base";
 export const DEFAULT_PLOT_GRID_PLOTS_DIR = "Subplots";
 export const DEFAULT_PLOT_GRID_CHARACTERS_DIR = "Characters";
+/** Empty means autocompile is off. */
+export const DEFAULT_AUTOCOMPILE_MINUTES: number | null = null;
 export const KANBAN_STATUS_TAG = "status";
 /**
  * Reserved status value that collects every unrecognized status so they share
@@ -134,6 +154,10 @@ export type MultipleSceneDraft = {
   plotGridOutputPath: string;
   plotGridPlotsDir: string;
   plotGridCharactersDir: string;
+  /**
+   * Minutes between automatic compile + status refreshes. `null` disables it.
+   */
+  autocompileMinutes: number | null;
 };
 
 export type SingleSceneDraft = {

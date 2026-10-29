@@ -240,6 +240,12 @@ export function setDraftOnFrontmatterObject(
     delete longform["plotGridLevel"];
     longform["plotGridPlotsDir"] = draft.plotGridPlotsDir;
     longform["plotGridCharactersDir"] = draft.plotGridCharactersDir;
+    if (
+      typeof draft.autocompileMinutes === "number" &&
+      draft.autocompileMinutes > 0
+    ) {
+      longform["autocompileMinutes"] = draft.autocompileMinutes;
+    }
     longform["scenes"] = indentedScenesToArrays(draft.scenes);
     longform["plots"] = indentedScenesToArrays(draft.plots);
     longform["characters"] = indentedScenesToArrays(draft.characters);

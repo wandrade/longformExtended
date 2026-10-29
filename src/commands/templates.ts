@@ -7,6 +7,7 @@ import type { CommandBuilder } from "./types";
 import { insertDraftIntoFrontmatter } from "src/model/draft-utils";
 import { fileNameFromPath } from "src/model/note-utils";
 import {
+  DEFAULT_AUTOCOMPILE_MINUTES,
   DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_INCLUDE_PLOTS,
@@ -77,6 +78,7 @@ const callbackForFormat = (
         plotGridOutputPath: DEFAULT_PLOT_GRID_OUTPUT_PATH,
         plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
         plotGridCharactersDir: DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+        autocompileMinutes: DEFAULT_AUTOCOMPILE_MINUTES,
       };
       return multi;
     } else {

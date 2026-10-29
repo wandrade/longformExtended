@@ -51,6 +51,7 @@ function makeDraft(
     plotGridOutputPath: "Base/$1_plotgrid.base",
     plotGridPlotsDir: "Subplots",
     plotGridCharactersDir: "Characters",
+    autocompileMinutes: null,
     ...overrides,
   };
 }

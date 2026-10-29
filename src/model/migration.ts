@@ -3,6 +3,7 @@ import { App, normalizePath } from "obsidian";
 import { insertDraftIntoFrontmatter } from "./draft-utils";
 import { pluginSettings } from "./stores";
 import {
+  DEFAULT_AUTOCOMPILE_MINUTES,
   DEFAULT_CHARACTERS_DISPLAY_NAME,
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_INCLUDE_PLOTS,
@@ -155,6 +156,7 @@ export async function migrate(
             plotGridOutputPath: DEFAULT_PLOT_GRID_OUTPUT_PATH,
             plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
             plotGridCharactersDir: DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+            autocompileMinutes: DEFAULT_AUTOCOMPILE_MINUTES,
           };
 
           await insertDraftIntoFrontmatter(app, vaultPath, draft);
@@ -217,6 +219,7 @@ export async function migrate(
               plotGridOutputPath: DEFAULT_PLOT_GRID_OUTPUT_PATH,
               plotGridPlotsDir: DEFAULT_PLOT_GRID_PLOTS_DIR,
               plotGridCharactersDir: DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+              autocompileMinutes: DEFAULT_AUTOCOMPILE_MINUTES,
             };
 
             await insertDraftIntoFrontmatter(app, vaultPath, draft);

@@ -9,13 +9,8 @@
     type Workflow,
   } from "src/compile";
   import { configuredOutputPath } from "src/model/generated-note";
-  import {
-    buildKanban,
-    writeKanbanBase,
-    writeKanbanWordCounts,
-  } from "src/model/kanban";
   import { noteGroupSingularName } from "src/model/note-groups";
-  import { writePlotGrid } from "src/model/plot-grid";
+  import { refreshGeneratedFiles } from "src/model/refresh-generated";
   import {
     currentWorkflow,
     pluginSettings,
@@ -23,7 +18,6 @@
     sessions,
   } from "src/model/stores";
   import { findScene } from "src/model/scene-navigation";
-  import { buildTimeline, writeTimeline } from "src/model/timeline";
   import {
     DEFAULT_KANBAN_OUTPUT_PATH,
     DEFAULT_PLOT_GRID_OUTPUT_PATH,
@@ -244,21 +238,7 @@
 
     busy = true;
     try {
-      if (current.timelineEnabled) {
-        const timeline = await buildTimeline(app, current);
-        await writeTimeline(app, current, timeline);
-      }
-
-      if (current.kanbanEnabled) {
-        const kanban = await buildKanban(app, current);
-        await writeKanbanBase(app, current, kanban);
-        await writeKanbanWordCounts(app, current, kanban);
-      }
-
-      if (current.plotGridEnabled) {
-        await writePlotGrid(app, current);
-      }
-
+      await refreshGeneratedFiles(app, current);
       new Notice("Status generation complete.");
     } catch (error) {
       console.error(

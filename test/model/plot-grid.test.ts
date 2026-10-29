@@ -71,6 +71,7 @@ function makeDraft(
     plotGridOutputPath: "",
     plotGridPlotsDir: "Bible/Plots",
     plotGridCharactersDir: "Bible/Characters",
+    autocompileMinutes: null,
     ...overrides,
   };
 }

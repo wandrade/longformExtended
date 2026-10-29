@@ -14,6 +14,7 @@ import {
   DEFAULT_KANBAN_COLUMNS,
   DEFAULT_KANBAN_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_CHARACTERS_DIR,
+  autocompileMinutesSetting,
   DEFAULT_PLOT_GRID_OUTPUT_PATH,
   DEFAULT_PLOT_GRID_PLOTS_DIR,
   DEFAULT_PLOTS_DISPLAY_NAME,
@@ -840,6 +841,9 @@ export class StoreVaultSync {
         typeof rawPlotGridCharactersDir === "string"
           ? rawPlotGridCharactersDir
           : DEFAULT_PLOT_GRID_CHARACTERS_DIR;
+      const autocompileMinutes = autocompileMinutesSetting(
+        longformEntry["autocompileMinutes"]
+      );
       const ignoredFiles = (longformEntry["ignoredFiles"] ?? []) as string[];
       const normalizedSceneFolder = normalizePath(
         `${fileWithMetadata.file.parent.path}/${sceneFolder}`
@@ -940,6 +944,7 @@ export class StoreVaultSync {
           plotGridOutputPath,
           plotGridPlotsDir,
           plotGridCharactersDir,
+          autocompileMinutes,
           workflow,
         },
         dirty,
