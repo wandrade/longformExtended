@@ -218,6 +218,25 @@ export async function writeKanbanBase(
   await writeGeneratedNote(app, path, renderKanbanBase(app, draft, result));
 }
 
+/** True when this project's generated kanban is open in a leaf. */
+export function isKanbanOpen(app: App, draft: MultipleSceneDraft): boolean {
+  const path = configuredOutputPath(
+    app,
+    draft,
+    draft.kanbanOutputPath,
+    DEFAULT_KANBAN_OUTPUT_PATH,
+    ".base"
+  );
+  let open = false;
+  app.workspace.iterateAllLeaves((leaf) => {
+    const view = leaf.view as { file?: { path?: string } } | null;
+    if (view?.file?.path === path) {
+      open = true;
+    }
+  });
+  return open;
+}
+
 /** Writes each assigned scene's word count into its frontmatter. */
 export async function writeKanbanWordCounts(
   app: App,
@@ -225,6 +244,13 @@ export async function writeKanbanWordCounts(
   result: KanbanResult
 ): Promise<void> {
   if (!draft.kanbanEnabled || !draft.kanbanSaveWordCounts) {
+    return;
+  }
+
+  // Only write counts while the board is open. Writing them on every scene
+  // edit rewrites the note being typed in, and Obsidian reports that as an
+  // external change.
+  if (!isKanbanOpen(app, draft)) {
     return;
   }
 

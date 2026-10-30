@@ -1,6 +1,7 @@
 import {
   type App,
   type CachedMetadata,
+  type EventRef,
   normalizePath,
   type TAbstractFile,
 } from "obsidian";
@@ -8,6 +9,7 @@ import { get, type Unsubscriber } from "svelte/store";
 
 import {
   buildKanban,
+  isKanbanOpen,
   writeKanbanBase,
   writeKanbanWordCounts,
 } from "./kanban";
@@ -39,6 +41,8 @@ export class ProjectNotesObserver {
   private unsubscribeDrafts: Unsubscriber | null = null;
   private unsubscribeWordCounts: Unsubscriber | null = null;
   private wordCountSyncTimeout: number | null = null;
+  private layoutRef: EventRef | null = null;
+  private openKanban = new Set<string>();
   private rebuildTimeouts = new Map<string, number>();
   private rebuilding = new Set<string>();
   private pending = new Set<string>();
@@ -55,6 +59,9 @@ export class ProjectNotesObserver {
     this.unsubscribeWordCounts = draftWordCounts.subscribe(() =>
       this.scheduleWordCountSync()
     );
+    this.layoutRef = this.app.workspace.on("layout-change", () =>
+      this.checkKanbanOpened()
+    );
     this.rebuildAll();
   }
 
@@ -66,6 +73,11 @@ export class ProjectNotesObserver {
     if (this.unsubscribeWordCounts) {
       this.unsubscribeWordCounts();
     }
+    if (this.layoutRef) {
+      this.app.workspace.offref(this.layoutRef);
+      this.layoutRef = null;
+    }
+    this.openKanban.clear();
     if (this.wordCountSyncTimeout !== null) {
       window.clearTimeout(this.wordCountSyncTimeout);
       this.wordCountSyncTimeout = null;
@@ -388,6 +400,28 @@ export class ProjectNotesObserver {
     }
   }
 
+  /**
+   * Writes word counts once when a board is opened, so its cards are not blank.
+   * While the board stays closed, counts are never written: rewriting a scene
+   * that is being typed in makes Obsidian report an external change.
+   */
+  private checkKanbanOpened(): void {
+    if (this.destroyed) {
+      return;
+    }
+    const stillOpen = new Set<string>();
+    for (const draft of this.scenesDrafts()) {
+      if (!isKanbanOpen(this.app, draft)) {
+        continue;
+      }
+      stillOpen.add(draft.vaultPath);
+      if (!this.openKanban.has(draft.vaultPath)) {
+        void this.syncWordCounts(draft);
+      }
+    }
+    this.openKanban = stillOpen;
+  }
+
   /** Debounces word count writes until edits have settled. */
   private scheduleWordCountSync(): void {
     if (this.wordCountSyncTimeout !== null) {
@@ -399,7 +433,8 @@ export class ProjectNotesObserver {
         if (
           draft.format === "scenes" &&
           draft.kanbanEnabled &&
-          draft.kanbanSaveWordCounts
+          draft.kanbanSaveWordCounts &&
+          isKanbanOpen(this.app, draft)
         ) {
           void this.syncWordCounts(draft);
         }

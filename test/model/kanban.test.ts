@@ -62,6 +62,7 @@ type KanbanWorld = {
   frontmatter: Map<string, Record<string, unknown>>;
   writes: string[];
   generated: Map<string, string>;
+  openLeaves: Set<string>;
 };
 
 function fileAt(path: string): TFile {
@@ -87,6 +88,8 @@ function makeWorld(paths: string[]): KanbanWorld {
   const writes: string[] = [];
   const generated = new Map<string, string>();
   const folders = new Set<string>();
+  // The project's generated board is open unless a test says otherwise.
+  const openLeaves = new Set<string>(["Books/My/Build/Book_kanban.base"]);
 
   const app = {
     vault: {
@@ -110,6 +113,13 @@ function makeWorld(paths: string[]): KanbanWorld {
         frontmatter: frontmatter.get(file.path),
       }),
     },
+    workspace: {
+      iterateAllLeaves: (callback: (leaf: { view: unknown }) => void) => {
+        for (const path of openLeaves) {
+          callback({ view: { file: { path } } });
+        }
+      },
+    },
     fileManager: {
       processFrontMatter: async (
         file: { path: string },
@@ -123,7 +133,7 @@ function makeWorld(paths: string[]): KanbanWorld {
     },
   } as unknown as App;
 
-  return { app, frontmatter, writes, generated };
+  return { app, frontmatter, writes, generated, openLeaves };
 }
 
 beforeEach(() => {
@@ -521,5 +531,23 @@ describe("writeKanbanWordCounts", () => {
     await writeKanbanWordCounts(app, makeDraft(), result);
 
     expect(writes).toEqual([]);
+  });
+
+  it("writes nothing while the board is closed", async () => {
+    const { app, frontmatter, writes, openLeaves } = makeWorld([
+      "Books/My/Scenes/Group Scene A.md",
+    ]);
+    frontmatter.set("Books/My/Scenes/Group Scene A.md", { wordCount: 10 });
+    draftWordCounts.set({
+      "Books/My/Book.md": { "Scene A": 100 },
+    });
+    openLeaves.clear();
+
+    await writeKanbanWordCounts(app, makeDraft(), result);
+
+    expect(writes).toEqual([]);
+    expect(frontmatter.get("Books/My/Scenes/Group Scene A.md")).toEqual({
+      wordCount: 10,
+    });
   });
 });
