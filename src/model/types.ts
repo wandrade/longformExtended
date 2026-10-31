@@ -172,14 +172,29 @@ export type SingleSceneDraft = {
 export type Draft = MultipleSceneDraft | SingleSceneDraft;
 
 export type SerializedStep = {
+  /** Canonical id of the step type. */
   id: string;
+  /** Unique per workflow instance, so duplicate step types stay distinct. */
+  instanceId?: string;
   optionValues: { [id: string]: unknown };
+};
+
+/**
+ * Sync bookkeeping stored beside each workflow. `deprecated_at` and
+ * `renamed_to` are tombstones: a set `deprecated_at` marks a workflow as
+ * deleted (renamed_to null) or renamed (renamed_to set).
+ */
+export type WorkflowSyncMetadata = {
+  updated_at: string;
+  deprecated_at: string | null;
+  renamed_to: string | null;
 };
 
 export type SerializedWorkflow = {
   name: string;
   description: string;
   steps: SerializedStep[];
+  sync_metadata?: WorkflowSyncMetadata;
 };
 
 /**

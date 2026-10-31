@@ -6,19 +6,29 @@
   import {
     type CompileStatus,
     CompileStepKind,
+    type CompileStep,
     formatStepKind,
     type Workflow,
     WorkflowError,
     type WorkflowValidationResult,
     calculateWorkflow,
   } from "src/compile";
-  import { getContext } from "svelte";
+  import { getContext, onMount, onDestroy } from "svelte";
+  import debounce, { type DebouncedFunc } from "lodash/debounce";
   import {
     drafts,
     selectedDraft,
     workflows,
     currentWorkflow,
   } from "src/model/stores";
+  import type { WorkflowSync } from "src/model/workflow-sync";
+  import type { SerializedStep } from "src/model/types";
+  import {
+    backfillInstanceIds,
+    removeStepById,
+    reorderStepsById,
+    validateStepEdit,
+  } from "src/model/workflow-step-edit";
   import CompileStepView from "./CompileStepView.svelte";
   import SortableList from "../sortable/SortableList.svelte";
   import AutoTextArea from "../components/AutoTextArea.svelte";
@@ -41,6 +51,14 @@
     yesAction: () => void
   ) => void = getContext("showConfirmModal");
 
+  const workflowSync = getContext<WorkflowSync>("workflowSync");
+
+  // Opening the compile tab performs a workflow sync, then the poll keeps the
+  // store fresh without any direct writes from this view.
+  onMount(() => {
+    void workflowSync?.sync();
+  });
+
   let currentDraftIndex: number;
   $: {
     currentDraftIndex =
@@ -50,7 +68,99 @@
 
   // WORKFLOW MANAGEMENT
 
-  $: allWorkflowNames = Object.keys($workflows).sort() ?? [];
+  $: allWorkflowNames = Object.keys($workflows).sort();
+
+  function workflowExists(name: string): boolean {
+    return allWorkflowNames.includes(name);
+  }
+
+  // Description and option text are held here until persisted. Binding them
+  // straight into the store let a background merge replace the value while
+  // the user was still typing.
+  let descriptionDraft = "";
+  let descriptionPersisted = "";
+  let descriptionFor: string | null = null;
+
+  const pendingDescriptions = new Map<string, string>();
+  // One debounce per workflow: a shared one would drop workflow A's edit when
+  // the user switches to B before the timer fires.
+  const descriptionSavers = new Map<string, DebouncedFunc<() => void>>();
+  function saveDescription(name: string) {
+    let save = descriptionSavers.get(name);
+    if (!save) {
+      save = debounce((): void => {
+        const value = pendingDescriptions.get(name);
+        if (value === undefined) {
+          return;
+        }
+        void workflowSync?.updateWorkflow(name, (stored) => {
+          if (stored.description !== value) {
+            stored.description = value;
+          }
+        });
+      }, 400);
+      descriptionSavers.set(name, save);
+    }
+    save();
+  }
+
+  type PendingOption = {
+    name: string;
+    stepId: string;
+    optionId: string;
+    value: unknown;
+  };
+  let pendingOptions: PendingOption[] = [];
+  const saveOptions = debounce(() => {
+    const batch = pendingOptions;
+    pendingOptions = [];
+    const byWorkflow = new Map<string, PendingOption[]>();
+    for (const edit of batch) {
+      const edits = byWorkflow.get(edit.name) ?? [];
+      edits.push(edit);
+      byWorkflow.set(edit.name, edits);
+    }
+    for (const [name, edits] of byWorkflow) {
+      void workflowSync?.updateWorkflow(name, (stored) => {
+        for (const edit of edits) {
+          const index = stored.steps.findIndex(
+            (step, position) =>
+              (step.instanceId ?? `${step.id}-${position}`) === edit.stepId
+          );
+          if (index < 0) {
+            continue;
+          }
+          stored.steps[index] = {
+            ...stored.steps[index],
+            optionValues: {
+              ...stored.steps[index].optionValues,
+              [edit.optionId]: edit.value,
+            },
+          };
+        }
+      });
+    }
+  }, 400);
+
+  function onStepOptionChange(detail: {
+    stepId: string;
+    optionId: string;
+    value: unknown;
+  }) {
+    const name = currentWorkflowName;
+    if (!name) {
+      return;
+    }
+    pendingOptions.push({ name, ...detail });
+    saveOptions();
+  }
+
+  onDestroy(() => {
+    for (const save of descriptionSavers.values()) {
+      save.flush();
+    }
+    saveOptions.flush();
+  });
 
   $: {
     if ($selectedDraft) {
@@ -69,6 +179,28 @@
     }
   }
 
+  $: {
+    if (currentWorkflowName !== descriptionFor) {
+      descriptionFor = currentWorkflowName;
+      descriptionDraft = currentWorkflowName
+        ? $workflows[currentWorkflowName]?.description ?? ""
+        : "";
+      descriptionPersisted = descriptionDraft;
+    }
+  }
+
+  $: {
+    if (
+      currentWorkflowName &&
+      descriptionFor === currentWorkflowName &&
+      descriptionDraft !== descriptionPersisted
+    ) {
+      descriptionPersisted = descriptionDraft;
+      pendingDescriptions.set(currentWorkflowName, descriptionDraft);
+      saveDescription(currentWorkflowName);
+    }
+  }
+
   function selectedWorkflow(event: Event) {
     // @ts-ignore
     const title = event.target.value;
@@ -82,8 +214,11 @@
     action: (type: "new" | "rename" | "delete") => void
   ) => void = getContext("showCompileActionsMenu");
 
-  function workflowAction(type: "new" | "rename" | "delete") {
+  async function workflowAction(type: "new" | "rename" | "delete") {
     if (type == "new") {
+      // Sync before inserting so a workflow that arrived on another device is
+      // known before a new name is chosen.
+      await workflowSync?.sync();
       workflowInputState = "new";
     } else if (type == "rename") {
       workflowInputValue = currentWorkflowName;
@@ -98,40 +233,85 @@
 
           const toDelete = currentWorkflowName;
           const remaining = allWorkflowNames.filter((n) => n != toDelete);
-          if (remaining.length > 0) {
-            $drafts[currentDraftIndex].workflow = remaining[0];
-          } else {
-            $drafts[currentDraftIndex].workflow = null;
-          }
 
-          $workflows = delete $workflows[toDelete] && $workflows;
-
-          isDeletingWorkflow = false;
+          void workflowSync
+            ?.deleteWorkflow(toDelete)
+            .then((result) => {
+              if (!result.ok) {
+                new Notice(`Could not delete "${toDelete}".`);
+                return;
+              }
+              if (remaining.length > 0) {
+                $drafts[currentDraftIndex].workflow = remaining[0];
+              } else {
+                $drafts[currentDraftIndex].workflow = null;
+              }
+            })
+            .finally(() => {
+              isDeletingWorkflow = false;
+            });
         }
       );
     }
   }
 
-  function onWorkflowInputEnter() {
+  async function onWorkflowInputEnter() {
     if (workflowInputValue.length == 0) {
       return;
     }
 
+    const name = workflowInputValue;
     if (workflowInputState == "new") {
-      $workflows[workflowInputValue] = {
-        name: workflowInputValue,
-        description: "",
-        steps: [],
-      };
+      if (workflowExists(name)) {
+        new Notice(`A workflow named "${name}" already exists.`);
+        return;
+      }
+      const result = await workflowSync?.createWorkflow(name);
+      if (!result?.ok) {
+        new Notice(`Could not create workflow "${name}".`);
+        return;
+      }
+      $drafts[currentDraftIndex].workflow = name;
     } else if (workflowInputState == "rename") {
-      const workflow = $workflows[currentWorkflowName];
-      workflow.name = workflowInputValue;
-      $workflows[workflowInputValue] = workflow;
-      $workflows = delete $workflows[currentWorkflowName] && $workflows;
+      if (currentWorkflowName && currentWorkflowName !== name) {
+        if (workflowExists(name)) {
+          new Notice(`A workflow named "${name}" already exists.`);
+          return;
+        }
+        const result = await workflowSync?.renameWorkflow(
+          currentWorkflowName,
+          name
+        );
+        if (!result?.ok) {
+          new Notice(`Could not rename to "${name}".`);
+          return;
+        }
+        $drafts[currentDraftIndex].workflow = name;
+      }
     }
-    $drafts[currentDraftIndex].workflow = workflowInputValue;
     workflowInputValue = "";
     workflowInputState = "hidden";
+  }
+
+  /** Applies a step-array edit by id through the sync pipeline, never the store. */
+  async function editSteps(
+    name: string | null,
+    edit: (steps: SerializedStep[]) => SerializedStep[],
+    delta = 0
+  ): Promise<void> {
+    if (!name) {
+      return;
+    }
+    const result = await workflowSync?.updateWorkflow(name, (stored) => {
+      backfillInstanceIds(stored.steps);
+      const expected = stored.steps.length + delta;
+      stored.steps = edit(stored.steps);
+      validateStepEdit(stored.steps, expected);
+    });
+    if (result && !result.ok && result.reason !== "no-change") {
+      new Notice("Could not update the workflow steps.");
+      resetStepItems();
+    }
   }
 
   function focusOnInit(el: HTMLElement) {
@@ -140,9 +320,21 @@
 
   // VALIDATION
 
-  const openCompileStepMenu: () => Vault = getContext("openCompileStepMenu");
-  function addStep() {
-    openCompileStepMenu();
+  const openCompileStepMenu: () => Promise<CompileStep | null> =
+    getContext("openCompileStepMenu");
+  async function addStep() {
+    const step = await openCompileStepMenu();
+    if (!step) {
+      return;
+    }
+    void editSteps(currentWorkflowName, (steps) => {
+      steps.push({
+        id: step.description.canonicalID,
+        instanceId: `${step.id}-${Date.now()}`,
+        optionValues: {},
+      });
+      return steps;
+    }, 1);
   }
 
   const VALID = {
@@ -197,11 +389,15 @@
 
   // Called when sorting ends an the item order has been updated.
   function itemOrderChanged(event: CustomEvent<StepItem[]>) {
-    const newWorkflow = {
-      ...$currentWorkflow,
-      steps: event.detail.map(({ index }) => $currentWorkflow.steps[index]),
-    };
-    $workflows[currentWorkflowName] = newWorkflow;
+    const order = event.detail.map(({ id }) => id);
+    void editSteps(currentWorkflowName, (steps) => reorderStepsById(steps, order));
+  }
+
+  /** Restores the list from the store after a refused step edit. */
+  function resetStepItems(): void {
+    items = $currentWorkflow
+      ? $currentWorkflow.steps.map((step, index) => ({ id: step.id, index }))
+      : [];
   }
 
   // COMPILATION
@@ -309,38 +505,43 @@
         {/if}
       </div>
       {#if $workflows[currentWorkflowName]}
-        <AutoTextArea
-          placeholder="Click here to leave a description of your workflow…"
-          minRows={2}
-          maxRows={5}
-          bind:value={$workflows[currentWorkflowName].description}
-        />
+        <div>
+          <AutoTextArea
+            placeholder="Click here to leave a description of your workflow…"
+            minRows={2}
+            maxRows={5}
+            bind:value={descriptionDraft}
+          />
+        </div>
       {/if}
     </div>
     {#if $workflows[currentWorkflowName]}
-      <SortableList
-        bind:items
-        let:item
-        {sortableOptions}
-        on:orderChanged={itemOrderChanged}
-        class="longform-extended-sortable-step-list"
-      >
-        <CompileStepView
-          ordinal={item.index + 1}
-          step={$workflows[currentWorkflowName].steps[item.index]}
-          on:removeStep={() => {
-            const newWorkflow = {
-              ...$currentWorkflow,
-              steps: $currentWorkflow.steps.filter(
-                (_e, index) => item.index !== index
-              ),
-            };
-            $workflows[currentWorkflowName] = newWorkflow;
-          }}
-          calculatedKind={kindAtIndex(item.index)}
-          error={errorAtIndex(item.index)}
-        />
-      </SortableList>
+      {#key currentWorkflowName}
+      <div>
+        <SortableList
+          bind:items
+          let:item
+          {sortableOptions}
+          on:orderChanged={itemOrderChanged}
+          class="longform-extended-sortable-step-list"
+        >
+          <CompileStepView
+            ordinal={item.index + 1}
+            step={$workflows[currentWorkflowName].steps[item.index]}
+            on:removeStep={() => {
+              void editSteps(
+                currentWorkflowName,
+                (steps) => removeStepById(steps, item.id),
+                -1
+              );
+            }}
+            calculatedKind={kindAtIndex(item.index)}
+            error={errorAtIndex(item.index)}
+            on:optionChange={(event) => onStepOptionChange(event.detail)}
+          />
+        </SortableList>
+      </div>
+      {/key}
       <div class="add-step-container">
         {#if Object.keys($workflows).length > 0}
           <button on:click={addStep}>+ Add Step</button>

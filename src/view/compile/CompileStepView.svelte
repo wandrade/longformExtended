@@ -17,6 +17,20 @@
 
   const dispatch = createEventDispatcher();
 
+  // Option edits live here until they are persisted by the parent. Binding
+  // straight into the store lost keystrokes whenever a merge refreshed it.
+  let values: { [id: string]: unknown } = { ...step.optionValues };
+  let localStepId = step.id;
+  $: if (step.id !== localStepId) {
+    localStepId = step.id;
+    values = { ...step.optionValues };
+  }
+
+  function setOption(optionId: string, value: unknown) {
+    values = { ...values, [optionId]: value };
+    dispatch("optionChange", { stepId: step.id, optionId, value });
+  }
+
   function removeStep() {
     dispatch("removeStep");
   }
@@ -69,21 +83,27 @@
                   id={step.id + "-" + option.id}
                   type="text"
                   placeholder={option.default.replace(/\n/g, "\\n")}
-                  bind:value={step.optionValues[option.id]}
+                  value={values[option.id] ?? ""}
+                  on:input={(event) =>
+                    setOption(option.id, event.currentTarget.value)}
                 />
               {:else if option.type === CompileStepOptionType.MultilineText}
                 <label for={step.id + "-" + option.id}>{option.name}</label>
                 <textarea
                   id={step.id + "-" + option.id}
                   placeholder="key: value"
-                  bind:value={step.optionValues[option.id]}
+                  value={values[option.id] ?? ""}
+                  on:input={(event) =>
+                    setOption(option.id, event.currentTarget.value)}
                 />
               {:else}
                 <div class="longform-extended-compile-step-checkbox-container">
                   <input
                     id={step.id + "-" + option.id}
                     type="checkbox"
-                    bind:checked={step.optionValues[option.id]}
+                    checked={!!values[option.id]}
+                    on:change={(event) =>
+                      setOption(option.id, event.currentTarget.checked)}
                   />
                   <label for={step.id + "-" + option.id}>{option.name}</label>
                 </div>

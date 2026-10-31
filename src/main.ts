@@ -35,10 +35,7 @@ import {
 } from "./view/stores";
 import { ICON_NAME, ICON_SVG } from "./view/icon";
 import { LongformExtendedSettingsTab } from "./view/settings/LongformSettings";
-import {
-  deserializeWorkflow,
-  serializeWorkflow,
-} from "./compile/serialization";
+import { deserializeWorkflow } from "./compile/serialization";
 import type { Workflow } from "./compile";
 import { DEFAULT_WORKFLOWS } from "./compile";
 import { StoreVaultSync } from "./model/store-vault-sync";
@@ -58,6 +55,7 @@ import { migrate, readLegacySettings } from "./model/migration";
 import { draftForPath } from "./model/scene-navigation";
 import { draftForStoredPath } from "./model/draft-utils";
 import { WritingSessionTracker } from "./model/writing-session-tracker";
+import { WorkflowSync } from "./model/workflow-sync";
 import NewProjectModal from "./view/project-lifecycle/new-project-modal";
 import { LongformExtendedAPI } from "./api/LongformAPI";
 import { PLOT_GRID_VIEW_TYPE } from "./model/plot-grid";
@@ -85,13 +83,14 @@ export default class LongformExtendedPlugin extends Plugin {
   private storeVaultSync: StoreVaultSync;
   private notesObserver: ProjectNotesObserver;
   private autocompileScheduler: AutocompileScheduler;
+  workflowSync: WorkflowSync;
 
   async onload(): Promise<void> {
     addIcon(ICON_NAME, ICON_SVG);
 
     this.registerView(
       VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER,
-      (leaf: WorkspaceLeaf) => new ExplorerPane(leaf)
+      (leaf: WorkspaceLeaf) => new ExplorerPane(leaf, this)
     );
 
     // Returns false when the Bases core plugin is disabled; the plugin still
@@ -172,7 +171,18 @@ export default class LongformExtendedPlugin extends Plugin {
       }
     });
 
+    const pluginDir =
+      this.manifest.dir ??
+      normalizePath(
+        `${this.app.vault.configDir}/plugins/${this.manifest.id}`
+      );
+    // Constructed before settings load so the first-run settings save already
+    // goes through the two-file pipeline instead of writing workflows from
+    // memory.
+    this.workflowSync = new WorkflowSync(this.app, pluginDir);
+
     await this.loadSettings();
+
     this.addSettingTab(new LongformExtendedSettingsTab(this.app, this));
 
     this.storeVaultSync = new StoreVaultSync(this.app);
@@ -220,16 +230,17 @@ export default class LongformExtendedPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.workflowSync?.stop();
     this.storeVaultSync.destroy();
     this.notesObserver.destroy();
     this.autocompileScheduler?.destroy();
-    this.unsubscribeSettings();
-    this.unsubscribeWorkflows();
+    this.unsubscribeSettings?.();
+    this.unsubscribeWorkflows?.();
     this.unsubscribeDraftSelection?.();
-    this.unsubscribeSelectedDraft();
-    this.unsubscribeDrafts();
-    this.unsubscribeSessions();
-    this.unsubscribeGoalNotification();
+    this.unsubscribeSelectedDraft?.();
+    this.unsubscribeDrafts?.();
+    this.unsubscribeSessions?.();
+    this.unsubscribeGoalNotification?.();
     this.writingSessionTracker.destroy();
     this.app.workspace
       .getLeavesOfType(VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER)
@@ -261,15 +272,27 @@ export default class LongformExtendedPlugin extends Plugin {
     pluginSettings.set(_pluginSettings);
     selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
 
-    let _workflows = settings["workflows"];
-
-    if (!_workflows) {
-      _workflows = DEFAULT_WORKFLOWS;
-    }
-
-    const deserializedWorkflows: Record<string, Workflow> = {};
+    // Never seed the store with factory defaults here: they carry no sync
+    // metadata and would later beat real entries. Defaults are seeded through
+    // the workflow pipeline only when the merged map is completely empty.
+    const _workflows = settings["workflows"] ?? {};
+    const deserializedWorkflows = Object.create(null) as Record<string, Workflow>;
     Object.entries(_workflows).forEach(([key, value]) => {
-      deserializedWorkflows[key] = deserializeWorkflow(value);
+      if (value?.sync_metadata?.deprecated_at) {
+        return;
+      }
+      try {
+        // The store holds plain Workflow values. `sync_metadata` stays on the
+        // serialized side so refreshStore can compare like with like.
+        const serialized = { ...value };
+        delete serialized.sync_metadata;
+        deserializedWorkflows[key] = deserializeWorkflow(serialized);
+      } catch (error) {
+        console.warn(
+          `[Longform Extended] Could not load workflow "${key}":`,
+          error
+        );
+      }
     });
     workflows.set(deserializedWorkflows);
 
@@ -301,25 +324,69 @@ export default class LongformExtendedPlugin extends Plugin {
     );
 
     if (firstRun) {
+      // Imported upstream workflows must go through the sync pipeline so they
+      // are stamped and written to data.json. Clear the transient store first:
+      // each create refreshes it from the accumulated merged map.
+      workflows.set(Object.create(null));
       await this.saveSettings();
+      await this.importLegacyWorkflows(settings["workflows"]);
     }
   }
 
   async saveSettings(): Promise<void> {
-    if (!this.cachedSettings) {
+    if (!this.cachedSettings || !this.workflowSync) {
       return;
     }
 
-    const _workflows = get(workflows);
-    const serializedWorkflows: Record<string, SerializedWorkflow> = {};
-    Object.entries(_workflows).forEach(([key, value]) => {
-      serializedWorkflows[key] = serializeWorkflow(value);
-    });
-
-    await this.saveData({
+    // The settings path reads data.json fresh and applies only settings.
+    // Workflows are never carried over from memory, so a settings save
+    // cannot erase a workflow that arrived by sync and cannot stamp an
+    // unsynchronized default over a real one.
+    const settings: Partial<LongformExtendedPluginSettings> = {
       ...this.cachedSettings,
-      workflows: serializedWorkflows,
+    };
+    delete settings.workflows;
+    await this.workflowSync.saveSettings((raw) => {
+      Object.assign(raw, settings);
     });
+  }
+
+  /**
+   * Imports upstream Longform workflows through the sync pipeline so each one
+   * receives sync metadata and is written to data.json.
+   */
+  private async importLegacyWorkflows(
+    imported: Record<string, SerializedWorkflow> | null | undefined
+  ): Promise<void> {
+    for (const [name, workflow] of Object.entries(imported ?? {})) {
+      if (!workflow || typeof workflow !== "object" || Array.isArray(workflow) || workflow.sync_metadata?.deprecated_at) {
+        continue;
+      }
+      await this.workflowSync.createWorkflow(name, {
+        description:
+          typeof workflow.description === "string" ? workflow.description : "",
+        steps: Array.isArray(workflow.steps) ? workflow.steps : [],
+      });
+    }
+  }
+
+  /**
+   * Seeds the factory workflows through the sync pipeline so they receive
+   * sync metadata like any other creation. Only called when the merged map is
+   * empty, so a deleted default is never resurrected on an existing setup.
+   */
+  private async seedDefaultWorkflows(): Promise<void> {
+    for (const [name, workflow] of Object.entries(DEFAULT_WORKFLOWS)) {
+      // A name known to the merged map is never seeded again, even when the
+      // only trace is a tombstone left by a delete on another device.
+      if (this.workflowSync.hasWorkflow(name)) {
+        continue;
+      }
+      await this.workflowSync.createWorkflow(name, {
+        description: workflow.description,
+        steps: workflow.steps,
+      });
+    }
   }
 
   private async postLayoutInit(): Promise<void> {
@@ -330,6 +397,16 @@ export default class LongformExtendedPlugin extends Plugin {
       await this.saveSettings();
       await this.storeVaultSync.discoverDrafts();
     }
+
+    // Run the first sync before the poll starts. Seeding defaults only when
+    // the merged map is completely empty avoids resurrecting a workflow this
+    // device deleted before it had tombstones.
+    await this.workflowSync.sync();
+    if (this.workflowSync.hasLoaded() && this.workflowSync.isEmpty()) {
+      await this.seedDefaultWorkflows();
+    }
+
+    this.workflowSync.start();
 
     this.notesObserver.beginObserving();
     this.autocompileScheduler.start();
