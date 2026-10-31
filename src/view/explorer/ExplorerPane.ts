@@ -7,7 +7,7 @@ import {
   type PaneType,
   Scope,
 } from "obsidian";
-import type { CompileStatus, Workflow } from "src/compile";
+import type { CompileStatus, CompileStep, Workflow } from "src/compile";
 import { compile, CompileStepKind } from "src/compile";
 import type { Draft, MultipleSceneDraft } from "src/model/types";
 import AddStepModal from "../compile/add-step-modal";
@@ -32,16 +32,24 @@ import NewDraftModal from "src/view/project-lifecycle/new-draft-modal";
 import { UndoManager } from "../undo/undo-manager";
 import { ignoreScene } from "./scene-menu-items";
 import { appContext } from "../utils";
+import type { WorkflowSync } from "src/model/workflow-sync";
 
 export const VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER = "VIEW_TYPE_LONGFORM_EXTENDED_EXPLORER";
+
+/** The plugin surface the pane needs. Kept narrow to avoid a runtime cycle. */
+export type WorkflowSyncProvider = {
+  workflowSync?: WorkflowSync;
+};
 
 export class ExplorerPane extends ItemView {
   private explorerView: ExplorerView;
   private undoManager = new UndoManager();
   private keyScope: Scope;
+  private plugin: WorkflowSyncProvider;
 
-  constructor(leaf: WorkspaceLeaf) {
+  constructor(leaf: WorkspaceLeaf, plugin: WorkflowSyncProvider) {
     super(leaf);
+    this.plugin = plugin;
   }
 
   getViewType(): string {
@@ -374,7 +382,24 @@ export class ExplorerPane extends ItemView {
       }
     );
 
-    context.set("openCompileStepMenu", () => new AddStepModal(this.app).open());
+    // The workflow store is owned by the sync engine. The compile tab calls
+    // through this instead of writing the workflows store directly.
+    context.set("workflowSync", this.plugin.workflowSync);
+
+    context.set("openCompileStepMenu", () => {
+      // Resolve with the chosen step (or null when dismissed). CompileView
+      // appends it through the sync pipeline; the modal never writes the store.
+      return new Promise<CompileStep | null>((resolve) => {
+        let chosen: CompileStep | null = null;
+        const modal = new AddStepModal(this.app, (step) => { chosen = step; });
+        const close = modal.onClose.bind(modal) as () => void;
+        modal.onClose = () => {
+          close();
+          resolve(chosen);
+        };
+        modal.open();
+      });
+    });
     context.set(
       "showCompileActionsMenu",
       (

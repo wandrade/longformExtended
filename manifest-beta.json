@@ -1,7 +1,7 @@
 {
   "id": "longform-extended",
   "name": "Longform Extended",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "minAppVersion": "1.14.0",
   "description": "Extend Longform projects with configurable note groups, timelines, kanban boards, and an editable subplot grid.",
   "author": "Werner Thomassen Andrade",
