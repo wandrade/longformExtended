@@ -84,7 +84,7 @@ export class WorkflowSync {
     this.app = app;
     this.dataPath = normalizePath(`${pluginDir}/${SHARED_DATA_FILE}`);
   }
-  hasWorkflow(name: string): boolean { return !!this.lastWritten && Object.prototype.hasOwnProperty.call(this.lastWritten, name); }
+  hasWorkflow(name: string): boolean { return this.lastWritten !== null && name in this.lastWritten; }
   isEmpty(): boolean { return !!this.lastWritten && Object.keys(this.lastWritten).length === 0; }
   /** True once a run has read the workflow map successfully. */
   hasLoaded(): boolean { return this.lastWritten !== null; }
@@ -165,7 +165,7 @@ export class WorkflowSync {
   }
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
     const next = this.queue.then(task, task);
-    this.queue = next.then(() => undefined, () => undefined);
+    this.queue = next.then<void>(() => undefined, () => undefined);
     return next;
   }
   private async run(mutate?: MutateCallback): Promise<WorkflowMutationResult> {
@@ -214,7 +214,7 @@ export class WorkflowSync {
       } catch (error) { sharedFailed = true; this.logFailure(error); }
     }
     this.refreshStore(merged);
-    this.lastWritten = cloneDeep(merged) as WorkflowMap;
+    this.lastWritten = cloneDeep<WorkflowMap>(merged);
     this.repointPending = !(await this.repointAll(this.lastWritten));
     const sharedPersisted = !writeShared || (!sharedFailed && !sharedDeferred);
     return sharedFailed || (mirrorFailed && !sharedPersisted) ? failure("write-failed") : OK;
@@ -225,7 +225,7 @@ export class WorkflowSync {
    */
   private refreshStore(merged: WorkflowMap): void {
     if (this.lastWritten && isEqual(merged, this.lastWritten)) return;
-    const current = (get(workflows) ?? {}) as Record<string, Workflow>;
+    const current: Record<string, Workflow> = get(workflows) ?? {};
     const live = Object.create(null) as Record<string, Workflow>;
     for (const [name, workflow] of Object.entries(merged)) {
       if (isDeprecated(workflow)) continue;
@@ -270,7 +270,7 @@ export class WorkflowSync {
       const nested = isObject && (longform as Record<string, unknown>)["workflow"] === from;
       if (!nested && !(isIndexLike && fm["workflow"] === from)) continue;
       try {
-        await this.app.fileManager.processFrontMatter(file, (data) => {
+        await this.app.fileManager.processFrontMatter(file, (data: Record<string, unknown>) => {
           const current = data["longform"] as Record<string, unknown> | undefined;
           if (current?.["workflow"] === from) current["workflow"] = to;
           if (isIndexLike && data["workflow"] === from) data["workflow"] = to;

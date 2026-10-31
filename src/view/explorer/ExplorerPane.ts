@@ -392,7 +392,7 @@ export class ExplorerPane extends ItemView {
       return new Promise<CompileStep | null>((resolve) => {
         let chosen: CompileStep | null = null;
         const modal = new AddStepModal(this.app, (step) => { chosen = step; });
-        const close = modal.onClose.bind(modal);
+        const close = modal.onClose.bind(modal) as () => void;
         modal.onClose = () => {
           close();
           resolve(chosen);

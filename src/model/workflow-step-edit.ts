@@ -31,11 +31,11 @@ export function reorderStepsById(
     throw new Error("Step reorder does not cover the stored steps.");
   }
   const byId = new Map<string, SerializedStep>();
-  for (const step of steps) byId.set(step.instanceId!, step);
+  for (const step of steps) byId.set(step.instanceId, step);
   if (new Set(order).size !== order.length || order.some((id) => !byId.has(id))) {
     throw new Error("Step reorder references an unknown or duplicate step.");
   }
-  return order.map((id) => byId.get(id)!);
+  return order.map((id) => byId.get(id));
 }
 
 /** Refuses holes, `undefined` entries, duplicate ids, or a wrong length. */

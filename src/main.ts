@@ -327,9 +327,11 @@ export default class LongformExtendedPlugin extends Plugin {
       // Imported upstream workflows must go through the sync pipeline so they
       // are stamped and written to data.json. Clear the transient store first:
       // each create refreshes it from the accumulated merged map.
-      workflows.set(Object.create(null));
+      workflows.set(Object.create(null) as Record<string, Workflow>);
       await this.saveSettings();
-      await this.importLegacyWorkflows(settings["workflows"]);
+      await this.importLegacyWorkflows(
+        settings.workflows ?? undefined
+      );
     }
   }
 
