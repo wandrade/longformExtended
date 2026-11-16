@@ -1,6 +1,8 @@
 <script context="module" lang="ts">
   import { toInteger } from "lodash";
 
+  import { getDragX } from "./drag-utils";
+
   function IndentPlugin() {
     let initialIndent = 0;
     let currentIndent = 0;
@@ -16,13 +18,13 @@
 
     Indent.prototype = {
       dragStart(e: any) {
-        initialX = e.originalEvent.x;
+        initialX = getDragX(e.originalEvent ?? e);
         initialIndent = toInteger(e.dragEl.dataset["indent"]);
         currentIndent = initialIndent;
         dragID = e.dragEl.dataset["id"];
       },
       dragOver(e: any) {
-        const x = e.originalEvent.x - initialX;
+        const x = getDragX(e.originalEvent ?? e) - initialX;
         const indentDiff = Math.trunc(x / this.options.indentWidth);
         const newIndent = Math.max(initialIndent + indentDiff, 0);
         if (currentIndent !== newIndent) {
