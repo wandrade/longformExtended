@@ -205,7 +205,7 @@ async function writeDerivedOutput(
       new Notice(
         `EPUB export failed: ${
           error instanceof Error ? error.message : String(error)
-        }`
+        }. Check the Compile documentation for troubleshooting: ${DESKTOP_EXPORT_DOCS_URL}`
       );
       return false;
     }

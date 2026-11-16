@@ -120,7 +120,11 @@ function runPandoc(
 ): DesktopConversionResult {
   const cp = childProcess();
   if (!cp) {
-    return { ok: false, reason: "External process execution is unavailable." };
+    return {
+      ok: false,
+      reason:
+        "The desktop converter could not be started. External process execution is unavailable in this Obsidian runtime.",
+    };
   }
 
   try {
@@ -131,6 +135,14 @@ function runPandoc(
     });
 
     if (result.error) {
+      const code = (result.error as Error & { code?: string }).code;
+      if (code === "ENOENT") {
+        return {
+          ok: false,
+          reason:
+            "Pandoc was not found on PATH. Install Pandoc and restart Obsidian.",
+        };
+      }
       return { ok: false, reason: result.error.message };
     }
     if (result.status !== 0) {
