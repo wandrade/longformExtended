@@ -79,23 +79,8 @@
     });
   }
 
-  let sceneFolderInput: HTMLInputElement;
-  let plotGridPlotsDirInput: HTMLInputElement;
-  let plotGridCharactersDirInput: HTMLInputElement;
-  onMount(() => {
-    if ($selectedDraft && $selectedDraft.format === "scenes") {
-      const projectPath = projectFolderPath($selectedDraft, app.vault);
-      if (sceneFolderInput) {
-        new FolderSuggest(app, sceneFolderInput, projectPath);
-      }
-      if (plotGridPlotsDirInput) {
-        new FolderSuggest(app, plotGridPlotsDirInput, projectPath);
-      }
-      if (plotGridCharactersDirInput) {
-        new FolderSuggest(app, plotGridCharactersDirInput, projectPath);
-      }
-    }
-  });
+  // These inputs are mounted only when the section is expanded, so the
+  // suggestion wiring must happen via a DOM action when each field appears.
 
   $: projectDraft =
     $selectedDraft && $selectedDraft.format === "scenes"
@@ -367,22 +352,6 @@
     }
   }
 
-  let sceneTemplateInput: HTMLInputElement;
-  let plotTemplateInput: HTMLInputElement;
-  let characterTemplateInput: HTMLInputElement;
-  onMount(() => {
-    if ($selectedDraft?.format === "scenes") {
-      if (sceneTemplateInput) {
-        new FileSuggest(app, sceneTemplateInput);
-      }
-      if (plotTemplateInput) {
-        new FileSuggest(app, plotTemplateInput);
-      }
-      if (characterTemplateInput) {
-        new FileSuggest(app, characterTemplateInput);
-      }
-    }
-  });
   async function templateChanged(
     field: "sceneTemplate" | "plotTemplate" | "characterTemplate",
     event: Event
@@ -784,7 +753,7 @@
               id="longform-extended-project-scene-folder"
               type="text"
               value={$selectedDraft.sceneFolder}
-              bind:this={sceneFolderInput}
+              use:folderSuggest={projectPath}
               on:blur={sceneFolderChanged}
             />
             <p class="longform-extended-project-warning">
@@ -799,7 +768,7 @@
               id="longform-extended-project-plot-grid-plots-dir"
               type="text"
               value={$selectedDraft.plotGridPlotsDir}
-              bind:this={plotGridPlotsDirInput}
+              use:folderSuggest={projectPath}
               on:blur={plotGridPlotsDirChanged}
             />
             <p class="longform-extended-project-warning">
@@ -814,7 +783,7 @@
               id="longform-extended-project-plot-grid-characters-dir"
               type="text"
               value={$selectedDraft.plotGridCharactersDir}
-              bind:this={plotGridCharactersDirInput}
+              use:folderSuggest={projectPath}
               on:blur={plotGridCharactersDirChanged}
             />
             <p class="longform-extended-project-warning">
@@ -834,7 +803,7 @@
               id="longform-extended-project-scene-template"
               type="text"
               value={$selectedDraft.sceneTemplate}
-              bind:this={sceneTemplateInput}
+              use:templateSuggest
               on:blur={sceneTemplateChanged}
             />
             <p class="longform-extended-project-warning">
@@ -850,7 +819,7 @@
               id="longform-extended-project-plot-template"
               type="text"
               value={$selectedDraft.plotTemplate}
-              bind:this={plotTemplateInput}
+              use:templateSuggest
               on:blur={plotTemplateChanged}
             />
             <p class="longform-extended-project-warning">
@@ -866,7 +835,7 @@
               id="longform-extended-project-character-template"
               type="text"
               value={$selectedDraft.characterTemplate}
-              bind:this={characterTemplateInput}
+              use:templateSuggest
               on:blur={characterTemplateChanged}
             />
             <p class="longform-extended-project-warning">
