@@ -1,34 +1,17 @@
 <script lang="ts">
-  import {
-    selectedDraft,
-    workflows,
-    currentWorkflow,
-  } from "src/model/stores";
   import { getContext } from "svelte";
 
   import { BUILTIN_STEPS } from "../../../compile/steps";
-  import type {
-    CompileStep,
-    Workflow,
-  } from "../../../compile/steps/abstract-compile-step";
+  import type { CompileStep } from "../../../compile/steps/abstract-compile-step";
   import {
     explainStepKind,
     formatStepKind,
   } from "../../../compile/steps/abstract-compile-step";
 
   const close: () => void = getContext("close");
+  const addStep: (step: CompileStep) => void = getContext("addStep");
   function onStepClick(step: CompileStep) {
-    // Inject the current epoch into the step ID to allow
-    // multiple same-typed steps.
-    const newWorkflow: Workflow = {
-      ...$currentWorkflow,
-      steps: [
-        ...($currentWorkflow as Workflow).steps,
-        { ...step, id: `${step.id}-${Date.now()}` },
-      ],
-    } as Workflow;
-    const currentWorkflowName = $selectedDraft.workflow;
-    $workflows[currentWorkflowName] = newWorkflow;
+    addStep(step);
     close();
   }
 </script>

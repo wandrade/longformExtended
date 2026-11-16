@@ -13,3 +13,20 @@ export function normalizePath(path: string): string {
 /** Runtime stand-in for Obsidian's TFile, for `instanceof` checks. */
 export class TFile {}
 
+export type MemoryFile = { content: string; mtime: number };
+
+/** Shared in-memory `DataAdapter.rename`, so adapter mocks can exercise it. */
+export function rename(
+  files: Map<string, MemoryFile>,
+  from: string,
+  to: string
+): void {
+  const file = files.get(from);
+  if (!file) {
+    throw new Error(`No such file: ${from}`);
+  }
+  files.delete(from);
+  files.set(to, file);
+}
+
+

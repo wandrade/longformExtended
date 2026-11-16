@@ -12,6 +12,7 @@ import type { SerializedStep, SerializedWorkflow } from "src/model/types";
 export function serializeWorkflow(workflow: Workflow): SerializedWorkflow {
   const serialized: SerializedStep[] = workflow.steps.map((step) => ({
     id: step.description.canonicalID,
+    instanceId: step.id,
     optionValues: step.optionValues,
   }));
   return {
@@ -38,11 +39,14 @@ function lookupStep(id: string): CompileStep {
 export function deserializeWorkflow(w: SerializedWorkflow): Workflow {
   const deserialized = {
     ...w,
-    steps: w.steps.map((s) => {
+    steps: (Array.isArray(w.steps) ? w.steps : []).map((s, index) => {
       const step = lookupStep(s.id);
       return {
         ...step,
-        optionValues: s.optionValues,
+        // Preserve distinct instances of the same step type. Older stored
+        // workflows have no instance id, so derive a stable one by position.
+        id: s.instanceId ?? `${s.id}-${index}`,
+        optionValues: s.optionValues ?? {},
       };
     }),
   };
