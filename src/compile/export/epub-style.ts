@@ -98,7 +98,6 @@ function familyFromFilename(filename: string): string {
     ["texgyrepagella", "TeX Gyre Pagella"],
     ["texgyreadventor", "TeX Gyre Adventor"],
     ["texgyrebonum", "TeX Gyre Bonum"],
-    ["texgyrepagella", "TeX Gyre Pagella"],
     ["runionneo", "Runion Neo"],
     ["lavishlyyours", "Lavishly Yours"],
     ["almendra", "Almendra"],
