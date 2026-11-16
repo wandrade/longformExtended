@@ -1,4 +1,4 @@
-import { App, Notice, normalizePath } from "obsidian";
+import { App, FileView, Notice, normalizePath, type WorkspaceLeaf } from "obsidian";
 import type { CompileContext, CompileManuscriptInput } from "..";
 import {
   CompileStepKind,
@@ -6,6 +6,7 @@ import {
   makeBuiltinStep,
 } from "./abstract-compile-step";
 import { writeEpubFromMarkdown, type EpubImage } from "../export/epub";
+import { collectEpubStyle } from "../export/epub-style";
 
 export { markdownToXhtml, writeEpubFromMarkdown } from "../export/epub";
 
@@ -176,8 +177,15 @@ async function writeEpub(
 ): Promise<boolean> {
   try {
     const images = await collectEpubImages(app, contents, projectPath);
-    const data = writeEpubFromMarkdown(contents, { title, images });
+    const { style, fonts } = await collectEpubStyle(app, contents, projectPath);
+    const data = writeEpubFromMarkdown(contents, {
+      title,
+      images,
+      style,
+      fonts,
+    });
     await writeBinaryToFile(app, filePath, data);
+    new Notice(`EPUB written to ${filePath}`);
     return true;
   } catch (error) {
     new Notice(
@@ -222,7 +230,8 @@ export const WriteToNoteStep = makeBuiltinStep({
       {
         id: "open-after",
         name: "Open Compiled Manuscript",
-        description: "If checked, open the first generated output in a new pane.",
+        description:
+          "If checked, open the first generated output, focusing an existing tab when it is already open.",
         type: CompileStepOptionType.Boolean,
         default: true,
       },
@@ -276,20 +285,58 @@ export const WriteToNoteStep = makeBuiltinStep({
       context.openOutput !== false &&
       firstGeneratedPath !== null
     ) {
-      context.app.workspace
-        .openLinkText(firstGeneratedPath, "/", true)
-        .catch((err) => {
+      await openGeneratedOutput(context.app, firstGeneratedPath).catch(
+        (err) => {
           console.error(
             "[Longform Extended] Could not open",
             firstGeneratedPath,
             err
           );
-        });
+        }
+      );
     }
 
     return input;
   },
 });
+
+function leafFilePath(leaf: WorkspaceLeaf): string | null {
+  if (leaf.view instanceof FileView) {
+    return leaf.view.file?.path ?? null;
+  }
+  // Background tabs can be deferred; their file is still in the saved state.
+  const stateFile = leaf.getViewState().state?.file;
+  return typeof stateFile === "string" ? stateFile : null;
+}
+
+function findOpenMarkdownLeaf(
+  app: App,
+  filePath: string
+): WorkspaceLeaf | null {
+  const matching = app.workspace
+    .getLeavesOfType("markdown")
+    .filter((leaf) => leafFilePath(leaf) === filePath);
+
+  return (
+    matching.find((leaf) => leaf === app.workspace.getMostRecentLeaf()) ??
+    matching[0] ??
+    null
+  );
+}
+
+async function openGeneratedOutput(
+  app: App,
+  filePath: string
+): Promise<void> {
+  const existing = findOpenMarkdownLeaf(app, filePath);
+  if (existing) {
+    app.workspace.setActiveLeaf(existing, { focus: true });
+    await app.workspace.revealLeaf(existing);
+    return;
+  }
+
+  await app.workspace.openLinkText(filePath, "/", true);
+}
 
 async function writeToFile(
   app: App,

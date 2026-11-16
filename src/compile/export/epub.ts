@@ -13,10 +13,31 @@ export type EpubImage = {
   mediaType: string;
 };
 
+export type EpubFont = {
+  href: string;
+  data: Uint8Array;
+  family: string;
+  style: "normal" | "italic";
+  weight: "normal" | "bold";
+  mediaType: string;
+  format: "truetype" | "opentype";
+};
+
+export type EpubStyle = {
+  bodyFont?: string;
+  epigraphFont?: string;
+  epigraphSize?: string;
+  paragraphIndent?: string;
+  paragraphSpace?: string;
+  sceneSpace?: string;
+};
+
 export type EpubBuildOptions = {
   title?: string;
   language?: string;
   images?: Map<string, EpubImage>;
+  fonts?: EpubFont[];
+  style?: EpubStyle;
 };
 
 function escapeXml(value: string): string {
@@ -185,7 +206,7 @@ function renderInline(
   text: string,
   images: Map<string, EpubImage> | undefined
 ): string {
-  // Preserve authored HTML such as <span class="dropcap">T</span>, while
+  // Preserve authored inline HTML, while
   // escaping ordinary text around it.
   return text
     .split(/(<[^>]+>)/g)
@@ -224,17 +245,67 @@ function isBlockquote(line: string): boolean {
   return /^\s*>/.test(line);
 }
 
-function stripBlockquote(line: string): string {
-  return line.replace(/^\s*(?:>\s?)+/, "");
+function quoteParts(line: string): { depth: number; text: string } {
+  const match = line.match(/^\s*((?:>\s?)+)/);
+  if (!match) {
+    return { depth: 0, text: line };
+  }
+  return {
+    depth: (match[1].match(/>/g) ?? []).length,
+    text: line.slice(match[0].length),
+  };
+}
+
+type EpubHeading = { level: number; title: string; id: string };
+
+function slugifyHeading(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "section";
+}
+
+function collectHeadings(markdown: string): EpubHeading[] {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const headings: EpubHeading[] = [];
+  const seen = new Map<string, number>();
+  let inFence = false;
+
+  for (const line of lines) {
+    if (isFence(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) {
+      continue;
+    }
+    const match = line.match(/^(#{1,6})\s+(.*)$/);
+    if (!match) {
+      continue;
+    }
+    const title = match[2].trim();
+    const base = slugifyHeading(title);
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    headings.push({
+      level: match[1].length,
+      title,
+      id: count === 1 ? base : `${base}-${count}`,
+    });
+  }
+  return headings;
 }
 
 function markdownBlocks(
   markdown: string,
-  images: Map<string, EpubImage> | undefined
+  images: Map<string, EpubImage> | undefined,
+  headings: EpubHeading[]
 ): string[] {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const output: string[] = [];
   let i = 0;
+  let headingIndex = 0;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -260,7 +331,14 @@ function markdownBlocks(
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       const level = heading[1].length;
-      output.push(`<h${level}>${renderInline(heading[2], images)}</h${level}>`);
+      const entry = headings[headingIndex++];
+      const id = entry?.id ?? slugifyHeading(heading[2]);
+      output.push(
+        `<h${level} id="${escapeXml(id)}">${renderInline(
+          heading[2],
+          images
+        )}</h${level}>`
+      );
       i += 1;
       continue;
     }
@@ -272,16 +350,38 @@ function markdownBlocks(
     }
 
     if (isBlockquote(line)) {
-      const quote: string[] = [];
+      const quote: Array<{ depth: number; text: string }> = [];
       while (i < lines.length && (isBlockquote(lines[i]) || !lines[i].trim())) {
         if (lines[i].trim()) {
-          quote.push(stripBlockquote(lines[i]));
+          quote.push(quoteParts(lines[i]));
         }
         i += 1;
       }
-      output.push(
-        `<blockquote>${renderParagraph(quote, images)}</blockquote>`
-      );
+
+      let currentDepth = 0;
+      const html: string[] = [];
+      for (const part of quote) {
+        if (!part.text.trim()) {
+          continue;
+        }
+        if (part.depth > currentDepth) {
+          while (currentDepth < part.depth) {
+            html.push("<blockquote>");
+            currentDepth += 1;
+          }
+        } else if (part.depth < currentDepth) {
+          while (currentDepth > part.depth) {
+            html.push("</blockquote>");
+            currentDepth -= 1;
+          }
+        }
+        html.push(`<p>${renderInline(part.text, images)}</p>`);
+      }
+      while (currentDepth > 0) {
+        html.push("</blockquote>");
+        currentDepth -= 1;
+      }
+      output.push(html.join(""));
       continue;
     }
 
@@ -333,11 +433,12 @@ function stripFrontmatter(markdown: string): string {
 
 export function markdownToXhtml(
   markdown: string,
-  options: EpubBuildOptions = {}
+  options: EpubBuildOptions = {},
+  headings: EpubHeading[] = collectHeadings(stripFrontmatter(markdown))
 ): string {
   const normalized = stripFrontmatter(markdown).trim();
   const body = normalized
-    ? markdownBlocks(normalized, options.images).join("\n")
+    ? markdownBlocks(normalized, options.images, headings).join("\n")
     : "<p> </p>";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -355,33 +456,73 @@ export function markdownToXhtml(
 </html>`;
 }
 
+function buildEpubCss(style: EpubStyle, fonts: EpubFont[]): string {
+  const body = style.bodyFont ?? "Georgia";
+  const epigraph = style.epigraphFont ?? body;
+  const epigraphSize = style.epigraphSize ?? "1.5em";
+
+  const faces = fonts
+    .map(
+      (font) =>
+        `@font-face {\n  font-family: "${font.family}";\n  font-style: ${font.style};\n  font-weight: ${font.weight};\n  src: url("${font.href}") format("${font.format}");\n}`
+    )
+    .join("\n");
+
+  const paragraph =
+    style.paragraphIndent !== undefined
+      ? `p { text-indent: ${style.paragraphIndent}; margin: ${style.paragraphSpace ?? "0"} 0; }\nh1 + p, h1 + p + p { text-indent: 0; margin: 0.35em 0; }\n`
+      : "";
+  const scene =
+    style.sceneSpace !== undefined
+      ? `hr { border: 0; height: 0; margin: ${style.sceneSpace} 0; }\nhr + p { text-indent: 0; }\n`
+      : "";
+
+  return `${faces}
+body, p, li, blockquote, td { font-family: "${body}", Georgia, serif; line-height: 1.7; margin: 2em; color: #111; }
+p { margin: 0 0 1em; orphans: 2; widows: 2; }
+h1, h2, h3, h4, h5, h6 { font-family: "${body}", Georgia, serif; page-break-after: avoid; }
+blockquote { margin: 1.2em 2em; font-style: italic; }
+blockquote blockquote { font-family: "${epigraph}", Georgia, cursive; font-size: ${epigraphSize}; font-style: italic; border-left: none; padding-left: 0; }
+ul, ol { margin: 0 0 1em 1.5em; }
+pre { white-space: pre-wrap; margin: 0 0 1em; }
+code { font-family: monospace; }
+strong { font-weight: 700; }
+em { font-style: italic; }
+img { max-width: 100%; height: auto; }
+.wikilink { text-decoration: none; }
+${paragraph}${scene}`;
+}
+
 export function writeEpubFromMarkdown(
   markdown: string,
   options: EpubBuildOptions = {}
 ): Uint8Array {
   const title = options.title ?? "Compiled manuscript";
   const language = options.language ?? "en";
-  const xhtml = markdownToXhtml(markdown, options);
+  const style = options.style ?? {};
+  const fonts = options.fonts ?? [];
+  const headings = collectHeadings(stripFrontmatter(markdown));
+  const xhtml = markdownToXhtml(markdown, options, headings);
   const modified = new Date().toISOString();
-  const css = `body { font-family: Georgia, "Times New Roman", serif; line-height: 1.7; margin: 2em; color: #111; }
-p { margin: 0 0 1em; orphans: 2; widows: 2; }
-h1, h2, h3, h4, h5, h6 { font-family: Georgia, "Times New Roman", serif; page-break-after: avoid; }
-blockquote { margin: 1.2em 2em; font-style: italic; }
-ul, ol { margin: 0 0 1em 1.5em; }
-pre { white-space: pre-wrap; margin: 0 0 1em; }
-code { font-family: monospace; }
-.dropcap { float: left; font-size: 3em; line-height: 0.8; padding-right: 0.08em; font-weight: 700; }
-strong { font-weight: 700; }
-em { font-style: italic; }
-img { max-width: 100%; height: auto; }
-.wikilink { text-decoration: none; }`;
+  const css = buildEpubCss(style, fonts);
   const nav = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
   <head><title>Table of contents</title></head>
   <body>
     <nav epub:type="toc" id="toc">
       <h1>Contents</h1>
-      <ol><li><a href="content.xhtml">${escapeXml(title)}</a></li></ol>
+      <ol>
+${headings.length > 0
+  ? headings
+      .map(
+        (heading) =>
+          `        <li class="toc-level-${heading.level}"><a href="content.xhtml#${escapeXml(
+            heading.id
+          )}">${escapeXml(heading.title)}</a></li>`
+      )
+      .join("\n")
+  : `        <li><a href="content.xhtml">${escapeXml(title)}</a></li>`}
+      </ol>
     </nav>
   </body>
 </html>`;
@@ -393,6 +534,14 @@ img { max-width: 100%; height: auto; }
         `    <item id="image-${index}" href="${escapeXml(
           image.href
         )}" media-type="${escapeXml(image.mediaType)}"/>`
+    )
+    .join("\n");
+  const fontManifest = fonts
+    .map(
+      (font, index) =>
+        `    <item id="font-${index}" href="${escapeXml(
+          font.href
+        )}" media-type="${escapeXml(font.mediaType)}"/>`
     )
     .join("\n");
 
@@ -409,6 +558,7 @@ img { max-width: 100%; height: auto; }
     <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
     <item id="css" href="style.css" media-type="text/css"/>
 ${imageManifest}
+${fontManifest}
   </manifest>
   <spine><itemref idref="content"/></spine>
 </package>`;
@@ -429,6 +579,10 @@ ${imageManifest}
     ...imageEntries.map((image) => ({
       path: `OEBPS/${image.href}`,
       data: image.data,
+    })),
+    ...fonts.map((font) => ({
+      path: `OEBPS/${font.href}`,
+      data: font.data,
     })),
   ];
 

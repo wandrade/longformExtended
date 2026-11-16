@@ -282,20 +282,19 @@ describe("WriteToNoteStep Markdown and EPUB", () => {
     expect(markdown?.default).toBe(true);
   });
 
-  it("preserves EPUB formatting, drop caps, blocks, lists and images", () => {
+  it("preserves EPUB formatting, blocks, lists and images", () => {
     const image = {
       href: "images/cover.jpg",
       data: new Uint8Array([1, 2, 3]),
       mediaType: "image/jpeg",
     };
     const epub = writeEpubFromMarkdown(
-      '# Chapter\n\n> An epigraph.\n\n- One\n- Two\n\n<span class="dropcap">T</span>he **bold** and *italic*.\n\n![Cover](Assets/cover.jpg)',
+      '# Chapter\n\n> An epigraph.\n\n- One\n- Two\n\nThe **bold** and *italic*.\n\n![Cover](Assets/cover.jpg)',
       { title: "Book", images: new Map([["Assets/cover.jpg", image]]) }
     );
     const output = new TextDecoder().decode(epub);
 
     expect(output).toContain("dcterms:modified");
-    expect(output).toContain("<span class=\"dropcap\">T</span>");
     expect(output).toContain("<strong>bold</strong>");
     expect(output).toContain("<em>italic</em>");
     expect(output).toContain("<blockquote>");

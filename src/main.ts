@@ -63,6 +63,7 @@ import { PlotGridView } from "./view/plot-grid/plot-grid-view";
 import { isLongformPluginEnabled } from "./plugin-compat";
 
 const LONGFORM_EXTENDED_LEAF_CLASS = "longform-extended-leaf";
+const LAST_PROJECT_STORAGE_KEY = "longform-extended:last-project";
 
 // TODO: Try and abstract away more logic from actual plugin hooks here
 
@@ -279,7 +280,10 @@ export default class LongformExtendedPlugin extends Plugin {
       TRACKED_SETTINGS_PATHS
     );
     pluginSettings.set(_pluginSettings);
-    selectedDraftVaultPath.set(_pluginSettings.selectedDraftVaultPath);
+    const lastProject = this.loadLastProjectPath();
+    selectedDraftVaultPath.set(
+      lastProject ?? _pluginSettings.selectedDraftVaultPath
+    );
 
     // Never seed the store with factory defaults here: they carry no sync
     // metadata and would later beat real entries. Defaults are seeded through
@@ -440,6 +444,7 @@ export default class LongformExtendedPlugin extends Plugin {
       // On initial load, default to Scenes tab for multi-scene projects.
       defaultToScenes(d);
 
+      this.saveLastProjectPath(d.vaultPath);
       pluginSettings.update((s) => ({
         ...s,
         selectedDraftVaultPath: d.vaultPath,
@@ -560,20 +565,55 @@ export default class LongformExtendedPlugin extends Plugin {
     });
   }
 
+  private loadLastProjectPath(): string | null {
+    try {
+      const value = this.app.loadLocalStorage(
+        LAST_PROJECT_STORAGE_KEY
+      ) as unknown;
+      return typeof value === "string" && value.length > 0 ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveLastProjectPath(path: string): void {
+    try {
+      this.app.saveLocalStorage(LAST_PROJECT_STORAGE_KEY, path);
+    } catch (error) {
+      console.warn(
+        "[Longform Extended] Could not persist the last project:",
+        error
+      );
+    }
+  }
+
   private ensureSelectedDraft(): void {
+    const allDrafts = get(drafts);
     const storedPath = get(selectedDraftVaultPath);
-    const selected = draftForStoredPath(storedPath, get(drafts));
-    if (!selected || selected.vaultPath === storedPath) {
+    const lastPath = this.loadLastProjectPath();
+
+    const exact = (path: string | null) =>
+      path ? allDrafts.find((draft) => draft.vaultPath === path) ?? null : null;
+
+    const selected =
+      exact(lastPath) ??
+      exact(storedPath) ??
+      draftForStoredPath(lastPath ?? storedPath, allDrafts);
+
+    if (!selected) {
       return;
     }
 
-    selectedDraftVaultPath.set(selected.vaultPath);
-    pluginSettings.update((settings) => ({
-      ...settings,
-      selectedDraftVaultPath: selected.vaultPath,
-    }));
-    this.cachedSettings = get(pluginSettings);
-    void this.saveSettings();
+    if (selected.vaultPath !== storedPath) {
+      selectedDraftVaultPath.set(selected.vaultPath);
+      pluginSettings.update((settings) => ({
+        ...settings,
+        selectedDraftVaultPath: selected.vaultPath,
+      }));
+      this.cachedSettings = get(pluginSettings);
+      void this.saveSettings();
+    }
+    this.saveLastProjectPath(selected.vaultPath);
   }
 
   initLeaf(): void {
