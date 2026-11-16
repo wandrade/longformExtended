@@ -2,8 +2,8 @@
  * Minimal, dependency-free EPUB 3 writer used on both desktop and mobile.
  *
  * It deliberately handles the Markdown constructs a compiled manuscript uses
- * (headings, paragraphs, blockquotes, lists, code, links, images, emphasis and
- * raw drop-cap spans) instead of passing HTML through a filesystem exporter.
+ * (headings, paragraphs, blockquotes, lists, code, links, images and
+ * emphasis) instead of passing HTML through a filesystem exporter.
  */
 
 export type EpubImage = {
