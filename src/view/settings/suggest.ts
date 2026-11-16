@@ -137,7 +137,10 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
       this.onInputChanged();
     });
     this.inputEl.addEventListener("focus", () => {
-      this.onInputChanged();
+      // A focused input should surface the complete option set first; typing
+      // then narrows it down without forcing the field’s existing value to act
+      // like user input.
+      this.onInputChanged(true);
     });
     this.inputEl.addEventListener("blur", () => {
       this.close();
@@ -151,8 +154,8 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
     );
   }
 
-  onInputChanged(): void {
-    const inputStr = this.inputEl.value;
+  onInputChanged(forceShowAll = false): void {
+    const inputStr = forceShowAll ? "" : this.inputEl.value;
     const suggestions = this.getSuggestions(inputStr);
 
     if (!suggestions) {
