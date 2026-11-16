@@ -58,6 +58,12 @@ export interface CompileStepOption {
   type: CompileStepOptionType;
   /** What the option’s value should default to. */
   default: unknown;
+  /** Whether the option is unavailable in the current environment and should be grayed out. */
+  disabled?: boolean;
+  /** Human-readable reason to explain why the option is unavailable. */
+  disabledReason?: string;
+  /** Option is available on desktop but not in Obsidian mobile. */
+  desktopOnly?: boolean;
 }
 
 /**
