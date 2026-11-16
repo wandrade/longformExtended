@@ -1,4 +1,4 @@
-import { App, Notice, Platform, normalizePath } from "obsidian";
+import { App, Notice, normalizePath } from "obsidian";
 import type { CompileContext, CompileManuscriptInput } from "..";
 import {
   CompileStepKind,
@@ -6,25 +6,18 @@ import {
   makeBuiltinStep,
 } from "./abstract-compile-step";
 import { writeEpubFromMarkdown, type EpubImage } from "../export/epub";
-import {
-  convertOnDesktop,
-  DESKTOP_EXPORT_DOCS_URL,
-} from "../export/desktop";
 
 export { markdownToXhtml, writeEpubFromMarkdown } from "../export/epub";
 
+const EXPORT_DOCS_URL =
+  "https://github.com/wandrade/longformExtended/blob/main/docs/COMPILE.md#save-as-note";
+
 export type WriteToNoteOutputSelection = {
   markdown: boolean;
-  docx: boolean;
-  pdf: boolean;
   epub: boolean;
 };
 
 export type WriteToNoteOutputCapabilities = WriteToNoteOutputSelection;
-
-export type WriteToNoteOutputCapabilityOptions = {
-  isMobile?: boolean;
-};
 
 function readBooleanOption(
   optionValues: Record<string, unknown>,
@@ -46,39 +39,26 @@ export function resolveWriteToNoteOutputSelection(
 ): WriteToNoteOutputSelection {
   const selected: WriteToNoteOutputSelection = {
     markdown: readBooleanOption(optionValues, "output-markdown", true),
-    docx: readBooleanOption(optionValues, "output-docx", false),
-    pdf: readBooleanOption(optionValues, "output-pdf", false),
     epub: readBooleanOption(optionValues, "output-epub", false),
   };
 
-  if (!selected.markdown && !selected.docx && !selected.pdf && !selected.epub) {
+  if (!selected.markdown && !selected.epub) {
     selected.markdown = true;
   }
 
   return selected;
 }
 
-export function getWriteToNoteOutputCapabilities(
-  options: WriteToNoteOutputCapabilityOptions = {}
-): WriteToNoteOutputCapabilities {
-  const isMobile =
-    options.isMobile ?? Boolean(Platform.isMobile || Platform.isMobileApp);
-
+export function getWriteToNoteOutputCapabilities(): WriteToNoteOutputCapabilities {
   return {
     markdown: true,
-    docx: !isMobile,
-    pdf: !isMobile,
     epub: true,
   };
 }
 
-function isMobilePlatform(): boolean {
-  return Boolean(Platform.isMobile || Platform.isMobileApp);
-}
-
 function outputPathForTarget(
   targetPath: string,
-  extension: "md" | "docx" | "pdf" | "epub"
+  extension: "md" | "epub"
 ): string {
   const withoutExtension = targetPath.replace(/\.[^./]+$/i, "");
   return `${withoutExtension}.${extension}`;
@@ -187,48 +167,33 @@ async function collectEpubImages(
   return images;
 }
 
-async function writeDerivedOutput(
+async function writeEpub(
   app: App,
   projectPath: string,
-  kind: "docx" | "pdf" | "epub",
   filePath: string,
   contents: string,
   title: string
 ): Promise<boolean> {
-  if (kind === "epub") {
-    try {
-      const images = await collectEpubImages(app, contents, projectPath);
-      const data = writeEpubFromMarkdown(contents, { title, images });
-      await writeBinaryToFile(app, filePath, data);
-      return true;
-    } catch (error) {
-      new Notice(
-        `EPUB export failed: ${
-          error instanceof Error ? error.message : String(error)
-        }. Check the Compile documentation for troubleshooting: ${DESKTOP_EXPORT_DOCS_URL}`
-      );
-      return false;
-    }
-  }
-
-  const result = convertOnDesktop(app, projectPath, kind, contents);
-  if (!result.ok) {
-    const reason = "reason" in result ? result.reason : "Unknown converter error";
+  try {
+    const images = await collectEpubImages(app, contents, projectPath);
+    const data = writeEpubFromMarkdown(contents, { title, images });
+    await writeBinaryToFile(app, filePath, data);
+    return true;
+  } catch (error) {
     new Notice(
-      `${kind.toUpperCase()} export failed: ${reason} See ${DESKTOP_EXPORT_DOCS_URL}`
+      `EPUB export failed: ${
+        error instanceof Error ? error.message : String(error)
+      }. See ${EXPORT_DOCS_URL}`
     );
     return false;
   }
-
-  await writeBinaryToFile(app, filePath, result.data);
-  return true;
 }
 
 export const WriteToNoteStep = makeBuiltinStep({
   id: "write-to-note",
   description: {
     name: "Save as Note",
-    description: "Saves your manuscript as a note in your vault.",
+    description: "Saves your manuscript as Markdown and/or EPUB.",
     availableKinds: [CompileStepKind.Manuscript],
     options: [
       {
@@ -247,28 +212,6 @@ export const WriteToNoteStep = makeBuiltinStep({
         default: true,
       },
       {
-        id: "output-docx",
-        name: "DOCX",
-        description:
-          "Desktop only. Requires Pandoc. See the Compile documentation for installation instructions.",
-        type: CompileStepOptionType.Boolean,
-        default: false,
-        desktopOnly: true,
-        disabledReason:
-          "Desktop only. See the Compile documentation to install Pandoc.",
-      },
-      {
-        id: "output-pdf",
-        name: "PDF",
-        description:
-          "Desktop only. Requires Pandoc and a LaTeX engine. See the Compile documentation for installation instructions.",
-        type: CompileStepOptionType.Boolean,
-        default: false,
-        desktopOnly: true,
-        disabledReason:
-          "Desktop only. See the Compile documentation to install Pandoc and a LaTeX engine.",
-      },
-      {
         id: "output-epub",
         name: "EPUB",
         description:
@@ -279,7 +222,7 @@ export const WriteToNoteStep = makeBuiltinStep({
       {
         id: "open-after",
         name: "Open Compiled Manuscript",
-        description: "If checked, open the compiled manuscript in a new pane.",
+        description: "If checked, open the first generated output in a new pane.",
         type: CompileStepOptionType.Boolean,
         default: true,
       },
@@ -306,9 +249,6 @@ export const WriteToNoteStep = makeBuiltinStep({
     const outputSelection = resolveWriteToNoteOutputSelection(
       context.optionValues
     );
-    const capabilities = getWriteToNoteOutputCapabilities({
-      isMobile: isMobilePlatform(),
-    });
 
     let firstGeneratedPath: string | null = null;
 
@@ -317,54 +257,11 @@ export const WriteToNoteStep = makeBuiltinStep({
       firstGeneratedPath = filePath;
     }
 
-    if (outputSelection.docx) {
-      if (!capabilities.docx) {
-        new Notice(
-          `DOCX export is desktop only. See ${DESKTOP_EXPORT_DOCS_URL}`
-        );
-      } else {
-        const docxPath = outputPathForTarget(filePath, "docx");
-        const ok = await writeDerivedOutput(
-          context.app,
-          context.projectPath,
-          "docx",
-          docxPath,
-          input.contents,
-          context.draft.title
-        );
-        if (ok && !firstGeneratedPath) {
-          firstGeneratedPath = docxPath;
-        }
-      }
-    }
-
-    if (outputSelection.pdf) {
-      if (!capabilities.pdf) {
-        new Notice(
-          `PDF export is desktop only. See ${DESKTOP_EXPORT_DOCS_URL}`
-        );
-      } else {
-        const pdfPath = outputPathForTarget(filePath, "pdf");
-        const ok = await writeDerivedOutput(
-          context.app,
-          context.projectPath,
-          "pdf",
-          pdfPath,
-          input.contents,
-          context.draft.title
-        );
-        if (ok && !firstGeneratedPath) {
-          firstGeneratedPath = pdfPath;
-        }
-      }
-    }
-
     if (outputSelection.epub) {
       const epubPath = outputPathForTarget(filePath, "epub");
-      const ok = await writeDerivedOutput(
+      const ok = await writeEpub(
         context.app,
         context.projectPath,
-        "epub",
         epubPath,
         input.contents,
         context.draft.title

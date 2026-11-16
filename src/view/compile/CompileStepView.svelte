@@ -9,7 +9,6 @@
     PLACEHOLDER_MISSING_STEP,
   } from "src/compile/steps/abstract-compile-step";
   import { createEventDispatcher } from "svelte";
-  import { Platform } from "obsidian";
 
   export let step: CompileStep;
   export let ordinal: number;
@@ -42,15 +41,6 @@
 
   function removeStep() {
     dispatch("removeStep");
-  }
-
-  function isOptionDisabled(option: {
-    disabled?: boolean;
-    desktopOnly?: boolean;
-  }): boolean {
-    return Boolean(
-      option.disabled || (option.desktopOnly && Platform.isMobileApp)
-    );
   }
 </script>
 
@@ -120,31 +110,14 @@
                     id={step.id + "-" + option.id}
                     type="checkbox"
                     checked={!!values[option.id]}
-                    disabled={isOptionDisabled(option)}
                     on:change={(event) =>
                       setOption(option.id, event.currentTarget.checked)}
                   />
-                  <label
-                    for={step.id + "-" + option.id}
-                    class:longform-extended-compile-step-option-disabled={isOptionDisabled(
-                      option
-                    )}
-                    >{option.name}</label
-                  >
+                  <label for={step.id + "-" + option.id}>{option.name}</label>
                 </div>
               {/if}
-              <p
-                class="longform-extended-compile-step-option-description"
-                class:longform-extended-compile-step-option-disabled={isOptionDisabled(
-                  option
-                )}
-              >
+              <p class="longform-extended-compile-step-option-description">
                 {option.description}
-                {#if isOptionDisabled(option) && option.disabledReason}
-                  <span>
-                    {option.disabledReason}
-                  </span>
-                {/if}
               </p>
             </div>
           {/each}
@@ -278,11 +251,6 @@
     margin: 0 var(--size-4-2) var(--size-2-1) 0;
   }
 
-  .longform-extended-compile-step-option input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .longform-extended-compile-step-option input:focus {
     color: var(--text-accent-hover);
   }
@@ -290,11 +258,6 @@
   .longform-extended-compile-step-option-description {
     font-size: var(--font-smallest);
     line-height: 1em;
-    color: var(--text-faint);
-  }
-
-  .longform-extended-compile-step-option-disabled {
-    opacity: 0.6;
     color: var(--text-faint);
   }
 

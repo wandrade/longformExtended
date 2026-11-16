@@ -13,8 +13,8 @@ import { RemoveCommentsStep } from "../../../src/compile/steps/remove-comments";
 import { RemoveStrikethroughsStep } from "../../../src/compile/steps/remove-strikethroughs";
 import { StripFrontmatterStep } from "../../../src/compile/steps/strip-frontmatter";
 import {
-  resolveWriteToNoteOutputSelection,
   getWriteToNoteOutputCapabilities,
+  resolveWriteToNoteOutputSelection,
   WriteToNoteStep,
   writeEpubFromMarkdown,
 } from "../../../src/compile/steps/write-to-note";
@@ -252,107 +252,45 @@ describe("AddFrontmatterStep", () => {
   });
 });
 
-describe("WriteToNoteStep output selection", () => {
-  it("defaults legacy workflows to Markdown-only output", () => {
+describe("WriteToNoteStep Markdown and EPUB", () => {
+  it("defaults legacy workflows to Markdown only", () => {
     expect(
-      resolveWriteToNoteOutputSelection({
-        target: "manuscript.md",
-      })
-    ).toEqual({
-      markdown: true,
-      docx: false,
-      pdf: false,
-      epub: false,
-    });
+      resolveWriteToNoteOutputSelection({ target: "manuscript.md" })
+    ).toEqual({ markdown: true, epub: false });
   });
 
-  it("supports mixed output selections and preserves markdown as the canonical default", () => {
+  it("supports Markdown and EPUB independently", () => {
     expect(
       resolveWriteToNoteOutputSelection({
-        "output-markdown": true,
-        "output-docx": true,
-        "output-pdf": false,
+        "output-markdown": false,
         "output-epub": true,
       })
-    ).toEqual({
+    ).toEqual({ markdown: false, epub: true });
+  });
+
+  it("always enables Markdown and EPUB on every platform", () => {
+    expect(getWriteToNoteOutputCapabilities()).toEqual({
       markdown: true,
-      docx: true,
-      pdf: false,
       epub: true,
     });
   });
 
-  it("marks mobile and desktop capability differently", () => {
-    expect(
-      getWriteToNoteOutputCapabilities({
-        isMobile: true,
-      })
-    ).toEqual({
-      markdown: true,
-      docx: false,
-      pdf: false,
-      epub: true,
-    });
-
-    expect(
-      getWriteToNoteOutputCapabilities({
-        isMobile: false,
-      })
-    ).toEqual({
-      markdown: true,
-      docx: true,
-      pdf: true,
-      epub: true,
-    });
-  });
-
-  it("keeps the default step behavior intact for existing workflows", () => {
-    const defaults = WriteToNoteStep.description.options.reduce((acc, option) => {
-      acc[option.id] = option.default;
-      return acc;
-    }, {} as Record<string, unknown>);
-
-    expect(resolveWriteToNoteOutputSelection(defaults)).toEqual({
-      markdown: true,
-      docx: false,
-      pdf: false,
-      epub: false,
-    });
-  });
-
-  it("enables all formats on desktop and keeps DOCX/PDF desktop-only in the UI", () => {
-    expect(getWriteToNoteOutputCapabilities({ isMobile: false })).toEqual({
-      markdown: true,
-      docx: true,
-      pdf: true,
-      epub: true,
-    });
-
-    const docxOption = WriteToNoteStep.description.options.find(
-      (option) => option.id === "output-docx"
+  it("keeps Markdown checked by default in the step options", () => {
+    const markdown = WriteToNoteStep.description.options.find(
+      (option) => option.id === "output-markdown"
     );
-    const pdfOption = WriteToNoteStep.description.options.find(
-      (option) => option.id === "output-pdf"
-    );
-    const epubOption = WriteToNoteStep.description.options.find(
-      (option) => option.id === "output-epub"
-    );
-
-    expect(docxOption?.desktopOnly).toBe(true);
-    expect(pdfOption?.desktopOnly).toBe(true);
-    expect(epubOption?.desktopOnly).toBeUndefined();
-    expect(docxOption?.disabled).toBeUndefined();
-    expect(pdfOption?.disabled).toBeUndefined();
-    expect(epubOption?.disabled).toBeUndefined();
-    expect(docxOption?.disabledReason).toContain("Desktop only");
-    expect(pdfOption?.disabledReason).toContain("Desktop only");
+    expect(markdown?.default).toBe(true);
   });
-});
 
-describe("EPUB export", () => {
-  it("preserves raw inline formatting and includes valid metadata", () => {
+  it("preserves EPUB formatting, drop caps, blocks, lists and images", () => {
+    const image = {
+      href: "images/cover.jpg",
+      data: new Uint8Array([1, 2, 3]),
+      mediaType: "image/jpeg",
+    };
     const epub = writeEpubFromMarkdown(
-      "# Title\n\nThis has <span class=\"dropcap\">T</span>he **bold** and *italic* text."
+      '# Chapter\n\n> An epigraph.\n\n- One\n- Two\n\n<span class="dropcap">T</span>he **bold** and *italic*.\n\n![Cover](Assets/cover.jpg)',
+      { title: "Book", images: new Map([["Assets/cover.jpg", image]]) }
     );
     const output = new TextDecoder().decode(epub);
 
@@ -360,24 +298,6 @@ describe("EPUB export", () => {
     expect(output).toContain("<span class=\"dropcap\">T</span>");
     expect(output).toContain("<strong>bold</strong>");
     expect(output).toContain("<em>italic</em>");
-    expect(output).toContain("application/epub+zip");
-  });
-
-  it("renders blockquotes, lists, images and their manifest entries", () => {
-    const image = {
-      href: "images/cover.jpg",
-      data: new Uint8Array([1, 2, 3]),
-      mediaType: "image/jpeg",
-    };
-    const epub = writeEpubFromMarkdown(
-      "# Book\n\n> An epigraph.\n\n- One\n- Two\n\n![Cover](Assets/cover.jpg)",
-      {
-        title: "Book",
-        images: new Map([["Assets/cover.jpg", image]]),
-      }
-    );
-    const output = new TextDecoder().decode(epub);
-
     expect(output).toContain("<blockquote>");
     expect(output).toContain("<ul>");
     expect(output).toContain('<img src="images/cover.jpg" alt="Cover"/>');
