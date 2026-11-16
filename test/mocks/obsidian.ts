@@ -10,6 +10,11 @@ export function normalizePath(path: string): string {
     .replace(/\/+$/, "");
 }
 
+/** Runtime stand-in for Obsidian's Notice, for modules that import it. */
+export class Notice {
+  constructor(public message: string) {}
+}
+
 /** Runtime stand-in for Obsidian's TFile, for `instanceof` checks. */
 export class TFile {}
 

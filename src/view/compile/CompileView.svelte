@@ -151,6 +151,32 @@
     if (!name) {
       return;
     }
+
+    // Compile reads from the workflows store, while disk persistence is
+    // debounced. Update the store immediately so pressing Compile right after
+    // changing an option uses the new value.
+    workflows.update((all) => {
+      const workflow = all[name];
+      if (!workflow) {
+        return all;
+      }
+      const index = workflow.steps.findIndex(
+        (step) => step.id === detail.stepId
+      );
+      if (index < 0) {
+        return all;
+      }
+      const steps = workflow.steps.slice();
+      steps[index] = {
+        ...steps[index],
+        optionValues: {
+          ...steps[index].optionValues,
+          [detail.optionId]: detail.value,
+        },
+      };
+      return { ...all, [name]: { ...workflow, steps } };
+    });
+
     pendingOptions.push({ name, ...detail });
     saveOptions();
   }
@@ -440,6 +466,7 @@
     statusCallback: (status: CompileStatus) => void
   ) => Vault = getContext("compile");
   function doCompile() {
+    saveOptions.flush();
     compile(
       $selectedDraft,
       $currentWorkflow,

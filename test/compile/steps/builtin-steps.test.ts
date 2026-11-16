@@ -12,6 +12,11 @@ import { PrependTitleStep } from "../../../src/compile/steps/prepend-title";
 import { RemoveCommentsStep } from "../../../src/compile/steps/remove-comments";
 import { RemoveStrikethroughsStep } from "../../../src/compile/steps/remove-strikethroughs";
 import { StripFrontmatterStep } from "../../../src/compile/steps/strip-frontmatter";
+import {
+  resolveWriteToNoteOutputSelection,
+  WriteToNoteStep,
+} from "../../../src/compile/steps/write-to-note";
+import { writeEpubFromMarkdown } from "../../../src/compile/export/epub";
 
 function context(
   kind: CompileStepKind,
@@ -243,6 +248,51 @@ describe("AddFrontmatterStep", () => {
         context(CompileStepKind.Scene)
       )
     ).toThrow();
+  });
+});
+
+describe("WriteToNoteStep Markdown and EPUB", () => {
+  it("defaults legacy workflows to Markdown only", () => {
+    expect(
+      resolveWriteToNoteOutputSelection({ target: "manuscript.md" })
+    ).toEqual({ markdown: true, epub: false });
+  });
+
+  it("supports Markdown and EPUB independently", () => {
+    expect(
+      resolveWriteToNoteOutputSelection({
+        "output-markdown": false,
+        "output-epub": true,
+      })
+    ).toEqual({ markdown: false, epub: true });
+  });
+
+  it("keeps Markdown checked by default in the step options", () => {
+    const markdown = WriteToNoteStep.description.options.find(
+      (option) => option.id === "output-markdown"
+    );
+    expect(markdown?.default).toBe(true);
+  });
+
+  it("preserves EPUB formatting, blocks, lists and images", () => {
+    const image = {
+      href: "images/cover.jpg",
+      data: new Uint8Array([1, 2, 3]),
+      mediaType: "image/jpeg",
+    };
+    const epub = writeEpubFromMarkdown(
+      '# Chapter\n\n> An epigraph.\n\n- One\n- Two\n\nThe **bold** and *italic*.\n\n![Cover](Assets/cover.jpg)',
+      { title: "Book", images: new Map([["Assets/cover.jpg", image]]) }
+    );
+    const output = new TextDecoder().decode(epub);
+
+    expect(output).toContain("dcterms:modified");
+    expect(output).toContain("<strong>bold</strong>");
+    expect(output).toContain("<em>italic</em>");
+    expect(output).toContain("<blockquote>");
+    expect(output).toContain("<ul>");
+    expect(output).toContain('<img src="images/cover.jpg" alt="Cover"/>');
+    expect(output).toContain('href="images/cover.jpg" media-type="image/jpeg"');
   });
 });
 
