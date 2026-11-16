@@ -32,7 +32,7 @@ function cssFontSize(body: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-export function classFromManuscript(markdown: string): string | null {
+function classFromManuscript(markdown: string): string | null {
   const frontmatter = markdown.match(/^---\n([\s\S]*?)\n---/);
   if (!frontmatter) {
     return null;
@@ -47,7 +47,7 @@ export function classFromManuscript(markdown: string): string | null {
   return block ? block[1].trim().replace(/^["']|["']$/g, "") : null;
 }
 
-export function parseEpubStyle(css: string, className: string | null): EpubStyle {
+function parseEpubStyle(css: string, className: string | null): EpubStyle {
   const style: EpubStyle = { ...DEFAULT_STYLE };
 
   const blocks = /([^{}]+)\{([^{}]*)\}/g;

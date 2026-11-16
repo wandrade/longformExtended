@@ -8,17 +8,15 @@ import {
 import { writeEpubFromMarkdown, type EpubImage } from "../export/epub";
 import { collectEpubStyle } from "../export/epub-style";
 
-export { markdownToXhtml, writeEpubFromMarkdown } from "../export/epub";
 
 const EXPORT_DOCS_URL =
   "https://github.com/wandrade/longformExtended/blob/main/docs/COMPILE.md#save-as-note";
 
-export type WriteToNoteOutputSelection = {
+type WriteToNoteOutputSelection = {
   markdown: boolean;
   epub: boolean;
 };
 
-export type WriteToNoteOutputCapabilities = WriteToNoteOutputSelection;
 
 function readBooleanOption(
   optionValues: Record<string, unknown>,
@@ -48,13 +46,6 @@ export function resolveWriteToNoteOutputSelection(
   }
 
   return selected;
-}
-
-export function getWriteToNoteOutputCapabilities(): WriteToNoteOutputCapabilities {
-  return {
-    markdown: true,
-    epub: true,
-  };
 }
 
 function outputPathForTarget(

@@ -13,11 +13,10 @@ import { RemoveCommentsStep } from "../../../src/compile/steps/remove-comments";
 import { RemoveStrikethroughsStep } from "../../../src/compile/steps/remove-strikethroughs";
 import { StripFrontmatterStep } from "../../../src/compile/steps/strip-frontmatter";
 import {
-  getWriteToNoteOutputCapabilities,
   resolveWriteToNoteOutputSelection,
   WriteToNoteStep,
-  writeEpubFromMarkdown,
 } from "../../../src/compile/steps/write-to-note";
+import { writeEpubFromMarkdown } from "../../../src/compile/export/epub";
 
 function context(
   kind: CompileStepKind,
@@ -266,13 +265,6 @@ describe("WriteToNoteStep Markdown and EPUB", () => {
         "output-epub": true,
       })
     ).toEqual({ markdown: false, epub: true });
-  });
-
-  it("always enables Markdown and EPUB on every platform", () => {
-    expect(getWriteToNoteOutputCapabilities()).toEqual({
-      markdown: true,
-      epub: true,
-    });
   });
 
   it("keeps Markdown checked by default in the step options", () => {

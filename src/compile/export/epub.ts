@@ -431,7 +431,7 @@ function stripFrontmatter(markdown: string): string {
   return normalized.slice(closing + 4).replace(/^\s*\n/, "");
 }
 
-export function markdownToXhtml(
+function markdownToXhtml(
   markdown: string,
   options: EpubBuildOptions = {},
   headings: EpubHeading[] = collectHeadings(stripFrontmatter(markdown))
