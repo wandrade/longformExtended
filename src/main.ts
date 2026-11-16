@@ -60,6 +60,7 @@ import NewProjectModal from "./view/project-lifecycle/new-project-modal";
 import { LongformExtendedAPI } from "./api/LongformAPI";
 import { PLOT_GRID_VIEW_TYPE } from "./model/plot-grid";
 import { PlotGridView } from "./view/plot-grid/plot-grid-view";
+import { isLongformPluginEnabled } from "./plugin-compat";
 
 const LONGFORM_EXTENDED_LEAF_CLASS = "longform-extended-leaf";
 
@@ -86,6 +87,14 @@ export default class LongformExtendedPlugin extends Plugin {
   workflowSync: WorkflowSync;
 
   async onload(): Promise<void> {
+    if (isLongformPluginEnabled(this.app)) {
+      const message =
+        "Longform Extended cannot be enabled while Longform is enabled. Longform will continue working normally; please disable Longform before enabling Longform Extended.";
+      console.warn(`[Longform Extended] ${message}`);
+      new Notice(message);
+      return;
+    }
+
     addIcon(ICON_NAME, ICON_SVG);
 
     this.registerView(
