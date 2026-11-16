@@ -39,10 +39,13 @@ function conversionFailure(
 }
 
 function nodeRequire(): NodeRequire | null {
-  const runtime = (typeof window !== "undefined" ? window : globalThis) as {
-    require?: NodeRequire;
-  };
-  return typeof runtime.require === "function" ? runtime.require : null;
+  const windowRequire =
+    typeof window !== "undefined"
+      ? (window as unknown as { require?: NodeRequire }).require
+      : undefined;
+  const globalRequire = (globalThis as { require?: NodeRequire }).require;
+  const requireFn = windowRequire ?? globalRequire;
+  return typeof requireFn === "function" ? requireFn : null;
 }
 
 function childProcess(): ChildProcess | null {

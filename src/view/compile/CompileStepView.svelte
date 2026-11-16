@@ -20,11 +20,19 @@
 
   // Option edits live here until they are persisted by the parent. Binding
   // straight into the store lost keystrokes whenever a merge refreshed it.
-  let values: { [id: string]: unknown } = { ...step.optionValues };
+  function valuesWithDefaults(step: CompileStep): { [id: string]: unknown } {
+    const defaults = step.description.options.reduce(
+      (result, option) => ({ ...result, [option.id]: option.default }),
+      {}
+    );
+    return { ...defaults, ...step.optionValues };
+  }
+
+  let values: { [id: string]: unknown } = valuesWithDefaults(step);
   let localStepId = step.id;
   $: if (step.id !== localStepId) {
     localStepId = step.id;
-    values = { ...step.optionValues };
+    values = valuesWithDefaults(step);
   }
 
   function setOption(optionId: string, value: unknown) {
